@@ -25,6 +25,7 @@ int main(int argc, char **argv) {
                          "/",
                      "Smoke prefix requires its standard Z drive mapping");
         const auto helper = QFileInfo(app.arguments()[1]).canonicalFilePath();
+        const bool observer = QFileInfo(helper).fileName() == "fol-http-observer.exe";
         const auto fixture = QFileInfo(app.arguments()[2]).canonicalFilePath();
         const auto helperPe = fol::inspectPe(helper), fixturePe = fol::inspectPe(fixture);
         fol::require(helperPe.valid && helperPe.x64 && !helperPe.dll && fixturePe.valid &&
@@ -68,8 +69,16 @@ int main(int argc, char **argv) {
         auto outcome =
             fol::superviseRuntime(unshare, args, env, directory, "wine.log", 45000, {{}, true});
         QFile receipt(directory + "/http-probe.jsonl");
-        const auto evidence = fol::analyzeHttpProbe(
-            receipt.open(QIODevice::ReadOnly) ? receipt.read(65537) : QByteArray{}, session);
+        const auto receiptData =
+            receipt.open(QIODevice::ReadOnly) ? receipt.read(65537) : QByteArray{};
+        const auto evidence = fol::analyzeHttpProbe(receiptData, session);
+        const auto requests = evidence["requests"].toArray();
+        bool observedRequests = evidence["request_observation_completed"].toBool() &&
+                                requests.size() == 8 && !receiptData.contains("fixture-secret") &&
+                                !receiptData.contains("never-log-this");
+        for (const auto &request : requests)
+            observedRequests &= request.toObject()["origin"] == "loopback" &&
+                                request.toObject()["route"] == "oauth-token";
         const auto tables = evidence["pointer_tables"].toArray();
         const bool fixtureTable = tables.size() == 1 &&
                                   tables[0].toObject()["candidate_slot"].toInt(-1) == 0 &&
@@ -79,7 +88,8 @@ int main(int argc, char **argv) {
                             !outcome.eac && !outcome.battleye && outcome.moduleEvidence.isEmpty() &&
                             outcome.error.isEmpty() && !outcome.timedOut &&
                             evidence["complete"].toBool() &&
-                            evidence["candidate_observed"].toBool() && fixtureTable;
+                            evidence["candidate_observed"].toBool() && fixtureTable &&
+                            (!observer || observedRequests);
         QJsonObject result{{"session_id", session},
                            {"logs", directory},
                            {"passed", passed},

@@ -15,6 +15,13 @@ lld-link /entry:probe_entry /subsystem:console /nodefaultlib /machine:x64 /times
     /usr/lib/wine/x86_64-windows/libkernel32.a
 file build/windows/fol-http-probe.exe
 clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
+    -DFOL_REQUEST_OBSERVER -I/usr/include/wine/windows -I/usr/include/wine/msvcrt \
+    -Wall -Wextra -Werror -O1 -c helpers/windows/http_probe.c -o build/windows/http_observer.obj
+lld-link /entry:probe_entry /subsystem:console /nodefaultlib /machine:x64 /timestamp:0 \
+    /out:build/windows/fol-http-observer.exe build/windows/http_observer.obj \
+    /usr/lib/wine/x86_64-windows/libkernel32.a
+file build/windows/fol-http-observer.exe
+clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
     -I/usr/include/wine/windows -I/usr/include/wine/msvcrt -Wall -Wextra -Werror -O1 \
     -c helpers/windows/http_fixture.c -o build/windows/http_fixture.obj
 lld-link /entry:fixture_entry /subsystem:console /nodefaultlib /machine:x64 /timestamp:0 \

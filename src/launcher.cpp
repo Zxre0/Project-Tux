@@ -82,10 +82,12 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         require(selectedProfile.has_value(), "Unsupported build: " + build.version);
         auto profile = *selectedProfile;
         QString helper;
+        bool requestObserver = false;
         if (!httpProbeHelper.isEmpty()) {
             require(profile.httpInterfaceProbeAllowed,
                     "HTTP interface probe is not enabled for this build");
             helper = QFileInfo(httpProbeHelper).canonicalFilePath();
+            requestObserver = QFileInfo(helper).fileName() == "fol-http-observer.exe";
             const auto pe = inspectPe(helper);
             require(pe.valid && pe.x64 && !pe.dll,
                     "HTTP probe helper must be a valid x64 PE executable");
@@ -97,6 +99,17 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                          .toHex())},
                 {"scope", "trusted supplied helper; owned-child read-only interface discovery; "
                           "no route or login is established by a candidate"}};
+            if (requestObserver) {
+                require(!profile.httpObserverHash.isEmpty() &&
+                            !profile.httpObserverLayout.isEmpty(),
+                        "No request observer is defined for this build");
+                QFile game(build.root + "/" + profile.executable);
+                QCryptographicHash hash(QCryptographicHash::Sha256);
+                require(game.open(QIODevice::ReadOnly) && hash.addData(&game) &&
+                            QString::fromLatin1(hash.result().toHex()) == profile.httpObserverHash,
+                        "Request observer executable hash mismatch; no debugger started");
+                result["request_observer"] = true;
+            }
         }
         const auto backendArguments = backendProbe == BackendProbe::ServiceIni
                                           ? profile.serviceIniArguments
@@ -112,6 +125,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         QJsonObject prefix;
         QString runtime, prefixPath;
         auto environment = QProcessEnvironment::systemEnvironment();
+        require(!environment.contains("FOL_HTTP_OBSERVER_LAYOUT"),
+                "Observer layout must come from the checked compatibility profile");
         QMap<QString, QString> overrides;
         QStringList unsetArgs;
         if (protonId.isEmpty()) {
@@ -138,6 +153,21 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             result["runtime_mode"] = "Proton script on host; no Steam Linux Runtime container";
         }
         result["prefix"] = prefix;
+        if (requestObserver)
+            overrides["FOL_HTTP_OBSERVER_LAYOUT"] = profile.httpObserverLayout;
+        if (environment.contains("FOL_HTTP_OBSERVER_DELAY_MS")) {
+            bool validDelay;
+            const auto delay = environment.value("FOL_HTTP_OBSERVER_DELAY_MS").toInt(&validDelay);
+            require(requestObserver && validDelay && delay >= 0 && delay <= 30000,
+                    "Observer delay must be 0-30000 milliseconds with the request observer");
+            overrides["FOL_HTTP_OBSERVER_DELAY_MS"] = QString::number(delay);
+        }
+        if (environment.contains("FOL_HTTP_OBSERVER_MODE")) {
+            const auto mode = environment.value("FOL_HTTP_OBSERVER_MODE");
+            require(requestObserver && (mode == "hold-only" || mode == "attach-only"),
+                    "Unknown request-observer control mode");
+            overrides["FOL_HTTP_OBSERVER_MODE"] = mode;
+        }
         if (environment.contains("FOL_HTTP_PROBE_CODE")) {
             require(!helper.isEmpty() && environment.value("FOL_HTTP_PROBE_CODE") == "1",
                     "FOL_HTTP_PROBE_CODE=1 requires the isolated HTTP probe helper");
@@ -283,6 +313,9 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                     receipt.open(QIODevice::ReadOnly) ? receipt.read(65537) : QByteArray{},
                     session);
                 result["http_probe_report"] = evidence;
+                if (requestObserver && !evidence["request_observation_completed"].toBool() &&
+                    !result.contains("error"))
+                    result["error"] = "No completed request observation; inspect probe report";
                 if (!evidence["complete"].toBool() || !evidence["candidate_observed"].toBool()) {
                     if (!result.contains("error"))
                         result["error"] = evidence.contains("error")

@@ -1,5 +1,7 @@
-/* Read-only interface discovery in one owned child; no arbitrary PID attachment,
- * remote writes, module injection, authentication or security-check changes. */
+/* Default: read-only interface discovery in one owned child. The separately
+ * compiled observer variant uses debugging registers to observe requests.
+ * Neither accepts arbitrary PIDs, writes game memory, injects a module, or changes
+ * authentication, certificate validation or security checks. */
 #define WIN32_LEAN_AND_MEAN
 #define _ACRTIMP
 #include <windows.h>
@@ -15,6 +17,9 @@ void *memset(void *destination, int value, SIZE_T size) {
 
 static HANDLE report = INVALID_HANDLE_VALUE;
 static BOOL inspect_code;
+#ifdef FOL_REQUEST_OBSERVER
+static DWORD observed_function, observed_reference;
+#endif
 static void output(const char *text) {
     static char line[4096];
     static DWORD size;
@@ -95,6 +100,9 @@ static BOOL readable(DWORD protection) {
            protection == PAGE_WRITECOPY || protection == PAGE_EXECUTE_READ ||
            protection == PAGE_EXECUTE_READWRITE || protection == PAGE_EXECUTE_WRITECOPY;
 }
+#ifdef FOL_REQUEST_OBSERVER
+#include "request_observer.h"
+#endif
 static ULONG_PTR image_base(DWORD pid, const wchar_t *name) {
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
     if (snapshot == INVALID_HANDLE_VALUE)
@@ -335,6 +343,10 @@ static BOOL scan(HANDLE child, ULONG_PTR base) {
                     if (valid_span(valid, j, 8, size) &&
                         *(ULONG_PTR *)(image + j) == base + begin) {
                         pointer_table(child, base, image, valid, size, j);
+#ifdef FOL_REQUEST_OBSERVER
+                        observed_function = begin;
+                        observed_reference = j;
+#endif
                         break;
                     }
                 }
@@ -437,23 +449,31 @@ void probe_entry(void) {
     CloseHandle(child.hThread);
     event("owned_child_started", child.dwProcessId);
     BOOL discovered = FALSE;
+    ULONG_PTR base = 0;
     for (unsigned attempt = 0; attempt < 10; ++attempt) {
         if (WaitForSingleObject(child.hProcess, 3000) != WAIT_TIMEOUT)
             break;
-        ULONG_PTR base = image_base(child.dwProcessId, name);
+        base = image_base(child.dwProcessId, name);
         if (base && scan(child.hProcess, base)) {
             discovered = TRUE;
             break;
         }
     }
     event("interface_candidate_observed", discovered);
+#ifdef FOL_REQUEST_OBSERVER
+    BOOL observation = discovered && observed_function && observed_reference &&
+                       observe_requests(&child, base, observed_function, observed_reference,
+                                        equal(name, L"fol-http-fixture.exe"));
+#else
+    BOOL observation = TRUE;
+#endif
     /* End only the child job created here. These are diagnostic probes, not a
      * completed login or an authorization to patch a reported candidate. */
     CloseHandle(job);
     WaitForSingleObject(child.hProcess, 5000);
     CloseHandle(child.hProcess);
-    event("completed", discovered ? 0 : 67);
+    event("completed", discovered && observation ? 0 : 67);
     if (!FlushFileBuffers(report) || !CloseHandle(report))
         ExitProcess(68);
-    ExitProcess(discovered ? 0 : 67);
+    ExitProcess(discovered && observation ? 0 : 67);
 }

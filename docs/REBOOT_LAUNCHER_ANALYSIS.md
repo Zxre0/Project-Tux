@@ -164,3 +164,20 @@ evidence. No URL object, authentication payload, certificate state or token was
 read. No game function was called or modified. The next integration test must
 validate actual request identity and ownership without adopting the complete
 upstream module's unrelated patches.
+
+### Rechecked lifecycle after debugger experiment
+
+At the pinned Reboot-Launcher revision, game_start_button.dart:259 loads GameDll.auth
+after creating the game; _onLoggedIn at lines439–456 loads console or gameServer
+only later. common/lib/src/util/os.dart:286 uses a Windows LoadLibrary/remote-thread
+module-loading path, not DebugActiveProcess. Project Reboot3.0 dllmain.cpp:1854–1859
+starts its own worker from DLL_PROCESS_ATTACH; it is not the initial backend URL
+selection mechanism. No code from those loaders is copied, and their suspended EAC
+process creation is specifically excluded from this project's launch chain.
+
+The observational debugger experiment fails on the supplied game (see PROGRESS),
+while the identical helper without attachment reaches sign-in. This narrows the
+failure to debugger interaction under the tested configuration; it does not prove
+an anti-cheat/DRM root cause or invalidate the separate module-based architecture.
+Next is an independently implemented, owned-child module lifecycle with fixture
+tests, then a non-authentication request observer before any local-only routing.

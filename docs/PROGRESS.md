@@ -1286,3 +1286,58 @@ Final release regression run passes 8/8 CTest targets in 25.17 seconds (201 core
 checks), including bounded table/code receipt validation and non-propagation of
 code samples into the launcher summary. The real code-observation helper hashes
 to 99f6a063221e4302abcc8d7a15bb716d5809a65a5971df6461fbfd44ae5bd60f.
+
+### Actual-request observation and upstream lifecycle comparison (2026-09-29)
+
+Previous goal turn made progress: two pushed commits and real interface evidence;
+a2cef6c GitHub Linux build36622020526 also passed. Goal remains actual private login.
+Implemented a separate optional hardware-breakpoint observer to validate the
+candidate against a live request, without changing request/code/authentication
+behavior. Hash-gated to the exact supplied 12.50 executable; layout lives in the
+12.50 profile. Debugger attaches only to its own child. Cleanup checks thread process
+ownership, skips exited threads, restores debug settings, then detaches. No arbitrary
+PID argument, module injection, game memory write or security/exit patch is added.
+
+Synthetic request fixture now repeats calls with a known string descriptor at
+offset104 and a fake sensitive query. The observer caught eight calls, reported
+only loopback/oauth-token categories and omitted the query secret. Sessions
+http-fixture-64ff0aa5-9bab-498b-af1f-0272f61b489f and
+http-fixture-0c13ced5-d957-4b9e-a051-6b3c24819976 passed with scoped cleanup.
+Release regression suite initially passed8/8 in25.33s (207 core checks).
+
+Real command used the existing isolated Proton context launch with
+--http-probe-helper build/windows/fol-http-observer.exe. Results:
+
+- 2026-09-29_19-59-24_50fe0046: attachment immediately after discovery; no request
+  caught. Access violation followed by child exit0xc0000409; no fresh engine log.
+  230 samples/max15/no PID0/1. Helper receipt correctly reports failed observation.
+- 2026-09-29_20-01-28_f07bfb8b: explicit10000ms attachment delay. Engine initialized,
+  but game exited3 after an execute access violation at0x1812ccc60 (unknown module
+  in Wine trace);159653 bytes of engine log captured, no request observation.
+- 2026-09-29_20-03-09_40e9e9f9: hold-only control, no debugger attachment. Child stayed
+  alive for the20s control period and logged manual sign-in;286990-byte game log.
+  This establishes that the helper/child launch chain can preserve that baseline.
+- 2026-09-29_20-04-38_cd21790c: attach-only control with10000ms delay; no hardware
+  breakpoint installed. Child again exited3;235102-byte game log, no request.
+
+Every real run above completed owned-process cleanup with no observed EAC/BattlEye.
+No listener, credential submission, URL change or login occurred. The failure is
+associated with debugger attachment in this configuration, not proof of a specific
+protection mechanism. Normal baseline also has exception-driven startup activity;
+unrelated exceptions were not swallowed and no exit behavior was patched.
+
+User reminded us to consult Project Reboot. Re-read Reboot Launcher's game creation,
+auth injection, _onLoggedIn and LoadLibrary/remote-thread utility, plus Reboot3.0
+DllMain and Sinum's separate initialization/routing source. Upstream loads a
+Windows module, not a debugger, before login and loads the game-server module
+after login. Existing suspended EAC helpers and unrelated Sinum exit/security
+patches are not appropriate here and remain excluded. Next: owned-child module
+lifecycle, tested first with original asset-free fixtures, then narrowly scoped
+request observation/local routing. Do not keep retrying the proven failing
+debugger configurations or claim the overall login goal blocked/completed.
+
+Final native regression run passes 8/8 targets in 25.22 seconds, including
+observation/control distinction, redacted category validation and executable-hash
+rejection. Attach-only control has 403 process samples, max16, no PID0/1 selected.
+The original read-only discovery helper remains available separately. No Fortnite
+files, prefixes outside the project, certificates or system packages were modified.

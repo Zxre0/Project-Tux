@@ -12,6 +12,10 @@ QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
         require(!report.isEmpty() && report.size() <= 65536 && report.endsWith('\n'),
                 "HTTP probe report missing, truncated or oversized");
         bool started = false, child = false, candidate = false, complete = false;
+        bool attached = false, observationComplete = false;
+        int requests = 0;
+        int control = 0;
+        bool controlObserved = false;
         int discovered = -1;
         for (const auto &line : report.split('\n')) {
             if (line.isEmpty())
@@ -38,11 +42,58 @@ QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
                 require(child && !candidate && (discovered == 0 || discovered == 1),
                         "Invalid HTTP probe candidate record");
                 candidate = true;
+                result["candidate_observed"] = discovered == 1;
             } else if (event == "completed") {
-                require(candidate && record["value"].toInt(-1) == (discovered ? 0 : 67),
+                require(candidate && (!attached || observationComplete) &&
+                            (control != 1 || controlObserved) &&
+                            record["value"].toInt(-1) == (discovered && !control ? 0 : 67),
                         "Invalid HTTP probe completion record");
                 complete = true;
                 result["reported_helper_exit_code"] = record["value"];
+            } else if (event == "debug_attached") {
+                require(candidate && discovered == 1 && !attached && record["value"].toInt() > 0,
+                        "Invalid request-observer attachment record");
+                attached = true;
+            } else if (event == "observer_delay_ms") {
+                require(candidate && !attached && record["value"].toInt(-1) >= 0 &&
+                            record["value"].toInt(-1) <= 30000,
+                        "Invalid observer delay record");
+                result["observer_delay_ms"] = record["value"];
+            } else if (event == "observer_control") {
+                control = record["value"].toInt();
+                require(candidate && !attached && (control == 1 || control == 2),
+                        "Unexpected observer control record");
+                result[event] = control;
+            } else if (event == "observer_control_child_live") {
+                require(control == 1 && !attached && !controlObserved &&
+                            (record["value"].toInt(-1) == 0 || record["value"].toInt(-1) == 1),
+                        "Invalid observer control child state");
+                controlObserved = true;
+                result[event] = record["value"];
+            } else if (event == "request_observed") {
+                const QStringList origins{"epic", "loopback", "other"};
+                const QStringList routes{"oauth-token",      "account-public", "fortnite-profile",
+                                         "fortnite-version", "lightswitch",    "launcher",
+                                         "content",          "other"};
+                require(attached && !observationComplete && requests < 8 &&
+                            origins.contains(record["origin"].toString()) &&
+                            routes.contains(record["route"].toString()),
+                        "Invalid or non-redacted request observation");
+                ++requests;
+                auto observations = result["requests"].toArray();
+                observations.append(
+                    QJsonObject{{"origin", record["origin"]}, {"route", record["route"]}});
+                result["requests"] = observations;
+            } else if (event == "request_observation_completed") {
+                require(attached && !observationComplete &&
+                            (control == 2 ? requests == 0 && record["value"].toInt(-1) == 0
+                                          : requests > 0 && record["value"].toInt(-1) == 1),
+                        "Request observer did not complete a valid observation");
+                observationComplete = true;
+                result["request_observation_completed"] = control != 2;
+            } else if (event == "debug_child_exited") {
+                require(attached && !observationComplete, "Unexpected observed child exit");
+                result["observed_child_exit_code"] = record["value"];
             } else if (event == "pointer_table") {
                 const auto functions = record["function_rvas"].toArray();
                 const auto slot = record["candidate_slot"].toInt(-1);

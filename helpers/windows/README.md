@@ -69,3 +69,33 @@ exception-directory function bounds and one pointer reference after executable
 initialization. This is candidate evidence only; the helper then closed its child
 job, before engine logging. No backend request or login was performed. See
 docs/PROGRESS.md for the failed stdout-only predecessor and exact results.
+
+## Request observer experiment (not a working game integration)
+
+`fol-http-observer.exe` is a separately compiled variant using the Windows debugger
+API and one hardware execution breakpoint. It does not patch game code, inject a
+module, rewrite URLs, change authentication/certificates, or suppress unrelated
+exceptions. Only its own child may be observed. Thread ownership is checked during
+cleanup; original debug-register settings are restored before detaching. Native
+launch requires the exact supplied 12.50 executable SHA-256, with the candidate
+layout taken from the embedded profile, not user-supplied offsets.
+
+The synthetic fixture proves eight calls can be caught, with matching object layout
+and fixed origin/endpoint categories. URL text, queries, headers and bodies are not
+reported; the fixture includes a fake query secret to check this. This does not
+establish that the same observer works on Fortnite.
+
+Real game tests fail after debugger attachment, even with no breakpoint installed.
+The same helper without debugger attachment reaches logged manual sign-in. Do not
+retry the identical failing debugger path or disable checks to make it work. The
+next integration approach follows upstream's separate Windows module lifecycle.
+This observer remains an explicit diagnostic, never part of normal launch.
+
+Diagnostic controls (recorded in launch commands):
+
+- `FOL_HTTP_OBSERVER_DELAY_MS=10000`: delay attachment; range0–30000ms.
+- `FOL_HTTP_OBSERVER_MODE=hold-only`: no debugger; observe child liveness for20s.
+- `FOL_HTTP_OBSERVER_MODE=attach-only`: attach but install no breakpoint.
+
+Control runs deliberately return an observation failure, even if their control
+receipt is complete. They are not routing, backend or login success.

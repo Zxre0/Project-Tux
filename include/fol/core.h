@@ -36,6 +36,7 @@ struct Profile {
     QString version, executable, workingDirectory, rebootStatus;
     QStringList arguments, launcherContextArguments, localBackendArguments, serviceIniArguments;
     bool privatePathVerified, httpInterfaceProbeAllowed;
+    QString httpObserverHash, httpObserverLayout;
     static Profile load();
     static std::optional<Profile> forVersion(const QString &version);
 };

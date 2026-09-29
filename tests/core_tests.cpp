@@ -94,6 +94,57 @@ int main(int argc, char **argv) {
         codeReceipt.replace(QByteArray(256, 'a'), "invalid");
         check(fol::analyzeHttpProbe(codeReceipt, "test").contains("error"),
               "malformed code sample rejected");
+        auto observedReceipt = receipt;
+        const QByteArray observed =
+            "FOL_HTTP_PROBE {\"event\":\"debug_attached\",\"value\":42}\n"
+            "FOL_HTTP_PROBE {\"event\":\"request_observed\",\"origin\":\"epic\","
+            "\"route\":\"oauth-token\"}\n"
+            "FOL_HTTP_PROBE {\"event\":\"request_observation_completed\",\"value\":1}\n";
+        observedReceipt.insert(observedReceipt.indexOf("FOL_HTTP_PROBE {\"event\":\"completed"),
+                               observed);
+        const auto observedReport = fol::analyzeHttpProbe(observedReceipt, "test");
+        check(observedReport["complete"].toBool() &&
+                  observedReport["request_observation_completed"].toBool() &&
+                  observedReport["requests"].toArray().size() == 1,
+              "observer receipt reports fixed request categories");
+        auto rawRequest = observedReceipt;
+        rawRequest.replace("oauth-token", "arbitrary-secret-query");
+        check(fol::analyzeHttpProbe(rawRequest, "test").contains("error"),
+              "arbitrary request detail is not a valid category");
+        auto noObservation = observedReceipt;
+        noObservation.replace(
+            "FOL_HTTP_PROBE {\"event\":\"request_observation_completed\",\"value\":1}\n", "");
+        check(fol::analyzeHttpProbe(noObservation, "test").contains("error"),
+              "observer requires completion before helper completion");
+        auto failedObservation = observedReceipt;
+        failedObservation.replace("observation_completed\",\"value\":1",
+                                  "observation_completed\",\"value\":0");
+        check(fol::analyzeHttpProbe(failedObservation, "test").contains("error"),
+              "failed observation cannot be interpreted as success");
+        auto holdReceipt = receipt;
+        holdReceipt.insert(
+            holdReceipt.indexOf("FOL_HTTP_PROBE {\"event\":\"completed"),
+            "FOL_HTTP_PROBE {\"event\":\"observer_control\",\"value\":1}\n"
+            "FOL_HTTP_PROBE {\"event\":\"observer_control_child_live\",\"value\":1}\n");
+        holdReceipt.replace("completed\",\"value\":0", "completed\",\"value\":67");
+        const auto holdReport = fol::analyzeHttpProbe(holdReceipt, "test");
+        check(holdReport["complete"].toBool() && holdReport["candidate_observed"].toBool() &&
+                  !holdReport["request_observation_completed"].toBool(),
+              "control completion is not request observation success");
+        auto attachReceipt = receipt;
+        attachReceipt.insert(
+            attachReceipt.indexOf("FOL_HTTP_PROBE {\"event\":\"completed"),
+            "FOL_HTTP_PROBE {\"event\":\"observer_control\",\"value\":2}\n"
+            "FOL_HTTP_PROBE {\"event\":\"debug_attached\",\"value\":42}\n"
+            "FOL_HTTP_PROBE {\"event\":\"request_observation_completed\",\"value\":0}\n");
+        attachReceipt.replace("completed\",\"value\":0", "completed\",\"value\":67");
+        // The observation flag remains zero; only the helper completion is67.
+        attachReceipt.replace("observation_completed\",\"value\":67",
+                              "observation_completed\",\"value\":0");
+        const auto attachReport = fol::analyzeHttpProbe(attachReceipt, "test");
+        check(attachReport["complete"].toBool() &&
+                  !attachReport["request_observation_completed"].toBool(),
+              "attach-only control cannot claim a captured request");
         auto root = temp.path() + "/game with spaces";
         auto profile = fol::Profile::load();
         check(profile.version == "12.61", "12.61 remains default profile");
@@ -723,6 +774,13 @@ int main(int argc, char **argv) {
                       "fixture-only Z drive mapping");
                 auto helperPlan = fol::launch(paths, helperId, true, true, 5, false, false,
                                               runtimeId, true, fol::BackendProbe::None, helperPath);
+                const auto observerPath = temp.path() + "/fol-http-observer.exe";
+                fol::writeFile(observerPath, syntheticPe());
+                const auto observerPlan =
+                    fol::launch(paths, helperId, true, true, 5, false, false, runtimeId, true,
+                                fol::BackendProbe::None, observerPath);
+                check(observerPlan["error"].toString().contains("executable hash mismatch"),
+                      "request observer rejects a different binary before starting debugger");
                 check(helperPlan["status"] == "planned; not executed" &&
                           helperPlan["http_interface_probe"].toObject()["helper"] == helperPath &&
                           helperPlan["command"].toString().contains(fol::quote(helperPath)) &&
