@@ -516,5 +516,36 @@ plan still selects ordinary Shipping and includes `--net`; status is explicitly
 `planned; not executed`. No new real-game execution or graphical success is claimed.
 The full network test remains blocked by EPERM. Formatting and diff checks pass.
 
-Next: preserve this checkpoint and review bounded parser/error-path coverage;
-the next real startup experiment still requires accessible GPU devices and sockets.
+Next: capture the targeted startup trace once GPU devices and sockets are available.
+
+### Continuation: startup blocker revalidated after supervisor checkpoint
+
+The preceding goal turn made verified engineering progress: manifest verification,
+diagnostic corrections and shared game supervision. This continuation rechecked
+the authoritative worktree and environment before attempting further work.
+HEAD is `b2602a4`, installed user-locally; the worktree was clean. Known remote
+tracking checkpoint remains `1e6ba64`, six implementation commits behind HEAD.
+Another `git push origin HEAD` failed with `Could not resolve host: github.com`.
+
+Fresh `diagnose` report saved outside Git to XDG state
+`logs/restricted-environment-check.json`: no GPU device nodes, no Vulkan devices,
+enumeration result -3; native IPv4 UDP creation fails errno 1 / EPERM. Full CTest
+again passes 4/5 targets and fails only the network target. Existing hash report
+still records 398 matching files; the last completed real game session still
+records exit 1 with unknown failing subsystem, not menu/gameplay success.
+
+No repeat game start was issued: these preflight restrictions prevent the same
+next experiment before it reaches Fortnite. No environment bypass, privilege
+change, disabled validation gate or host-driver modification was attempted.
+There is no new game/runtime evidence supporting another compatibility patch.
+Further generic polish is not a substitute for the actual startup objective.
+
+Required next external-state change: a permitted execution environment with GPU
+device/display access and socket creation, plus GitHub connectivity for pushing.
+Then rerun `fortnite-linux diagnose`, the full tests, and
+`fortnite-linux launch 12.50 --offline-probe --trace-startup --timeout 35`.
+Retain the network namespace, ordinary Shipping executable, unchanged game args,
+anti-cheat observation and scoped cleanup. Inspect the resulting message-box /
+debug-string evidence before proposing a compatibility change. If it proves an
+authorization/protection requirement, document that blocker rather than bypass it.
+No completion claim is made; the objective remains unmet.
