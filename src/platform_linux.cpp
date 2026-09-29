@@ -6,13 +6,41 @@
 #include <QTemporaryDir>
 #include <cerrno>
 #include <cstring>
+#include <net/if.h>
 #include <netinet/in.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/un.h>
 #include <unistd.h>
 
 namespace fol {
+QString networkNamespaceIdentity() {
+    struct stat self{};
+    require(::stat("/proc/self/ns/net", &self) == 0, "Cannot identify current network namespace");
+    return QString::number(quint64(self.st_dev)) + ":" + QString::number(quint64(self.st_ino));
+}
+void preparePrivateLoopback(const QString &outerNamespace) {
+    static const QRegularExpression identity("\\A[0-9]{1,20}:[0-9]{1,20}\\z");
+    require(identity.match(outerNamespace).hasMatch() &&
+                outerNamespace != networkNamespaceIdentity(),
+            "Private backend requires a different namespace from the trusted parent's receipt; "
+            "host network unchanged");
+    const int fd = ::socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    require(fd >= 0, "Cannot open isolated loopback control socket");
+    ifreq interface{};
+    std::strcpy(interface.ifr_name, "lo");
+    int result = ::ioctl(fd, SIOCGIFFLAGS, &interface);
+    if (result == 0) {
+        interface.ifr_flags |= IFF_UP;
+        result = ::ioctl(fd, SIOCSIFFLAGS, &interface);
+    }
+    const int error = errno;
+    const int closed = ::close(fd);
+    require(result == 0 && closed == 0,
+            "Cannot enable isolated loopback: " + QString::fromLocal8Bit(std::strerror(error)));
+}
 QJsonObject localIpcReport() {
     QJsonObject result{
         {"functional", false},

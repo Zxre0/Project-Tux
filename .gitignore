@@ -10,3 +10,6 @@
 *.dxvk-cache
 *.vkd3d-cache
 /config.local.toml
+# Local development credentials are never source artifacts.
+local-login.json
+/backend.local/

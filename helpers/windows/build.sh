@@ -45,6 +45,15 @@ cmake -DARTIFACT="$PWD/build/windows/fol-http-request-observer.dll" \
     -DMODULE_ROLE=http-request-observer -P helpers/windows/module_manifest.cmake
 file build/windows/fol-http-request-observer.dll
 clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
+    -DFOL_INPROCESS_OBSERVER -DFOL_LOCAL_ROUTER -I/usr/include/wine/windows -I/usr/include/wine/msvcrt \
+    -Wall -Wextra -Werror -O1 -c helpers/windows/http_module.c -o build/windows/router_module.obj
+lld-link /dll /entry:module_entry /subsystem:console /nodefaultlib /machine:x64 /timestamp:0 \
+    /out:build/windows/fol-http-local-router.dll build/windows/router_module.obj \
+    /usr/lib/wine/x86_64-windows/libkernel32.a
+cmake -DARTIFACT="$PWD/build/windows/fol-http-local-router.dll" \
+    -DMODULE_ROLE=http-local-router -P helpers/windows/module_manifest.cmake
+file build/windows/fol-http-local-router.dll
+clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
     -I/usr/include/wine/windows -I/usr/include/wine/msvcrt -Wall -Wextra -Werror -O1 \
     -c helpers/windows/http_fixture.c -o build/windows/http_fixture.obj
 lld-link /entry:fixture_entry /subsystem:console /nodefaultlib /machine:x64 /timestamp:0 \

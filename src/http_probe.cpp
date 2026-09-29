@@ -174,10 +174,19 @@ QJsonObject analyzeModuleObservation(const QByteArray &report, const QString &se
                     object["session_id"].toString() == session && childPid > 0 &&
                     object["process_id"].toInteger() == childPid,
                 "Module observation event/session/child identity mismatch");
-        const QStringList errors{"image-rejected",    "section-rejected",       "pointer-rejected",
-                                 "page-rejected",     "protect-failed",         "none",
-                                 "layout-rejected",   "pointer-changed",        "restore-failed",
-                                 "protection-failed", "request-shape-rejected", "no-requests"};
+        const QStringList errors{"setter-rejected",
+                                 "image-rejected",
+                                 "section-rejected",
+                                 "pointer-rejected",
+                                 "page-rejected",
+                                 "protect-failed",
+                                 "none",
+                                 "layout-rejected",
+                                 "pointer-changed",
+                                 "restore-failed",
+                                 "protection-failed",
+                                 "request-shape-rejected",
+                                 "no-requests"};
         require(errors.contains(object["error"].toString()) && object["installed"].isBool() &&
                     object["restored"].isBool() && object["requests"].isArray() &&
                     object["rejected"].toInt(-1) >= 0 && object["rejected"].toInt() <= 8,
@@ -185,6 +194,12 @@ QJsonObject analyzeModuleObservation(const QByteArray &report, const QString &se
         result["installed"] = object["installed"];
         result["restored"] = object["restored"];
         result["rejected"] = object["rejected"];
+        if (object.contains("routed")) {
+            require(object["routed"].toInt(-1) >= 0 && object["routed"].toInt() <= 8,
+                    "Invalid local routing count");
+            result["routed"] = object["routed"];
+            result["scope"] = "local URL rewrite evidence; not transport or authentication";
+        }
         result["reported_error"] = object["error"];
         const auto requests = object["requests"].toArray();
         require(requests.size() + object["rejected"].toInt() <= 8, "Too many request observations");

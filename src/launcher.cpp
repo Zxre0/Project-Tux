@@ -41,7 +41,7 @@ QString classifyFailure(const QString &text) {
 QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup, bool engineStdout,
                    const QString &protonId, bool launcherContextProbe, BackendProbe backendProbe,
-                   const QString &httpProbeHelper, const QString &httpModule) {
+                   const QString &httpProbeHelper, const QString &httpModule, bool privateBackend) {
     const bool localBackendProbe = backendProbe != BackendProbe::None;
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
@@ -84,7 +84,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         require(selectedProfile.has_value(), "Unsupported build: " + build.version);
         auto profile = *selectedProfile;
         QString helper, checkedModule;
-        bool requestObserver = false, moduleBootstrap = false, moduleObserver = false;
+        bool requestObserver = false, moduleBootstrap = false, moduleObserver = false,
+             moduleRouter = false;
         if (!httpProbeHelper.isEmpty()) {
             require(profile.httpInterfaceProbeAllowed,
                     "HTTP interface probe is not enabled for this build");
@@ -117,20 +118,24 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             }
             if (moduleBootstrap) {
                 checkedModule = QFileInfo(httpModule).canonicalFilePath();
-                moduleObserver =
-                    QFileInfo(checkedModule).fileName() == "fol-http-request-observer.dll";
+                moduleRouter = QFileInfo(checkedModule).fileName() == "fol-http-local-router.dll";
+                moduleObserver = moduleRouter || QFileInfo(checkedModule).fileName() ==
+                                                     "fol-http-request-observer.dll";
                 require(moduleObserver ||
                             QFileInfo(checkedModule).fileName() == "fol-http-adapter.dll",
                         "Only the explicitly built diagnostic modules are supported");
                 const auto module =
                     moduleReport(checkedModule, checkedModule + ".toml", build.version);
                 require(module["status"] == "manifest-matches; runtime-compatibility-unverified" &&
-                            module["role"] ==
-                                (moduleObserver ? "http-request-observer" : "http-lifecycle-probe"),
+                            module["role"] == (moduleRouter     ? "http-local-router"
+                                               : moduleObserver ? "http-request-observer"
+                                                                : "http-lifecycle-probe"),
                         "Module architecture, version, role or SHA-256 manifest check failed");
                 result["http_module"] = module;
             }
         }
+        require(!privateBackend || moduleRouter,
+                "Private backend requires the isolated local router module");
         const auto backendArguments = backendProbe == BackendProbe::ServiceIni
                                           ? profile.serviceIniArguments
                                           : profile.localBackendArguments;
@@ -150,6 +155,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                 "Module path and report must come from the checked launch options");
         require(!environment.contains("FOL_HTTP_OBSERVER_LAYOUT"),
                 "Observer layout must come from the checked compatibility profile");
+        require(!environment.contains("FOL_HTTP_ROUTER_LAYOUT"),
+                "Router layout must come from the checked compatibility profile");
         QMap<QString, QString> overrides;
         QStringList unsetArgs;
         if (protonId.isEmpty()) {
@@ -186,6 +193,10 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         }
         if (requestObserver || moduleObserver)
             overrides["FOL_HTTP_OBSERVER_LAYOUT"] = profile.httpObserverLayout;
+        if (moduleRouter) {
+            require(!profile.httpRouterLayout.isEmpty(), "No local router layout for this build");
+            overrides["FOL_HTTP_ROUTER_LAYOUT"] = profile.httpRouterLayout;
+        }
         if (environment.contains("FOL_HTTP_OBSERVER_DELAY_MS")) {
             bool validDelay;
             const auto delay = environment.value("FOL_HTTP_OBSERVER_DELAY_MS").toInt(&validDelay);
@@ -211,7 +222,23 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         require(probe.exitCode == 0 && !probe.timedOut,
                 "Network isolation unavailable: " + probe.output);
         auto executable = build.root + "/" + profile.executable;
-        QStringList args{"--user", "--map-root-user", "--net", "--", runtime};
+        QStringList args{"--user", "--map-root-user", "--net", "--"};
+        if (privateBackend) {
+            const auto backend = QCoreApplication::applicationDirPath() + "/fortnite-backend";
+            const auto identity = paths.config + "/backend/identity.json";
+            require(QFileInfo(backend).isExecutable() && QFileInfo(identity).isFile(),
+                    "Native backend or private identity missing; run fortnite-backend init first");
+            args.append({backend, "--config", identity, "--log", directory + "/backend.log",
+                         "--isolated-session", "--outer-netns", networkNamespaceIdentity(), "run",
+                         "--"});
+            overrides["NO_PROXY"] = "127.0.0.1,localhost";
+            overrides["no_proxy"] = "127.0.0.1,localhost";
+            result["private_backend"] =
+                QJsonObject{{"bind", "127.0.0.1:3551"},
+                            {"scope", "same isolated namespace; request/login outcome must be "
+                                      "verified from backend log"}};
+        }
+        args.append(runtime);
         if (proton)
             args.append("run");
         if (helper.isEmpty()) {
@@ -358,7 +385,9 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                    : QByteArray{},
                             session, evidence["child_windows_pid"].toInteger());
                         result["http_module_observation"] = observed;
-                        if (!observed["observed"].toBool() && !result.contains("error"))
+                        if ((!observed["observed"].toBool() ||
+                             (moduleRouter && observed["routed"].toInt() == 0)) &&
+                            !result.contains("error"))
                             result["error"] =
                                 "No completed in-process request observation; inspect receipts";
                     }

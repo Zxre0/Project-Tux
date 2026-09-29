@@ -31,16 +31,19 @@ int main(int argc, char **argv) {
         fol::require(moduleBootstrap == (argc == 4),
                      "Module bootstrap requires one diagnostic DLL");
         QString module;
-        bool moduleObserver = false;
+        bool moduleObserver = false, moduleRouter = false;
         if (moduleBootstrap) {
             module = QFileInfo(app.arguments()[3]).canonicalFilePath();
-            moduleObserver = QFileInfo(module).fileName() == "fol-http-request-observer.dll";
+            moduleRouter = QFileInfo(module).fileName() == "fol-http-local-router.dll";
+            moduleObserver =
+                moduleRouter || QFileInfo(module).fileName() == "fol-http-request-observer.dll";
             const auto validation = fol::moduleReport(module, module + ".toml", "12.50");
-            fol::require(
-                validation["status"] == "manifest-matches; runtime-compatibility-unverified" &&
-                    validation["role"] ==
-                        (moduleObserver ? "http-request-observer" : "http-lifecycle-probe"),
-                "Diagnostic module failed manifest checks");
+            fol::require(validation["status"] ==
+                                 "manifest-matches; runtime-compatibility-unverified" &&
+                             validation["role"] == (moduleRouter     ? "http-local-router"
+                                                    : moduleObserver ? "http-request-observer"
+                                                                     : "http-lifecycle-probe"),
+                         "Diagnostic module failed manifest checks");
         }
         const auto fixture = QFileInfo(app.arguments()[2]).canonicalFilePath();
         const auto helperPe = fol::inspectPe(helper), fixturePe = fol::inspectPe(fixture);
@@ -76,6 +79,11 @@ int main(int argc, char **argv) {
                                 " FOL_HTTP_MODULE_REPORT=" + fol::quote(moduleReportPath);
         }
         env.insert("WINEDEBUG", "+timestamp,+pid,+seh,+loaddll");
+        if (moduleRouter) {
+            env.insert("FOL_HTTP_FIXTURE_ROUTE", "1");
+            moduleAssignments += " FOL_HTTP_FIXTURE_ROUTE=1";
+        } else
+            env.remove("FOL_HTTP_FIXTURE_ROUTE");
         env.insert("WINEDLLOVERRIDES", "winemenubuilder.exe=d");
         const bool codeRequested = env.contains("FOL_HTTP_PROBE_CODE");
         fol::require(!codeRequested || env.value("FOL_HTTP_PROBE_CODE") == "1",
@@ -116,6 +124,8 @@ int main(int argc, char **argv) {
                                         moduleObservation["requests"].toArray().size() == 8 &&
                                         !data.contains("fixture-secret") &&
                                         !data.contains("never-log-this");
+                if (moduleRouter)
+                    moduleObservationOkay &= moduleObservation["routed"].toInt() == 1;
                 for (const auto &request : moduleObservation["requests"].toArray())
                     moduleObservationOkay &= request.toObject()["origin"] == "loopback" &&
                                              request.toObject()["route"] == "oauth-token";

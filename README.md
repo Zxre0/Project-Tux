@@ -17,6 +17,11 @@ initialization and a visually verified sign-in screen through Proton/DXVK on
 CachyOS/Hyprland with NVIDIA. This is not authenticated login, private gameplay,
 12.61 compatibility or an anti-cheat bypass.
 
+An experimental [native private backend](docs/BACKEND.md) now receives the real
+12.50 client's initial application-token request inside an isolated namespace.
+Local password/token behavior passes HTTP tests, but **Fortnite player login to
+the backend is not yet verified**. The backend is not the Project Reboot game server.
+
 ## Build
 
 Requires C++20, CMake >=3.22, Ninja, Qt >=6.4 Core/Network, toml++ >=3.3,

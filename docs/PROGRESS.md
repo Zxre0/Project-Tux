@@ -1431,3 +1431,69 @@ Final regression after the section/protection fix:8/8 CTest targets in25.25s,
 229 core checks. The separate lifecycle-only DLL still passes with the updated
 fixture in http-fixture-b8ba6f83-4a43-4355-9495-3c0b8fbd8a85. No game assets,
 raw code observations, DLL artifacts, private prefixes or credentials enter Git.
+
+### Local routing and native backend transport (2026-09-29)
+
+The user changed the active objective to making a backend this old Fortnite can
+log into. This remains unachieved until actual player authentication is verified.
+Prior goal turn made concrete progress: real interface observations and pushed
+c9d19ca; its GitHub build passed. No blocked/complete status is warranted.
+
+Added original strict URL selection (25 asset-free checks), separate router DLL
+and profile-bound setterRVA59245424/slot10. Fixture
+http-fixture-fdb6d08e-a735-4b57-8ec8-7504243daa34 verifies a copied URL rewrite,
+no fake query leak, forwarded method result and pointer restoration. Real session
+2026-09-29_21-08-23_39d66d3d verifies three rewrites and game log attempts to
+http://127.0.0.1:3551/account/api/oauth/token. Those fail with no listener. No
+authentication/certificate/security/exit patches; bVerifyPeer=true. Router SHA256
+ea18c64e2a6cf5c64f60cb87dbeb46b233aedb3a3443bcaacb2f5c4b383b86f5.
+Cleanup complete, no observed anti-cheat. Native tests passed9/9 in25.17s.
+
+Implemented native backend identity/authentication core, bounded loopback HTTP
+server and separate fortnite-backend CLI. Public application tokens carry no player
+identity; player tokens require the generated @localhost account's actual local
+password. Salted PBKDF2, expiring random access tokens, refresh rotation, revocation
+and private account authorization are tested. Init created owner-only identity and
+local-login files in project XDG config, not Git. They contain no Epic credentials.
+Read upstream user.js/version.js only for protocol shapes; no code, hardcoded
+tokens, permissive passwords or request-body logging copied.
+
+Build failures were concrete and corrected: current Qt deprecated the explicit
+Qt::UTC overload (use epoch conversion then toUTC); single-name command options
+had ambiguous brace initialization; HTTP test needed QNetworkProxy include.
+Authentication checks20 passed; HTTP socket checks11 passed including rejection
+of duplicate Content-Length and log non-disclosure. Full suite11/11 in25.33s.
+
+Initial namespace smoke failed before interface changes because stat of
+/proc/1/ns/net is Permission denied inside unprivileged user namespace. Reproduced
+with stat. Replaced that check with a pre-unshare namespace receipt captured by
+the trusted native launcher; requires a different current namespace. Isolated
+curl /health test then passes, and same-namespace negative test refuses changes.
+Only isolated lo is enabled; no host network/router/firewall changes.
+
+First actual combined run2026-09-29_21-19-48_9fe97491 (same command as router test,
+plus --private-backend) receives the game's application-token POST and returns200.
+Game log records MCP service Normal -> Connected. A subsequent request returns404
+and GetUserPrivilege/patch check fails; the game reaches manual sign-in, not player
+login. Four requests observed, two rewritten, pointer restored, helper exit0,
+cleanup complete, no EAC/BattlEye observed. This is verified game-to-private-service
+transport/application bootstrap, not an authenticated player session.
+
+Next implementation based on that response and upstream version route contract:
+local versioncheck NO_UPDATE policy and HTTP Date header (game warned it was
+missing). Tests/build in progress. Still needed: verify that contract with the
+actual client, submit only generated local development credentials, extend routing
+beyond its bounded eight-call/20s diagnostic window, and implement subsequent
+login/profile requirements from evidence. No screenshot of a successful private
+player login exists yet.
+
+Retest2026-09-29_21-24-05_d62d90e5 verifies application-token200 and
+local-versioncheck-no-update200 from the actual game. The prior patch-check
+failure is gone; a subsequent Fortnite-service404 now produces
+UpdateFailure_HotfixCheck. No player grant was submitted. Five request categories,
+three rewrites, restoration and scoped cleanup verified; no anti-cheat observed.
+Next contract is hotfix/cloud storage, then actual local player authentication.
+Final regression11/11 in25.40s:231 core checks,21 backend auth checks,11 HTTP checks,
+25 URL-selection checks plus the existing test targets. Namespace-negative tests
+prove same/malformed receipts reject before interface changes. No successful
+private player-login screenshot or gameplay is claimed.

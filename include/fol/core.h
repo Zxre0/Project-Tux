@@ -25,6 +25,8 @@ QByteArray readFile(const QString &path, qint64 limit = 1024 * 1024);
 void writeFile(const QString &path, const QByteArray &data);
 QJsonObject readJson(const QString &path);
 QString quote(const QString &value);
+QString networkNamespaceIdentity();
+void preparePrivateLoopback(const QString &outerNamespace); // Trusted parent's pre-unshare receipt.
 struct CommandResult {
     int exitCode;
     bool timedOut;
@@ -36,7 +38,7 @@ struct Profile {
     QString version, executable, workingDirectory, rebootStatus;
     QStringList arguments, launcherContextArguments, localBackendArguments, serviceIniArguments;
     bool privatePathVerified, httpInterfaceProbeAllowed;
-    QString httpObserverHash, httpObserverLayout;
+    QString httpObserverHash, httpObserverLayout, httpRouterLayout;
     static Profile load();
     static std::optional<Profile> forVersion(const QString &version);
 };
@@ -134,7 +136,8 @@ QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlin
                    int timeoutSeconds, bool traceStartup = false, bool engineStdout = false,
                    const QString &protonId = {}, bool launcherContextProbe = false,
                    BackendProbe backendProbe = BackendProbe::None,
-                   const QString &httpProbeHelper = {}, const QString &httpModule = {});
+                   const QString &httpProbeHelper = {}, const QString &httpModule = {},
+                   bool privateBackend = false);
 QString classifyFailure(const QString &text);
 QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session);
 QJsonObject analyzeModuleReceipt(const QByteArray &report, const QString &session, qint64 childPid);

@@ -47,6 +47,10 @@ int main(int argc, char **argv) {
     try {
         QTemporaryDir temp;
         check(temp.isValid(), "temporary directory");
+        rejects([&] { fol::preparePrivateLoopback(fol::networkNamespaceIdentity()); },
+                "same network namespace is rejected before interface changes");
+        rejects([] { fol::preparePrivateLoopback("untrusted-format"); },
+                "malformed namespace receipt rejected before interface changes");
         const QByteArray moduleReceipt =
             "{\"event\":\"module-ready\",\"session_id\":\"module-test\",\"process_id\":42}\n";
         check(fol::analyzeModuleReceipt(moduleReceipt, "module-test", 42)["ready"].toBool(),

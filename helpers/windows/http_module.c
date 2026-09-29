@@ -1,6 +1,7 @@
 /* Original diagnostic DLL. Default: lifecycle receipt only. Separately compiled
  * observer: forward one validated HTTP method unchanged and report categories.
- * Neither changes URLs, networking, authentication, security or game files. */
+ * The explicit local-router build additionally changes allowlisted service URLs
+ * to loopback through the game setter. No authentication/security/game-file patches. */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #ifdef FOL_INPROCESS_OBSERVER

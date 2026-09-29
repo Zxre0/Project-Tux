@@ -158,3 +158,13 @@ and an executable section for its original target. Permission changes preserve
 existing execution permission and restore the original flags. Guard/no-access
 pages, unexpected pointers and executable PE-section targets for the table fail
 closed. Observing requests is still not backend routing or authentication.
+
+## Explicit local router
+
+`fol-http-local-router.dll` adds the separately profile-bound setter experiment.
+Unlike the observer, it rewrites allowlisted private-service URLs to fixed loopback
+HTTP and reads back the resulting FString to verify the copy. It never modifies
+authentication, certificate checks or executable instructions. Native manifest
+role is `http-local-router`; it cannot silently replace the observer artifact.
+See [the backend guide](../../docs/BACKEND.md) for verified scope, strict URL
+selection, isolated service setup and the current eight-call/20s limitation.

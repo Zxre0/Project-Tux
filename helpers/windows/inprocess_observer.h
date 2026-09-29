@@ -1,6 +1,7 @@
 /* Original bounded observer for the hash-gated, network-isolated child.
  * Replace one verified HTTP virtual-method pointer, forward every call unchanged,
- * then restore it. No instruction, URL, authentication or certificate changes. */
+ * then restore it. The separately compiled FOL_LOCAL_ROUTER variant also uses
+ * the validated setter for strict loopback URLs. No instruction/auth/certificate changes. */
 typedef BYTE(WINAPI *request_function)(void *);
 static request_function original_request;
 static ULONG_PTR expected_table;
@@ -9,6 +10,7 @@ static LONG observation_lock, observation_enabled;
 static unsigned observed_count, rejected_count;
 static const char *observed_origins[8], *observed_routes[8];
 static wchar_t observed_url[4096]; // Only used while holding observation_lock.
+static BOOL fixture_layout;
 
 static BOOL module_read(ULONG_PTR address, void *output, SIZE_T size) {
     SIZE_T read;
@@ -22,6 +24,11 @@ static BOOL module_starts(const wchar_t *text, const wchar_t *prefix) {
             return FALSE;
     return TRUE;
 }
+#ifdef FOL_LOCAL_ROUTER
+static BOOL section_role(ULONG_PTR base, const IMAGE_DOS_HEADER *dos, const IMAGE_NT_HEADERS64 *pe,
+                         DWORD rva, SIZE_T size, BOOL executable);
+#include "local_router.h"
+#endif
 static BOOL classify_request(void *object) {
     ULONG_PTR table;
     struct {
@@ -75,6 +82,13 @@ static BOOL classify_request(void *object) {
         route = "launcher";
     else if (module_starts(path, L"/content/"))
         route = "content";
+#ifdef FOL_LOCAL_ROUTER
+    unsigned before = routed_count;
+    if (!route_request(object))
+        return FALSE;
+    if (routed_count != before)
+        origin = "loopback";
+#endif
     observed_origins[observed_count] = origin;
     observed_routes[observed_count++] = route;
     return TRUE;
@@ -88,6 +102,11 @@ static BYTE WINAPI request_observation(void *object) {
             volatile wchar_t *clear = observed_url;
             for (unsigned i = 0; i < 4096; ++i)
                 clear[i] = 0;
+#ifdef FOL_LOCAL_ROUTER
+            clear = routed_url;
+            for (unsigned i = 0; i < 4096; ++i)
+                clear[i] = 0;
+#endif
         }
         InterlockedExchange(&observation_lock, 0);
     }
@@ -115,6 +134,7 @@ static BOOL module_layout(DWORD *layout, ULONG_PTR base, DWORD image_size) {
         layout[1] = (DWORD)(table - base);
         layout[2] = 104;
         layout[3] = 0;
+        fixture_layout = TRUE;
         return TRUE;
     }
     wchar_t text[128];
@@ -200,6 +220,11 @@ static DWORD observe_inprocess(const wchar_t *report_path, const wchar_t *sessio
         goto finish;
     expected_table = base + layout[1];
     string_offset = layout[2];
+#ifdef FOL_LOCAL_ROUTER
+    error = "setter-rejected";
+    if (!configure_router(base, &dos, &pe, fixture_layout))
+        goto finish;
+#endif
     void *volatile *slot = (void *volatile *)(expected_table + layout[3] * 8);
     ULONG_PTR target;
     MEMORY_BASIC_INFORMATION table_page, code_page;
@@ -269,6 +294,10 @@ finish:
     observation_text(restored ? "true" : "false");
     observation_text(",\"rejected\":");
     observation_number(rejected_count);
+#ifdef FOL_LOCAL_ROUTER
+    observation_text(",\"routed\":");
+    observation_number(routed_count);
+#endif
     observation_text(",\"table_protection\":");
     observation_number(table_protection);
     observation_text(",\"code_protection\":");

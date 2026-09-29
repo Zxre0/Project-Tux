@@ -9,7 +9,8 @@ static BOOL load_owned_module(PROCESS_INFORMATION *child) {
     for (DWORD i = 0; i < count; ++i)
         if (path[i] == L'\\' || path[i] == L'/')
             name = path + i + 1;
-    BOOL observer = equal(name, L"fol-http-request-observer.dll");
+    BOOL observer =
+        equal(name, L"fol-http-request-observer.dll") || equal(name, L"fol-http-local-router.dll");
     if ((!observer && !equal(name, L"fol-http-adapter.dll")) ||
         image_base(child->dwProcessId, name)) {
         event("module_name_or_existing_load_rejected", 1);

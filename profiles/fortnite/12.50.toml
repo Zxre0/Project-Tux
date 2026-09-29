@@ -15,9 +15,11 @@ linux_status = "diagnostic-only-unverified"
 reboot_status = "unverified; 12.61-specific behavior must not be applied"
 private_path_verified = false
 http_interface_probe_allowed = true
-# Observational debugger only. Function RVA, vtable RVA, URL field, function slot.
-# Evidence: docs/REBOOT_LAUNCHER_ANALYSIS.md. Not a verified routing ABI.
+# Hash-gated diagnostic interface: function RVA, vtable RVA, URL field, method slot.
+# Real request observation verified; setter remains a separate routing experiment.
 http_observer_sha256 = "34a10af4ddff20b75d889e269a66644d570c3000f13548a5799d3a7ef690190c"
 http_observer_layout = "59236016,107847520,104,17"
+# Setter RVA and slot inferred from the bounded method evidence. Test before use.
+http_router_layout = "59245424,10"
 runtime_recommendation = "Baseline exits early; opt-in Wine 11.18 launcher-context probe reaches logged sign-in stage with WineD3D errors. See docs/FORTNITE_12_50.md"
 graphics = "D3D11 diagnostic baseline; no component modifications"
