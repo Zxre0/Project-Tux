@@ -119,6 +119,9 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
         else
             process.waitForFinished(50);
     }
+    // QProcess::CrashExit also includes our own SIGTERM/SIGKILL. Preserve
+    // whether the supervised root was still running when cleanup was requested.
+    result.stopRequested = process.state() != QProcess::NotRunning;
     for (const auto &item : members())
         signalProcess(item, SIGTERM);
     if (process.state() != QProcess::NotRunning) {

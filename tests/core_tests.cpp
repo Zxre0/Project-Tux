@@ -56,6 +56,44 @@ int main(int argc, char **argv) {
               "12.50 has separate diagnostic-only profile");
         check(!fol::Profile::forVersion("12.60") && !fol::Profile::forVersion("../../12.61"),
               "unknown and traversal profiles rejected");
+        const auto logPrefix = temp.path() + "/log-prefix";
+        const auto gameLog =
+            logPrefix +
+            "/drive_c/users/test/AppData/Local/FortniteGame/Saved/Logs/FortniteGame.log";
+        const auto captureStart = QDateTime::currentDateTimeUtc().addSecs(-1);
+        fol::writeFile(gameLog, "synthetic game log\n");
+        auto gameCapture = fol::captureGameLogs(logPrefix, temp.path() + "/captured", captureStart);
+        check(gameCapture["status"] == "captured" &&
+                  fol::readFile(temp.path() + "/captured/fortnite.log") == "synthetic game log\n",
+              "current prefix-local game log is preserved in the session");
+        rejects([&] { fol::captureGameLogs(logPrefix, temp.path() + "/captured", captureStart); },
+                "game capture never overwrites an existing session log");
+        QFile staleLog(gameLog);
+        check(
+            staleLog.open(QIODevice::ReadWrite) &&
+                staleLog.setFileTime(captureStart.addSecs(-60), QFileDevice::FileModificationTime),
+            "stale game log fixture timestamp");
+        staleLog.close();
+        auto staleCapture = fol::captureGameLogs(logPrefix, temp.path() + "/stale", captureStart);
+        check(staleCapture["files"].toArray()[0].toObject()["status"] ==
+                      "skipped: predates launch" &&
+                  !QFile::exists(temp.path() + "/stale/fortnite.log"),
+              "old game log is not attributed to a new launch");
+        check(QFile::remove(gameLog), "remove owned stale fixture");
+        fol::writeFile(temp.path() + "/outside-log", "must not capture\n");
+        check(QFile::link(temp.path() + "/outside-log", gameLog), "symlink log fixture");
+        auto unsafeCapture = fol::captureGameLogs(logPrefix, temp.path() + "/unsafe", captureStart);
+        check(unsafeCapture["files"].toArray()[0].toObject()["status"] == "skipped: unsafe path",
+              "game log symlink outside prefix is not read");
+        check(QFile::remove(gameLog), "remove owned log symlink");
+        QFile largeLog(gameLog);
+        check(largeLog.open(QIODevice::WriteOnly) && largeLog.resize(64 * 1024 * 1024 + 1),
+              "oversize sparse log fixture");
+        largeLog.close();
+        auto largeCapture = fol::captureGameLogs(logPrefix, temp.path() + "/large", captureStart);
+        check(largeCapture["files"].toArray()[0].toObject()["status"] ==
+                  "skipped: exceeds 64 MiB limit",
+              "game log capture enforces bounded reads");
         auto exe = root + "/" + profile.executable;
         fol::writeFile(exe, syntheticPe());
         QDir().mkpath(root + "/Engine");
@@ -576,7 +614,10 @@ int main(int argc, char **argv) {
             auto contextEac = fol::launch(paths, "12.61", false, true, 5, true, false, {}, true);
             qunsetenv("FOL_FIXTURE_MODE");
             check(contextEac["status"] == "stopped-anticheat-detected" &&
-                      !contextEac["owned_processes_remaining"].toBool(),
+                      !contextEac["owned_processes_remaining"].toBool() &&
+                      contextEac["stop_requested"].toBool() &&
+                      contextEac["crash_diagnosis"].toString().contains(
+                          "launcher requested termination"),
                   "context experiment retains anti-cheat trace stop and scoped cleanup");
             fol::writeFile(exe, syntheticPe());
             check(fol::launch(paths, "12.61", true, true, 5, true, false, "synthetic")["error"]
@@ -660,7 +701,8 @@ int main(int argc, char **argv) {
             if (hadCpuMask)
                 qputenv("OPENSSL_ia32cap", originalCpuMask);
             auto failed = fol::launch(paths, "12.61", false, true, 5);
-            check(failed["exit_code"] == 53 && failed["likely_subsystem"] == "missing-library",
+            check(failed["exit_code"] == 53 && failed["likely_subsystem"] == "missing-library" &&
+                      !failed["stop_requested"].toBool(),
                   "supervisor captures synthetic crash evidence");
             QProcess surviving;
             surviving.start("/bin/sleep", {"30"});

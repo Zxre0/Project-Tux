@@ -178,12 +178,19 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             auto env = environment;
             for (auto it = overrides.begin(); it != overrides.end(); ++it)
                 env.insert(it.key(), it.value());
+            const auto launchStarted = QDateTime::currentDateTimeUtc();
             const auto outcome =
                 superviseRuntime(unshare, args, env, directory, "wine.log", timeoutSeconds * 1000,
                                  {build.root + "/" + profile.workingDirectory, true});
             result["exit_code"] = outcome.exitCode;
             result["owned_processes_remaining"] = outcome.remaining;
             result["crashed"] = outcome.crashed;
+            result["stop_requested"] = outcome.stopRequested;
+            result["crash_diagnosis"] = outcome.stopRequested
+                                            ? "indeterminate: launcher requested termination; raw "
+                                              "crashed flag is QProcess status"
+                                        : outcome.crashed ? "runtime signal exit; inspect logs"
+                                                          : "no runtime signal exit observed";
             result["status"] = !outcome.started ? "failed-to-start"
                                : outcome.eac    ? "stopped-eac-detected"
                                : outcome.battleye || !outcome.moduleEvidence.isEmpty()
@@ -214,6 +221,11 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                 log.seek(qMax(qint64(0), log.size() - 1024 * 1024));
                 result["likely_subsystem"] = classifyFailure(QString::fromUtf8(log.readAll()));
             }
+            if (outcome.started && !outcome.remaining)
+                result["game_logs"] = captureGameLogs(prefixPath, directory, launchStarted);
+            else
+                result["game_logs"] =
+                    QJsonObject{{"status", "not collected: no start or incomplete cleanup"}};
         }
     } catch (const std::exception &error) {
         result["error"] = QString::fromUtf8(error.what());

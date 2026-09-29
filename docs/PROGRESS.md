@@ -1009,3 +1009,31 @@ logged-only Wine startup, visually verified Proton sign-in, and still-untested
 12.61/gameplay/audio/input behavior. Screenshot and raw logs stay outside Git.
 Next reproducibility work: automatic game-log capture and explicit distinction
 between controlled timeout termination and spontaneous runtime crashes.
+
+### Reproducible game-log capture and stop reporting (2026-09-29)
+
+Added a separate bounded game-log collector after completed process cleanup. It
+scans at most 64 real prefix-user directories for the exact FortniteGame.log
+location, rejects paths outside that prefix and symlinked files, skips logs whose
+mtime predates launch, caps reads at 64 MiB, preserves existing session output,
+and records per-file status/source/destination/size/mtime. Timestamp freshness is
+explicitly a metadata check. No host account directories or arbitrary logs are
+searched. New unit cases cover capture, no overwrite, stale logs, symlink rejection
+and oversized sparse input. The launcher does not collect while owned processes
+remain. Added stop_requested plus a conservative crash_diagnosis so QProcess
+CrashExit after cleanup is not silently presented as proof of spontaneous failure.
+
+All seven release CTest targets pass (25.16 seconds); core now reports 172 checks.
+The real repeatability probe `2026-09-29_18-38-39_a26403a9` ran the same isolated
+Proton/context setup for 35 seconds. Engine again reaches manual sign-in, and the
+new collector automatically saves 287004 bytes to session fortnite.log. It reports
+controlled termination explicitly: stop_requested true; raw crashed flag retained
+as QProcess status, not an unhandled-game-crash claim. 614 process samples, max 13,
+no PID 0/1, no observed EAC/BattlEye, cleanup complete. Shipping SHA-256 unchanged.
+
+GitHub CI completed successfully for context implementation `aa761e8`
+(run 36612676591) and visible-startup evidence `a91a8b7` (run 36613110424).
+These are asset-free CI results, separate from the real game probes. The next
+integration boundary is private backend/login/server behavior: the currently
+rendered screen is not authenticated or in a lobby, and host/private networking
+remains deliberately inaccessible to the diagnostic namespace.

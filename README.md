@@ -166,6 +166,12 @@ processes. SIGKILL or machine power loss cannot be handled by userspace cleanup.
 Configuration, data, cache and logs follow XDG conventions under
 `fortnite-on-linux`. Every launch request records a unique session under
 `~/.local/state/fortnite-on-linux/logs/sessions/`, including blocked preflight.
+After successful process cleanup, newly modified prefix-local FortniteGame.log
+files are copied into the session as fortnite.log (additional users receive numbered
+files). Collection skips stale, unsafe or over-64-MiB files and reports its result;
+freshness is a timestamp check, not log-content attestation. Raw `crashed` is a
+QProcess exit-status flag: inspect `stop_requested` and `crash_diagnosis` before
+treating a bounded probe's SIGTERM exit as a spontaneous game crash.
 The CLI prints JSON and returns nonzero on validation or launch failure.
 
 See [progress](docs/PROGRESS.md), [architecture](docs/ARCHITECTURE.md),

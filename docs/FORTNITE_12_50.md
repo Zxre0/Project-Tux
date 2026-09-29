@@ -259,3 +259,12 @@ audio and interactive input have not been validated. The supervisor stopped the
 run at its limit: 1043 samples, max 13 owned processes, no PID 0/1, no EAC/BattlEye
 process/module observed, and cleanup complete. This verifies rendering to sign-in,
 not successful login, lobby, private-server join, hosting or gameplay.
+
+Repeatability check `2026-09-29_18-38-39_a26403a9` used the same Proton/context
+configuration with a 35-second bound. The engine again logged manual sign-in
+activation. Automatic collection preserved 287004 bytes as session fortnite.log;
+the result recorded `stop_requested: true` and explained that raw QProcess
+CrashExit during cleanup is not a spontaneous-crash diagnosis. Capture was
+614 samples/max 13 owned processes/no PID 0/1; no anti-cheat was observed and no
+owned processes remained. Shipping SHA-256 is unchanged. This repeat validates
+log preservation/controlled-stop reporting, not additional gameplay behavior.

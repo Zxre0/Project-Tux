@@ -1,4 +1,5 @@
 #pragma once
+#include <QDateTime>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLockFile>
@@ -116,6 +117,7 @@ struct SupervisionResult {
     int exitCode = -1;
     QString error, moduleEvidence;
     bool traceReadable = true;
+    bool stopRequested = false;
 };
 struct SupervisionOptions {
     QString workingDirectory;
@@ -129,4 +131,6 @@ QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlin
                    int timeoutSeconds, bool traceStartup = false, bool engineStdout = false,
                    const QString &protonId = {}, bool launcherContextProbe = false);
 QString classifyFailure(const QString &text);
+QJsonObject captureGameLogs(const QString &prefix, const QString &directory,
+                            const QDateTime &notBefore);
 } // namespace fol
