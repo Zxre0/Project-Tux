@@ -39,7 +39,7 @@ QString classifyFailure(const QString &text) {
 }
 QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup, bool engineStdout,
-                   const QString &protonId, bool launcherContextProbe) {
+                   const QString &protonId, bool launcherContextProbe, bool localBackendProbe) {
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
                    QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
@@ -54,8 +54,11 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                        {"startup_trace", traceStartup},
                        {"engine_stdout_requested", engineStdout},
                        {"launcher_context_probe", launcherContextProbe},
+                       {"local_backend_probe", localBackendProbe},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(!localBackendProbe || (offlineProbe && launcherContextProbe),
+                "Local-backend experiment requires --offline-probe and --launcher-context-probe");
         require(!launcherContextProbe || offlineProbe,
                 "Launcher-context experiment requires --offline-probe network isolation");
         auto build = inspectBuild(Registry(paths).resolve(id));
@@ -64,6 +67,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         auto selectedProfile = Profile::forVersion(build.version);
         require(selectedProfile.has_value(), "Unsupported build: " + build.version);
         auto profile = *selectedProfile;
+        require(!localBackendProbe || !profile.localBackendArguments.isEmpty(),
+                "No local-backend experiment is defined for this build");
         require(!launcherContextProbe || !profile.launcherContextArguments.isEmpty(),
                 "No launcher-context experiment is defined for this build");
         require(offlineProbe || profile.privatePathVerified,
@@ -112,6 +117,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         args.append(profile.arguments);
         if (launcherContextProbe)
             args.append(profile.launcherContextArguments);
+        if (localBackendProbe)
+            args.append(profile.localBackendArguments);
         // Logging-only experiment, kept separate from the unchanged baseline.
         // A shipping build may ignore these; requesting output does not prove it
         // was enabled or that startup reached engine logging initialization.

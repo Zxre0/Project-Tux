@@ -1037,3 +1037,41 @@ These are asset-free CI results, separate from the real game probes. The next
 integration boundary is private backend/login/server behavior: the currently
 rendered screen is not authenticated or in a lobby, and host/private networking
 remains deliberately inaccessible to the diagnostic namespace.
+
+### Private-backend interface discovery (2026-09-29)
+
+Continued the original Linux-first project from clean main `eae2ce3`. Previous
+work was concrete progress: verified sign-in rendering, automatic game-log capture,
+regression tests and pushed commits. No interrupted game process was assumed live.
+GitHub CI for eae2ce3 completed successfully (run 36613755897), separately from
+the real game evidence. 12.61 files remain unavailable and claims remain separate.
+
+Read pinned upstream backend bootstrap/helpers, package metadata/license, port
+constants, XMPP listener, cloud-storage configuration delivery and game-server
+advertisement. Findings: HTTP 3551, XMPP/matchmaker listener 80 versus delivered
+client XMPP config 8080, and separate advertised gameplay port 7777. The helper's
+/unknown HTTP check proves reachability only. Upstream request-body logging and
+implicit listener binding are not adopted. No upstream server/code/assets/keys
+were installed, executed or copied. Recorded interface/licensing limits in
+REBOOT_LAUNCHER_ANALYSIS.md. Current host loopback UDP 7777 bind probe passed;
+corrected stale sandbox-denial wording without claiming firewall reachability.
+
+Read-only supplied-binary strings identified MCPCONFIG= and backend diagnostics.
+Implemented an opt-in, profile-defined localhost selection experiment, gated on
+existing context and network isolation. Five additional tests cover missing
+isolation/context, wrong build and Wine/Proton planning. All seven release CTest
+targets passed (25.16 seconds); core now reports 177 checks.
+
+Real Experimental probe `2026-09-29_18-46-46_f124f659` ran for at most 35 seconds.
+The engine recorded -MCPCONFIG=localhost but still selected the normal production
+Fortnite host with empty override. No working backend redirect was established;
+requests remained blocked, and the engine returned to logged manual sign-in.
+Automatic game-log capture saved 287026 bytes; 598 process samples, max 13, no
+PID 0/1, no EAC/BattlEye process/module observed, and cleanup complete. No raw
+logs or credentials are committed. This negative result prevents treating an
+unsupported argument as a functioning private-server workflow.
+
+Next: determine the actual supported backend configuration contract, if present,
+or a separately reviewed local-only adapter; preserve isolation and the known
+sign-in baseline. Do not start the upstream backend unchanged, assume XMPP ports
+agree, disable certificate checking, or claim multiplayer from a sign-in screen.

@@ -65,3 +65,30 @@ therefore do not describe that upstream value as the documented SHA-extension
 mask. A bounded isolated comparison may test its actual effect, without enabling
 it as a default or copying the excluded launch chain. Results belong in the
 [12.50 diagnostic record](FORTNITE_12_50.md).
+
+## Backend bootstrap interfaces
+
+Read-only follow-up at the same pinned commit separates three services:
+
+| Service | Source evidence | Integration consequence |
+| --- | --- | --- |
+| HTTP backend | auth_backend/index.js uses Express, port 3551; shared backend constants also specify 127.0.0.1:3551 | Native backend process management is separate from Wine/game execution. Node's listen call does not specify a bind address; do not run this unchanged on a private-by-default host. |
+| XMPP/matchmaker WebSocket | auth_backend/structure/xmpp.js binds port 80; common backend constants agree | This is not game UDP transport. CloudStorage/DefaultEngine.ini instead advertises port 8080: an actual mismatch to resolve explicitly, not an assumed working default. |
+| Gameplay server | auth_backend/Config/config.ini advertises GameServer 127.0.0.1:7777 | Advertisement does not start or validate the Reboot game-server DLL. |
+
+The HTTP backend is a LawinV1 fork packaged for Windows by its build/start scripts;
+its implementation is Node/Express, with GPL-3.0 licensing in its own directory.
+The inspected package has no real test command. No backend code, response assets,
+keys or profiles were copied, and no dependency installation or service execution
+was performed. In particular, index.js installs request/response body logging:
+an adapter must not blindly log credentials or assume that the upstream service
+is production-hardened. The shared launcher health check accepts any HTTP response
+from /unknown, which proves reachability, not version/protocol compatibility.
+
+Cloud storage serves its INI files over the backend. Those files therefore do not
+by themselves establish initial HTTP routing before the backend is reachable.
+The supplied 12.50 executable contains MCPCONFIG=, McpConfigOverride, invalid-backend
+diagnostics and localhost strings. These justify a bounded built-in configuration
+discovery experiment, not an assumption that a URL or config name is accepted.
+No TLS interception, production routing or authentication replacement is needed
+to observe how an isolated game parses that option.

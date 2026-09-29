@@ -45,6 +45,8 @@ int main(int argc, char **argv) {
           "Request engine stdout logging and flushing; support is build-dependent"},
          {"launcher-context-probe",
           "Opt-in 12.50 launcher-context experiment; requires --offline-probe; no authentication"},
+         {"local-backend-probe", "Probe built-in localhost backend selection; requires offline and "
+                                 "launcher-context probes"},
          {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});
     parser.process(app);
     auto args = parser.positionalArguments();
@@ -161,7 +163,8 @@ int main(int argc, char **argv) {
             result = fol::launch(paths, args[1], parser.isSet("print-command"),
                                  parser.isSet("offline-probe"), timeout,
                                  parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
-                                 parser.value("proton"), parser.isSet("launcher-context-probe"));
+                                 parser.value("proton"), parser.isSet("launcher-context-probe"),
+                                 parser.isSet("local-backend-probe"));
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||

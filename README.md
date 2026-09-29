@@ -172,6 +172,11 @@ files). Collection skips stale, unsafe or over-64-MiB files and reports its resu
 freshness is a timestamp check, not log-content attestation. Raw `crashed` is a
 QProcess exit-status flag: inspect `stop_requested` and `crash_diagnosis` before
 treating a bounded probe's SIGTERM exit as a spontaneous game crash.
+
+`--local-backend-probe` is a gated 12.50 discovery experiment, not a working server
+redirect: the tested built-in option did not change the selected backend. It
+requires both `--offline-probe` and `--launcher-context-probe`. No backend service
+is automatically started. See [networking evidence](docs/NETWORKING.md).
 The CLI prints JSON and returns nonzero on validation or launch failure.
 
 See [progress](docs/PROGRESS.md), [architecture](docs/ARCHITECTURE.md),

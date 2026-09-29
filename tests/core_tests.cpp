@@ -240,6 +240,18 @@ int main(int argc, char **argv) {
         auto contextUnknown = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true);
         check(contextUnknown["error"].toString().contains("No launcher-context experiment"),
               "12.50 launcher-context experiment does not silently apply to 12.61");
+        auto backendNoContext =
+            fol::launch(paths, "12.61", true, true, 1, false, false, {}, false, true);
+        check(backendNoContext["error"].toString().contains("requires --offline-probe and"),
+              "local backend experiment requires explicit context and isolation");
+        auto backendNoIsolation =
+            fol::launch(paths, "12.61", true, false, 1, false, false, {}, true, true);
+        check(backendNoIsolation["error"].toString().contains("requires --offline-probe and"),
+              "local backend experiment rejects non-isolated use");
+        auto backendWrongBuild =
+            fol::launch(paths, "12.61", true, true, 1, false, false, {}, true, true);
+        check(backendWrongBuild["error"].toString().contains("No local-backend experiment"),
+              "12.50 backend discovery does not silently apply to 12.61");
         fol::writeFile(temp.path() + "/module.dll", syntheticPe(true));
         check(fol::moduleReport(temp.path() + "/module.dll", {})["status"] == "unverified",
               "architecture is not module compatibility");
@@ -605,6 +617,14 @@ int main(int argc, char **argv) {
                           contextPlan["command"].toString().contains("'-d3d11' '-epicportal'") &&
                           contextPlan["command"].toString().contains("'--net'"),
                       "12.50 opt-in context experiment retains isolation in Wine and Proton");
+                auto backendPlan =
+                    fol::launch(paths, "12.61", true, true, 5, false, false, runtimeId, true, true);
+                check(backendPlan["status"] == "planned; not executed" &&
+                          backendPlan["local_backend_probe"].toBool() &&
+                          backendPlan["command"].toString().contains(
+                              "'-epicportal' '-MCPCONFIG=localhost'") &&
+                          backendPlan["command"].toString().contains("'--net'"),
+                      "local backend selection is explicit and retains network isolation");
             }
             auto contextBaseline = fol::launch(paths, "12.61", true, true, 5);
             check(!contextBaseline["command"].toString().contains("epicportal") &&

@@ -268,3 +268,24 @@ CrashExit during cleanup is not a spontaneous-crash diagnosis. Capture was
 614 samples/max 13 owned processes/no PID 0/1; no anti-cheat was observed and no
 owned processes remained. Shipping SHA-256 is unchanged. This repeat validates
 log preservation/controlled-stop reporting, not additional gameplay behavior.
+
+## Built-in backend selection discovery
+
+The supplied binary contains MCPCONFIG=, McpConfigOverride and backend-selection
+diagnostics. These strings suggested testing the built-in option, not assuming
+that it is a working private-backend API. An explicit --local-backend-probe adds
+only `-MCPCONFIG=localhost` to the context probe. It is restricted to this profile
+and requires both context and network-isolation opt-ins. No backend is started.
+
+Session `2026-09-29_18-46-46_f124f659`, Experimental host script, 35 seconds:
+the engine's filtered command line includes the new argument, but its backend
+selection still names the normal production Fortnite host, environment Prod and
+empty override. It returns to the same logged sign-in stage; production requests
+remain unreachable. Therefore the option/value alone did **not** redirect this
+build. No authentication/TLS changes or module loading were used. Do not promote
+this experiment to a supported --server command or loosen network isolation.
+
+Automatic capture saved 287026 bytes of game log. The supervisor requested the
+timeout stop, recorded 598 process samples (max 13, no PID 0/1), observed no
+EAC/BattlEye process/module and left no owned processes. This is a negative routing
+finding, not a new startup failure, login success or host compatibility result.
