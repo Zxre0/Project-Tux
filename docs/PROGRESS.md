@@ -1,5 +1,30 @@
 # Engineering progress
 
+## Current handoff state
+
+Milestone 1 remains blocked on accessible Fortnite 12.61 files and an established
+legitimate non-EAC private execution path. Native CLI, synthetic tests, diagnostics
+and Wine command execution work within the measured limits below; no game startup
+or gameplay is claimed. Four code checkpoints have been pushed to canonical main
+and all four GitHub Actions runs passed. Latest code checkpoint: `e37c201`.
+
+Installed native CLI: `/home/atlas/.local/bin/fortnite-linux`. Source checkout:
+`/home/atlas/Projects/FortniteOnLinux`. Dedicated prefixes `12.61` and
+`runtime-smoke` are initialized, with no owned processes remaining. Game files,
+unrelated prefixes, GPU drivers and boot configuration have not been modified.
+
+Next required external input: an accessible complete 12.61 installation path.
+The 930.5 GiB NTFS Windows partition `/dev/nvme1n1p3` is unmounted. A read-only,
+noninteractive UDisks mount attempt was denied with `NotAuthorizedCanObtain`.
+It was not mounted or inspected, and no filesystem repair/write was attempted.
+It may contain the missing game files; their presence/version is unknown.
+
+Resume by inspecting/validating supplied files, registering the detected build,
+checking the embedded profile and bootstrap inventory, then running the offline
+probe and capturing the first real failure. Do not start authentication modules,
+paused EAC stand-ins, protected services, or security-bypass experiments. Remaining
+graphics-stack LeakSanitizer findings are documented below, not suppressed.
+
 ## 2026-09-28/29: milestone 1, native core and evidence collection
 
 Canonical repository cloned to `/home/atlas/Projects/FortniteOnLinux`; verified
@@ -160,3 +185,21 @@ Next game-runtime work requires a complete legitimately supplied 12.61 build.
 Filesystem discovery and upstream inspection cannot supply those assets or prove
 a legitimate non-EAC private gameplay path. No game startup/menu/join/hosting
 success, native VC++ deployment, DXVK/VKD3D setup, or GUI completion is claimed.
+
+### Final verification and environment blocker
+
+Checkpoint `e37c201` pushed; Ubuntu CI run 36525961827 passed. Local release build:
+CTest 3/3 and 51 assertions passed. Sanitized non-GPU tests: 46 assertions passed;
+full graphics-enabled leak result remains unresolved as documented above.
+Installed the verified CLI using CMake to the previously absent user-local target;
+ran `version` and `builds` from `/tmp` successfully (registry empty). No installed
+binary was overwritten. Documentation includes user-local installation steps.
+
+Storage discovery found the unmounted Windows NTFS volume. Command attempted:
+`udisksctl mount --block-device /dev/nvme1n1p3 --options ro --no-user-interaction`.
+Result: `org.freedesktop.UDisks2.Error.NotAuthorizedCanObtain: Not authorized to
+perform operation`. Sudo also requires interactive authentication (earlier header
+installation attempt). No supplied game installation is accessible in the current
+environment. Real startup diagnosis cannot continue until the installation becomes
+accessible; screenshots, simulated assets and runtime smoke tests cannot substitute
+for it. No background development process or game is left running.

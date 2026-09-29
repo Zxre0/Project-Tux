@@ -16,6 +16,8 @@ detected. PE/hash checks are not signature/authenticity verification.
 No complete installation was found in Games, mounted volumes, or the wider home
 search. An unrelated Alea executable and a 14.60-labelled launcher directory were
 found; neither establishes a 12.61 installation and neither was launched or changed.
+The machine also has an unmounted Windows NTFS partition. Read-only mounting was
+denied by UDisks authorization; files on that volume have not been inspected.
 
 Current blockers: missing legitimate 12.61 files; no verified unmodified private
 execution path; no reviewed compatible module/backend environment. Client startup,

@@ -23,6 +23,9 @@ ninja qt6-base tomlplusplus vulkan-headers vulkan-icd-loader`.
 ./build/fortnite-linux diagnose
 ```
 
+Optional user-local installation: `cmake --install build --prefix "$HOME/.local"`.
+Ensure `$HOME/.local/bin` is on PATH, or invoke the installed binary by full path.
+
 If using a separately provisioned Khronos header checkout, configure once with
 `cmake -S . -B build -G Ninja -DVulkan_INCLUDE_DIR=/absolute/path/to/Vulkan-Headers/include`.
 `./build.sh` preserves that CMake cache setting. See [Linux notes](docs/LINUX.md).
