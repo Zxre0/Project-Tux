@@ -8,7 +8,7 @@ find_package(tomlplusplus 3.3 REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(ZLIB REQUIRED)
 add_library(fol_core
-    src/backend.cpp src/backend_http.cpp src/core.cpp src/fortnite.cpp src/runtime.cpp src/prefix_backup.cpp src/platform_linux.cpp
+    src/backend.cpp src/backend_http.cpp src/backend_profiles.cpp src/core.cpp src/fortnite.cpp src/runtime.cpp src/prefix_backup.cpp src/platform_linux.cpp
     src/diagnostics.cpp src/game_logs.cpp src/game_evidence.cpp src/http_probe.cpp src/launcher.cpp src/reboot.cpp src/proton.cpp src/supervisor.cpp src/manifest.cpp src/pe_imports.cpp profiles/profiles.qrc)
 target_include_directories(fol_core PUBLIC include PRIVATE ${Vulkan_INCLUDE_DIRS})
 target_link_libraries(fol_core PUBLIC Qt6::Core Qt6::Network tomlplusplus::tomlplusplus)
@@ -23,6 +23,9 @@ if(BUILD_TESTING)
     add_executable(backend-tests tests/backend_tests.cpp)
     target_link_libraries(backend-tests PRIVATE fol_core)
     add_test(NAME backend COMMAND backend-tests)
+    add_executable(backend-profile-tests tests/backend_profiles_tests.cpp)
+    target_link_libraries(backend-profile-tests PRIVATE fol_core)
+    add_test(NAME backend-profiles COMMAND backend-profile-tests)
     add_executable(backend-http-tests tests/backend_http_tests.cpp)
     target_link_libraries(backend-http-tests PRIVATE fol_core)
     add_test(NAME backend-http COMMAND backend-http-tests)

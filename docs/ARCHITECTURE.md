@@ -67,3 +67,14 @@ Process logs contain names, PID, parent PID and process start ticks. They omit
 unrelated command arguments and environment values. Shutdown uses pidfds and
 start-time validation, never global wineserver/taskkill commands. Monitoring is
 sampled and cannot prove that a short-lived process never existed.
+
+## Local backend profile component
+
+`backend_profiles` owns read-only `common_public`/`common_core` snapshots. The
+backend service handles authentication, exact-account routing and query validation;
+the HTTP layer handles framing and serialization. Snapshot revisions and creation
+times are stable within one backend lifetime, but state is currently in memory.
+Profile writes and cross-restart persistence remain unimplemented. Empty inventory
+and local metadata are original; no upstream profile inventories are imported.
+The actual 12.50 client accepts these query envelopes. This is not a 12.61 or
+completed-game-login compatibility claim.

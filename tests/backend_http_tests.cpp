@@ -34,13 +34,14 @@ int main(int argc, char **argv) {
                                  const QByteArray &token = QByteArray{},
                                  const QByteArray &method = QByteArray{},
                                  QByteArray *responseBody = nullptr,
-                                 QByteArray *responseType = nullptr) {
+                                 QByteArray *responseType = nullptr,
+                                 const QByteArray &requestType =
+                                     "application/x-www-form-urlencoded") {
             QNetworkRequest input(
                 QUrl("http://127.0.0.1:" + QString::number(server.serverPort()) + path));
             if (!token.isEmpty())
                 input.setRawHeader("Authorization", "Bearer " + token);
-            input.setHeader(QNetworkRequest::ContentTypeHeader,
-                            "application/x-www-form-urlencoded");
+            input.setHeader(QNetworkRequest::ContentTypeHeader, QString::fromLatin1(requestType));
             auto *reply = !method.isEmpty() ? network.sendCustomRequest(input, method, body)
                           : body.isEmpty()  ? network.get(input)
                                             : network.post(input, body);
@@ -97,6 +98,17 @@ int main(int argc, char **argv) {
         check(request(cloudPath, {}).first == 401,
               "HTTP unauthenticated user cloud index rejected");
         QByteArray responseBody, responseType;
+        check(request("/fortnite/api/storefront/v2/keychain", {}, token, "GET", &responseBody)
+                          .first == 200 &&
+                  QJsonDocument::fromJson(responseBody).isArray() &&
+                  QJsonDocument::fromJson(responseBody).array().isEmpty(),
+              "HTTP keychain contains zero asset keys");
+        const auto profile = request("/fortnite/api/game/v2/profile/" + identity.accountId +
+                                         "/client/QueryProfile?profileId=common_core&rvn=-1",
+                                     "{}", token, "POST", nullptr, nullptr, "application/json");
+        check(profile.first == 200 && profile.second["profileId"] == "common_core" &&
+                  profile.second["profileChanges"].toArray().size() == 1,
+              "HTTP profile query preserves JSON body, account and revision query");
         const auto platformPath =
             "/fortnite/api/game/v2/tryPlayOnPlatform/account/" + identity.accountId;
         check(

@@ -171,6 +171,13 @@ int main(int argc, char **argv) {
             service.handle("GET", "/lightswitch/api/service/Other/status", auth, {}, 1002).status ==
                 404,
             "unknown service does not report online");
+        const auto keychain =
+            service.handle("GET", "/fortnite/api/storefront/v2/keychain", auth, {}, 1002);
+        check(keychain.status == 200 && keychain.array && keychain.array->isEmpty(),
+              "private backend supplies no asset keys");
+        check(service.handle("GET", "/fortnite/api/storefront/v2/keychain", {}, {}, 1002).status ==
+                  401,
+              "keychain request requires authenticated player");
         const auto features =
             service.handle("GET", "/fortnite/api/game/v2/enabled_features", auth, {}, 1002);
         check(features.status == 200 && features.array && features.array->isEmpty(),

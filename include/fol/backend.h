@@ -1,4 +1,5 @@
 #pragma once
+#include "fol/backend_profiles.h"
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -30,6 +31,7 @@ class Service {
         QString refresh;
     };
     Identity identity;
+    Profiles profiles;
     QHash<QString, Session> sessions;
     QHash<QString, QPair<QString, qint64>> refreshTokens;
     Response issue(bool player, qint64 now);

@@ -17,9 +17,10 @@ tests and now passes the actual account-login stage: the game logs
 `Successfully logged in user` and `LoggedIn`. The actual game also accepts bulk
 account lookup, the local PC platform policy (text/plain boolean), and private
 Lightswitch service status. An empty configured-feature list and authenticated
-user-cloud index now advance it to QueryProfile. The current failures are missing
-common_public/common_core profiles; a profile-token verification failure was also
-observed in the preceding run. No stable logged-in menu or gameplay has been
+user-cloud index now advance it to QueryProfile. The game accepts original empty
+common_public/common_core profiles and reaches QueryKeychain, where it rejects
+the backend's empty key list. A profile-token verification failure was also
+observed in an earlier run. No stable logged-in menu or gameplay has been
 verified; no Epic entitlement or client-protection override is implemented.
 Other backend contracts, XMPP, profiles and gameplay remain incomplete.
 The real client accepts the private version-check and empty cloud-storage index.
@@ -84,6 +85,10 @@ checks, exit behavior and game files are not patched.
 - Authenticated local account lookup/list and PC platform policy.
 - Private backend availability, without catalogue overrides or download claims;
   this is not proof that a gameplay server is ready.
+- Read-only, in-memory common_public/common_core profiles with empty inventory.
+  Snapshots are stable during one backend lifetime; no edits/persistence yet.
+- Empty asset keychain only. The real client rejects it with UnableToParseJson;
+  this remains unresolved. No asset keys are extracted, downloaded or included.
 - Health and local version-check policy; no game updates are distributed.
 - Unsupported services fail with explicit errors, never silent success.
 

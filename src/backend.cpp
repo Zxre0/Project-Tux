@@ -2,6 +2,8 @@
 #include "fol/core.h"
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonParseError>
 #include <QPasswordDigestor>
 #include <QRandomGenerator>
 #include <QRegularExpression>
@@ -50,7 +52,8 @@ Identity Identity::create(const QString &username, const QString &displayName,
     result.passwordHash = digest(password, result.salt);
     return result;
 }
-Service::Service(Identity value) : identity(std::move(value)) {
+Service::Service(Identity value)
+    : identity(std::move(value)), profiles(identity.accountId, identity.displayName) {
     require(identity.username.endsWith("@localhost") && identity.salt.size() == 32 &&
                 identity.passwordHash.size() == 32 && identity.accountId.size() == 32,
             "Invalid private backend identity");
@@ -158,6 +161,31 @@ Response Service::handle(const QByteArray &method, const QString &path,
         token = QString::fromLatin1(authorization.mid(7));
     const auto found = sessions.constFind(token);
     const bool authorized = found != sessions.cend() && found->expires > now;
+    if (method == "POST" &&
+        path == "/fortnite/api/game/v2/profile/" + identity.accountId + "/client/QueryProfile") {
+        if (!authorized || !found->player)
+            return failure(401, "player_authentication_required");
+        const auto ids = query.allQueryItemValues("profileId");
+        const auto revisions = query.allQueryItemValues("rvn");
+        if (ids.size() != 1 || revisions.size() != 1)
+            return failure(400, "one_profile_and_revision_required");
+        if (!Profiles::supported(ids[0]))
+            return failure(404, "profile_not_implemented");
+        static const QRegularExpression revisionFormat("\\A(?:-1|0|[1-9][0-9]{0,9})\\z");
+        bool validRevision;
+        const auto revision = revisions[0].toInt(&validRevision);
+        if (!validRevision || !revisionFormat.match(revisions[0]).hasMatch())
+            return failure(400, "invalid_profile_revision");
+        if (headers.value("content-type").split(';').first().trimmed().toLower() !=
+            "application/json")
+            return failure(415, "profile_json_required");
+        QJsonParseError error;
+        const auto input = QJsonDocument::fromJson(body, &error);
+        if (error.error != QJsonParseError::NoError || !input.isObject() ||
+            !input.object().isEmpty())
+            return failure(400, "empty_profile_query_required");
+        return {200, profiles.query(ids[0], revision, now), "local-profile-" + ids[0]};
+    }
     if (method == "GET" && path == "/fortnite/api/cloudstorage/system") {
         if (!authorized)
             return failure(401, "invalid_access_token");
@@ -207,6 +235,13 @@ Response Service::handle(const QByteArray &method, const QString &path,
             return failure(400, "unsupported_kill_type");
         revoke(token);
         return {204, {}, "local-session-revoked"};
+    }
+    if (method == "GET" && path == "/fortnite/api/storefront/v2/keychain") {
+        if (!authorized || !found->player)
+            return failure(401, "player_authentication_required");
+        // This private service supplies no asset decryption keys. Required
+        // protected content must remain unavailable without legitimate keys.
+        return {200, {}, "local-empty-asset-keychain", QJsonArray{}};
     }
     if (method == "GET" && path == "/fortnite/api/game/v2/enabled_features") {
         if (!authorized || !found->player)

@@ -1753,3 +1753,64 @@ the loading artwork; game-startup-error-26s.png shows the unchanged startup erro
 Neither is evidence of completed login. Full regression11/11 in25.40s;57 backend
 and33 HTTP checks pass. Cleanup reports no owned processes remaining and no
 anti-cheat observed during sampled monitoring. Current goal remains incomplete.
+
+### Original local profile query implementation (2026-09-29)
+
+Previous turn made progress and pushed e1339de; its CI passes. Resumed with a clean
+worktree. Inspected the upstream MCP response envelope and metadata keys, not its
+inventory contents. Added a separate read-only in-memory Profiles component for
+common_public/common_core: own account ID, creation/update times, revision1,
+command revision0, empty items, and minimal local display/preferences metadata.
+It does not grant purchases, currency, cosmetics, gameplay access or entitlements.
+Snapshots are stable only during the backend lifetime; persistent profile edits
+are not implemented or claimed. Unknown commands/profiles fail explicitly.
+
+Service routing requires an authenticated player, the exact owned account path,
+one supported profileId and one bounded integer rvn, JSON content type and an
+empty JSON object. Stale/initial revisions receive fullProfileUpdate; current
+revision receives no changes. Separate profile tests cover revision resync,
+snapshot stability, no invented inventory, invalid/duplicate query fields,
+malformed bodies, unknown commands/accounts, live application-token rejection,
+and expiry. HTTP integration checks the actual JSON/query transport.
+
+Actual session2026-09-29_22-19-14_dd6dd435 verifies both profile responses200; the
+game advances from QueryProfile to QueryKeychain and aborts on its next404 with
+result37. No profile parsing failure observed. Cleanup complete; EAC not observed
+in sampled monitoring. Full regression12/12 in25.28s before the next route change.
+
+Read upstream storefront.js endpoint shape only; did not open/import its keychain
+data. Added an authenticated empty asset-keychain response because this service
+supplies no decryption keys. Protected assets requiring unavailable legitimate
+keys must remain unavailable; no extraction/download/protection changes are made.
+25 profile checks,59 backend checks and35 HTTP checks pass. Actual keychain test
+and full regression are running; no completed game login is yet claimed.
+
+Session2026-09-29_22-21-13_39cd6d5a receives empty-keychain200 but the game reports
+FMcpKeychainHelper UnableToParseJson and aborts with result37. The upstream data
+was inspected only for root type/count/entry types: array of2088 strings, no key
+values printed/imported. That shape alone does not prove why an empty array fails.
+Read-only executable inspection located the diagnostic string but did not locate
+its code references; no parser/root-cause claim follows from that inspection.
+
+Testing one serialization hypothesis: pretty-print the same empty array rather
+than the two-byte compact array. This changes neither keys nor authorization and
+does not create placeholder entries. HTTP regression verifies it remains a valid
+empty array.37 HTTP checks and25 profile checks pass; actual retest is running.
+
+Session2026-09-29_22-24-56_1dabb94e disproves the whitespace hypothesis: same
+UnableToParseJson/result37 with the pretty-printed empty array. Removed that
+formatting experiment. No synthetic keys/placeholders were added. A filename
+search of the supplied installation found no keychain/keys.json file. This does
+not establish the exact parser requirement or justify importing upstream keys.
+The unresolved next task is to establish the legitimate keychain contract/input;
+the independent startup-error dialog and profile-token verification also remain.
+Both keychain test runs cleaned up all owned processes; no anti-cheat observed
+during sampled monitoring. Regression12/12 in25.51s before removal of the failed
+formatting experiment; final regression follows. Goal remains active/incomplete.
+
+Final post-revert regression passes12/12 in25.31s:25 profile checks,59 backend
+authentication checks,37 HTTP checks plus the existing targets. Formatting and
+diff whitespace checks pass. The profile milestone is verified independently of
+the unresolved keychain/startup failures; no keychain compatibility success is
+claimed. Next investigation should establish the accepted keychain contract or
+document an authorized-input blocker, without guessing key material.
