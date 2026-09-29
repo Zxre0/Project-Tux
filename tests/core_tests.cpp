@@ -162,6 +162,19 @@ int main(int argc, char **argv) {
               "DLL failure classification");
         check(fol::classifyFailure("nothing informative") == "unknown; inspect logs",
               "no invented crash cause");
+        check(fol::classifyFailure("info: DXVK version 2.0\nerr:wineboot: service failed") ==
+                  "unknown; inspect logs",
+              "unrelated Wine error cannot implicate DXVK");
+        check(fol::classifyFailure("trace:loaddll: vkd3d.dll loaded\nerr:rpc: unavailable") ==
+                  "unknown; inspect logs",
+              "module presence cannot implicate VKD3D");
+        check(fol::classifyFailure("info: DXVK override configured without errors") ==
+                  "unknown; inspect logs",
+              "error substring is not a severity marker");
+        check(fol::classifyFailure("err: vkd3d: device initialization failed") == "vkd3d",
+              "component-scoped VKD3D error evidence");
+        check(fol::classifyFailure("error: DXVK device initialization failed") == "dxvk",
+              "component-scoped DXVK error evidence");
         auto launch = fol::launch(paths, "missing", false, false, 1);
         check(launch["status"] == "blocked" &&
                   QFile::exists(launch["logs"].toString() + "/result.json"),

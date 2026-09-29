@@ -7,6 +7,7 @@
 #include <QJsonDocument>
 #include <QLockFile>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QSet>
 #include <QStandardPaths>
 #include <QThread>
@@ -27,10 +28,20 @@ QString classifyFailure(const QString &text) {
         return "segmentation-fault";
     if (lower.contains("vk_error") || lower.contains("failed to create vulkan"))
         return "vulkan";
-    if (lower.contains("vkd3d") && lower.contains("err"))
-        return "vkd3d";
-    if (lower.contains("dxvk") && lower.contains("err"))
-        return "dxvk";
+    // Presence of a graphics library elsewhere in a Wine log is not evidence
+    // that an unrelated service error originated there. Require same-line
+    // component and severity evidence; these remain hints, not root causes.
+    static const QRegularExpression severity(R"((?:^|[\s:\]])(?:err|error|fatal)(?:[\s:]|$))");
+    static const QRegularExpression vkd3d(R"(\bvkd3d(?:-proton)?\b)");
+    static const QRegularExpression dxvk(R"(\bdxvk\b)");
+    for (const auto &line : lower.split('\n')) {
+        if (!severity.match(line).hasMatch())
+            continue;
+        if (vkd3d.match(line).hasMatch())
+            return "vkd3d";
+        if (dxvk.match(line).hasMatch())
+            return "dxvk";
+    }
     return "unknown; inspect logs";
 }
 QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool offlineProbe,

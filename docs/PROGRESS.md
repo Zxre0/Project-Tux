@@ -10,7 +10,7 @@ established. Native CLI, synthetic tests, diagnostics
 and Wine/Proton command execution work within the measured limits below; no game
 startup or gameplay is claimed. Latest pushed code checkpoint: `1e6ba64`.
 Last unrestricted release tests passed 109 assertions; sanitized non-GPU tests
-passed 100. Socket-independent tests currently pass 98 core and 32 manifest
+passed 100. Socket-independent tests currently pass 103 core and 32 manifest
 assertions, including ASan/UBSan with leak detection explicitly disabled. The
 separate network test fails UDP bind; do not report the full suite as passing.
 Graphics-enabled LeakSanitizer remains unresolved, and sandbox leak checks fail.
@@ -441,3 +441,20 @@ Reviewed corrected Wine log again: RPC exception is handled and engine teardown
 still supplies no decisive cause. Next useful offline task: tighten failure
 classification so unrelated Wine errors cannot falsely blame DXVK/VKD3D merely
 because their names occur elsewhere in the log. Real startup remains blocked.
+
+### Prevent misleading graphics failure classification
+
+Network-test separation committed as `e2edb4f`. Reproduced the classifier defect
+with a failing regression: `info: DXVK version 2.0` followed on another line by
+an unrelated Wine service error was incorrectly classified as DXVK. Changed only
+the graphics hint matching to require a same-line component name and severity
+token, instead of finding `err` anywhere in the entire log. Added five assertions
+for unrelated errors, mere module presence, non-severity substrings and positive
+component-specific errors. The corrected real Wine log's cause remains unknown;
+no startup arguments, protections or runtime binaries changed.
+
+Release and ASan/UBSan socket-independent suites pass: 103 core + 32 manifest
+assertions, leak detection explicitly disabled for the sandbox run. The network
+target remains failing; graphics-dependent supervisor checks remain skipped.
+Next: improve native network diagnostics for socket-creation denial, since Qt
+currently reports only `Unknown error` for this environment's EPERM restriction.
