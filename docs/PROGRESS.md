@@ -1841,3 +1841,31 @@ diff whitespace checks pass. No new game launch or screenshot was made: no
 response/runtime change justifies repeating the same experiment. Next task still
 requires evidence of the exact compatible keychain contract; a nonempty upstream
 list alone is not proof of what is necessary or permission to redistribute it.
+
+### Blocked audit: compatible keychain contract/input (2026-09-29)
+
+The previous turn made real diagnostic progress (2b6f48c, pushed), not game-login
+progress. Revalidated clean main, current transport source, upstream file locations
+and the same actual-game failures. Native transport sends application/json and
+the correct Content-Length for the tested array. Current public Unreal API docs
+list deserializer overloads but do not establish this Fortnite12.50 helper's
+acceptance rules. A further read-only PE inspection confirms the diagnostic
+string at file offset0x5b875e0 / address0x145b883e0; no absolute pointer reference
+was found. This is not a parser diagnosis, and no binary was modified.
+
+The same keychain blocker has persisted across at least three consecutive goal
+turns: actual compact/pretty-array failures, reference/diagnostic work, and this
+revalidation. Available reference code gives a route and bundled data, not a
+proven minimal response. We have no established authorized, known-good12.50
+private-backend keychain response or matching parser contract. Further unchanged
+launches or fabricated entries would not be a justified fix. Unrelated backend
+features/tests would not establish the requested completed game login.
+
+Resume when an authorized known-good private response/fixture or matching API/parser
+documentation is available for comparison. Do not request Epic credentials or
+production tokens, copy upstream keys by assumption, extract protected keys, or
+patch away the client check. A nonempty key requirement is still unproven.
+The independent startup-error dialog and earlier profile-token failure also
+remain unresolved. The goal is blocked, not complete; no successful-login
+screenshot or gameplay claim is justified. All existing implementation commits
+are pushed; the last full local suite passed12/12.
