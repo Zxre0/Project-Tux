@@ -6,6 +6,9 @@ now passes the supplied12.50 client's QueryKeychain stage and reaches its
 remains the default and still rejects at keychain. A startup-error dialog and
 profile-token verification failure remain with Lawin; no stable menu/gameplay
 success is claimed. Select the provider explicitly with `--lawin-config`.
+The optional provider now also authenticates real-game XMPP and creates a local
+party accepted by the game as Active; see the integration README for evidence and
+limitations. The native default backend's historical limitations below are unchanged.
 
 The current backend is original C++/Qt code, separate from Wine, the Windows HTTP
 adapter and Project Reboot's gameplay server. It binds IPv4 loopback only. It does

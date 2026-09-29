@@ -27,6 +27,23 @@ async function main() {
   const data = await keys.json();
   if (keys.status !== 200 || !Array.isArray(data) || !data.every(x => typeof x === 'string'))
     throw new Error('keychain-contract-failed');
+  const partyBase = base + '/party/api/v1/Fortnite';
+  if ((await fetch(partyBase + '/user/' + session.account_id)).status !== 401)
+    throw new Error('party-no-auth-not-rejected');
+  if ((await fetch(partyBase + '/user/' + '0'.repeat(32), {headers})).status !== 403)
+    throw new Error('party-other-account-not-rejected');
+  const created = await fetch(partyBase + '/parties', {method: 'POST',
+    headers: {...headers, 'content-type': 'application/json'}, body: JSON.stringify({
+      config: {max_size: 16}, join_info: {connection: {
+        id: session.account_id + '@prod.ol.epicgames.com/fol-smoke'}}, meta: {test: 'local'}})});
+  if (created.status !== 200) throw new Error('party-create-failed');
+  const party = await created.json();
+  const summary = await (await fetch(partyBase + '/user/' + session.account_id, {headers})).json();
+  if (summary.current?.[0]?.id !== party.id) throw new Error('party-not-persisted');
+  if ((await fetch(partyBase + '/parties/' + party.id + '/members/' + session.account_id,
+    {method: 'DELETE', headers})).status !== 204) throw new Error('party-leave-failed');
+  console.log(JSON.stringify({test: 'lawin-party', authorization: 'enforced',
+    create: 'accepted', query: 'persisted', leave: 'accepted'}));
   if (process.argv[3]) {
     const {config} = require('./config.cjs').deployment(process.argv[3]);
     const {createRequire} = require('node:module');

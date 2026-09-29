@@ -47,6 +47,15 @@ async function main() {
   global.exchangeCodes = [];
   global.Clients = [];
   global.MUCs = {};
+  const authenticate = async (accountId, token) => {
+    if (accountId !== user.accountId || !global.accessTokens.some(entry =>
+      entry.accountId === accountId && entry.token === token) || !token.startsWith('eg1~')) return null;
+    try {
+      const claims = upstream('jsonwebtoken').verify(token.slice(4), global.JWT_SECRET,
+        {algorithms: ['HS256']});
+      return claims.sub === accountId && await User.exists({accountId, banned: false}) ? accountId : null;
+    } catch { return null; } // Invalid/expired token; no fallback authorization.
+  };
   stage = 'load-routes';
   const app = express();
   app.use(express.json({limit: '32kb'}));
@@ -85,6 +94,8 @@ async function main() {
   });
   app.use(['/Builds', '/launcher/api/public/assets'],
     (req, res) => res.sendStatus(501));
+  require('./party.cjs').register(app, {accountId: user.accountId, authenticate,
+    record: data => process.send?.(data)});
   for (const route of ['auth','user','lightswitch','version','cloudstorage','storefront',
     'contentpages','friends','timeline','mcp','main']) app.use(upstream(`./routes/${route}.js`));
   app.use((req, res) => res.sendStatus(404));
@@ -93,16 +104,7 @@ async function main() {
     res.sendStatus(500);
   });
   stage = 'start-local-xmpp';
-  await require('./xmpp.cjs').listen({upstream, record: data => process.send?.(data),
-    authenticate: async (accountId, token) => {
-      if (accountId !== user.accountId || !global.accessTokens.some(entry =>
-        entry.accountId === accountId && entry.token === token) || !token.startsWith('eg1~')) return null;
-      try {
-        const claims = upstream('jsonwebtoken').verify(token.slice(4), global.JWT_SECRET,
-          {algorithms: ['HS256']});
-        return claims.sub === accountId && await User.exists({accountId, banned: false}) ? accountId : null;
-      } catch { return null; } // Authentication rejection, never accepted on verifier failure.
-    }});
+  await require('./xmpp.cjs').listen({upstream, authenticate, record: data => process.send?.(data)});
   app.listen(3551, '127.0.0.1', () => process.send?.({event: 'ready'}));
 }
 main().catch(err => {

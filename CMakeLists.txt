@@ -24,7 +24,8 @@ if(BUILD_TESTING)
     if(NODE_EXECUTABLE)
         add_test(NAME lawin-config COMMAND ${NODE_EXECUTABLE} --test
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/config.test.cjs
-            ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/xmpp.test.cjs)
+            ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/xmpp.test.cjs
+            ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/party.test.cjs)
     endif()
     add_executable(backend-tests tests/backend_tests.cpp)
     target_link_libraries(backend-tests PRIVATE fol_core)

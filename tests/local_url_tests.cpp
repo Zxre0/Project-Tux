@@ -19,12 +19,18 @@ int main() {
         check(
             fol_local_url(L"https://fortnite-public-service.ol.epicgames.net/fortnite/api/version",
                           result, 4096) == 1);
+        check(fol_local_url(
+                  L"https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnite/parties",
+                  result, 4096) == 1);
+        check(std::wcscmp(result, L"http://127.0.0.1:3551/party/api/v1/Fortnite/parties") == 0);
         for (const wchar_t *url :
              {L"https://attacker.invalid/account/api/oauth/token",
               L"https://account.ol.epicgames.com.attacker.invalid/account/api/oauth/token",
               L"https://account.notol.epicgames.com/account/api/oauth/token",
               L"https://account.ol.epicgames.com/telemetry/",
               L"https://account.ol.epicgames.com/account/apix/token",
+              L"https://party-service-prod.ol.epicgames.com/party/api/v1/OtherGame/parties",
+              L"https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnitex/parties",
               L"http://127.0.0.1:3551/account/api/oauth/token"}) {
             check(fol_local_url(url, result, 4096) == 0);
             check(result[0] == 0);

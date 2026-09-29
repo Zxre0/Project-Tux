@@ -1992,3 +1992,34 @@ precedes VerifyProfileToken HTTP failure at13.847: response failure is not prove
 to cause that dialog. Owned processes cleaned up; no EAC observed in samples.
 No12.61 test or stable lobby is claimed. Next: authenticated stateful local party
 HTTP integration, then compare the real game's state and independent startup error.
+
+### Real-game active local party through Lawin (2026-09-29)
+
+Committed/pushed XMPP checkpointcbe59b4. Added an original stateful single-account
+party adapter, using Reboot Launcher's party.js response shape as a reference,
+not its stateless blanket204 behavior. Maintains party/member metadata and revision
+numbers, enforces local JWT/account ownership and metadata/configuration bounds,
+rejects forged membership and unauthorized access, and implements leaving. Defaults
+to invited-only discovery. No public service, invitations or matchmaking is added.
+Unsupported configuration mutations and API operations explicitly fail. Extended
+the existing hash-gated local URL selector only for /party/api/v1/Fortnite/ and
+added positive/negative route tests; rebuilt all Windows helpers with Clang/LLD.
+
+Seven Node synthetic tests pass, including creation/query/deep-copy isolation,
+revision conflicts/updates, metadata rejection, private-config enforcement and
+leaving. Real isolated HTTP smoke passes401 unauthenticated,403 other-account,
+party create/query/leave, original auth/profile/keychain and XMPP handshake. All13
+release CTest targets passed25.38s; formatting adjusted after the format check.
+
+Actual session2026-09-29_23-22-29_63f1dcea used the same120-second isolated Lawin
+command and Protonexperimental-20260924 Wine11.18. Backend records party-created,
+party-updated, party-member-updated. Game line3251 reports Successfully created
+party; lines3282/3292 report persistent party state Active. Completed at3298 and
+HandleLoginRequestComplete Result2 at3315. Client visibility/config change receives
+explicit501 unsupported_config, while metadata updates succeed204. Unknown party
+notification-counter route is also not faked. AppES closing code1 remains at3777
+and the startup dialog/exit still occurs; profile-token verification remains501.
+All owned processes cleaned up; no EAC observed during sampled monitoring. No
+functional lobby or12.61 claim. Next: investigate the independent startup error
+from its actual provenance and permitted launch context, not by assuming a party
+timeout or by fabricating profile-token verification.

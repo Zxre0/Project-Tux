@@ -113,3 +113,15 @@ the HTTP CreateParty request, which remains unreachable because the local URL
 selector does not yet include party routes. This is the next integration task.
 The startup error remains: LogAppES closing code1 precedes the profile-token501
 response. Do not assume that fabricating a successful verification would fix it.
+
+Session `2026-09-29_23-22-29_63f1dcea` verifies the next step: **Successfully
+created party**, persistent party state **Active**, followed by accepted party
+and member metadata updates. The original party service now maintains one private
+local member, enforces access-token authentication/account ownership, revisions,
+bounded metadata and leave semantics. The URL selector includes only Fortnite's
+party API, not arbitrary service paths. Unsupported operations/config changes
+return explicit failures; in particular the client's request to change party
+visibility is not silently acknowledged. No public listing, invitations,
+matchmaking, remote members or multiplayer support is claimed.
+The same independent startup dialog and profile-token failure still prevent a
+verified functional lobby. Party creation is not gameplay or lobby completion.
