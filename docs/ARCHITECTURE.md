@@ -21,6 +21,11 @@ optionally verifies existing local files. It never executes manifest commands,
 downloads files or treats a local manifest as authenticated provenance.
 `pe_imports.cpp` reads bounded x64 import descriptors and inventories explicit DLL
 directories; it does not load libraries or emulate the Windows loader.
+`game_logs.cpp` preserves fresh prefix-local game logs after process cleanup;
+`game_evidence.cpp` extracts a small set of complete known diagnostic lines into
+structured observations. The same bounded parser supports historical CLI log
+analysis. It does not reinterpret sign-in markers as gameplay, or a backend's
+configured host as network reachability. Evidence is capped and truncation reported.
 `prefix_backup.cpp` owns recoverable Wine-prefix snapshots and restoration.
 `proton.cpp` owns runtime import, shared session preparation and isolated command
 smoke tests. `prepareProtonSession` validates runtime/compatibility-data ownership,

@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
         "manifest PATH [--installation ROOT] [--hash-files], "
         "imports PE_PATH [--dll-dir DIRECTORY...], "
         "module PATH, "
-        "network ADDRESS PORT, logs, processes, version");
+        "network ADDRESS PORT, logs [analyze GAME_LOG], processes, version");
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addPositionalArgument("command", "Command and arguments", "command [arguments...]");
@@ -193,11 +193,17 @@ int main(int argc, char **argv) {
             result = fol::portReport(args[1], quint16(port));
             exitCode = result["bind_available"].toBool() ? 0 : 2;
         } else if (command == "logs") {
-            arity(1);
-            result["path"] = paths.state + "/logs";
-            result["sessions"] = QJsonArray::fromStringList(
-                QDir(paths.state + "/logs/sessions")
-                    .entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name));
+            if (args.size() == 3 && args[1] == "analyze") {
+                fol::require(QFileInfo(args[2]).isFile(), "Game log must be a regular file");
+                result = fol::analyzeGameLog(fol::readFile(args[2], 64 * 1024 * 1024));
+                result["source"] = QFileInfo(args[2]).absoluteFilePath();
+            } else {
+                arity(1);
+                result["path"] = paths.state + "/logs";
+                result["sessions"] = QJsonArray::fromStringList(
+                    QDir(paths.state + "/logs/sessions")
+                        .entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name));
+            }
         } else if (command == "processes") {
             arity(1);
             QJsonArray entries;

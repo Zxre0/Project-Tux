@@ -43,6 +43,7 @@ QJsonObject captureGameLogs(const QString &prefix, const QString &directory,
             entry["status"] = "captured";
             entry["destination"] = directory + "/" + name;
             entry["bytes"] = data.size();
+            entry["observations"] = analyzeGameLog(data);
             entry["modified_utc"] = info.lastModified().toUTC().toString(Qt::ISODateWithMs);
             ++copied;
         }

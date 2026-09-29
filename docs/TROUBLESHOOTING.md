@@ -67,3 +67,24 @@ run; it makes no claim about leaks, graphics or socket-dependent functionality.
 Five subsequent classifier regressions bring the portable core count to 103.
 Native socket diagnostics and shared game-supervisor regressions subsequently
 bring that count to 125 (plus 32 manifest assertions), with the same exclusions.
+## Inspect game-reported startup blockers
+
+`fortnite-linux logs analyze /path/to/session/fortnite.log` reads an existing log
+without launching Wine or contacting any service. Captured game logs are analyzed
+automatically after launch cleanup. Engine and compatible-engine versions remain
+separate from static installation detection. Backend selection, missing backend
+configuration, invalid-backend rejection and manual-sign-in observations include
+one-based source line numbers. Only a small set of complete known diagnostic lines
+is recognized; absent markers mean unobserved, not proof that a stage never ran.
+
+For the supplied 12.50 installation, `-epicapp=Localhost` is recognized but the game
+reports missing Fortnite MCPConfig Localhost for service fortnite and rejects it.
+This is a game-side configuration blocker, not evidence that a local listener or
+firewall change would fix startup. Omit `--local-backend-probe` to reproduce the
+verified context-only sign-in baseline; that baseline still has no private login.
+
+Analysis is capped at 64 MiB, skips lines longer than 4096 bytes and retains at
+most 128 evidence entries, reporting any truncation. It does not echo arbitrary
+command lines, HTTP bodies or log text. Raw game logs may still contain sensitive
+data; inspect and redact them before sharing. Analysis success (CLI exit zero)
+means the file was analyzed, not that the game started successfully.

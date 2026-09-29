@@ -173,6 +173,16 @@ freshness is a timestamp check, not log-content attestation. Raw `crashed` is a
 QProcess exit-status flag: inspect `stop_requested` and `crash_diagnosis` before
 treating a bounded probe's SIGTERM exit as a spontaneous game crash.
 
+Captured logs include structured engine/backend/sign-in observations with source
+line numbers. To inspect an existing log without launching anything:
+
+```sh
+fortnite-linux logs analyze /path/to/session/fortnite.log
+```
+
+This reports logged stages, not proof of rendering, login or gameplay. Backend
+configuration rejection is reported separately from the runtime's exit status.
+
 `--local-backend-probe` is a gated 12.50 discovery experiment, not a working server
 redirect. The initial MCPCONFIG option did not change the selected backend; the
 current experiment tests the separate built-in epicapp Localhost selector. It

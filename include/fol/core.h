@@ -132,6 +132,7 @@ QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlin
                    const QString &protonId = {}, bool launcherContextProbe = false,
                    bool localBackendProbe = false);
 QString classifyFailure(const QString &text);
+QJsonObject analyzeGameLog(const QByteArray &data);
 QJsonObject captureGameLogs(const QString &prefix, const QString &directory,
                             const QDateTime &notBefore);
 } // namespace fol

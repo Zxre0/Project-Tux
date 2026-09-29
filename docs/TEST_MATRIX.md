@@ -53,3 +53,14 @@ Both ended at the supervisor timeout, with no owned processes remaining and no
 EAC/BattlEye process/module observed. Game-internal UAC checks remain present.
 See [12.50 evidence](FORTNITE_12_50.md). All 12.61 and other-desktop claims remain
 unchanged; a 12.50 sign-in screenshot is not private gameplay compatibility.
+
+## Isolated 12.50 backend discovery
+
+| Selector experiment | Observed result | Interpretation |
+| --- | --- | --- |
+| MCPCONFIG=localhost | Normal production backend selection remains; requests isolated | Not a working redirect |
+| epicapp=Localhost | Selector recognized; missing service configuration, host unconfigured, backend rejected | No working private backend; context-only sign-in baseline is a separate command |
+
+The second experiment was repeated once to validate automatic structured game-log
+reporting. Both runs cleaned up and had no observed EAC/BattlEye process/module.
+No backend service, credentials, private login or server connection was tested.

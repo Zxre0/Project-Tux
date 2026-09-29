@@ -3,22 +3,22 @@
 ## Current handoff state
 
 Fortnite 12.61 files remain unavailable. The user supplied a separate 12.50 build;
-its metadata, structure and all 398 local-manifest file hashes are verified, and isolated startup diagnostics are in
-progress. GPU/socket restrictions were removed by the user; Wine command execution
-and the full seven-target release suite pass again. Isolated system-Wine runs
-still exit 1; the cause is unresolved. A separate bundled-Wine test fixed missing
-VKD3D imports, then reached exit 1 as well. Native-managed Proton-script host
-probes now start Shipping through both Experimental and Hotfix, also exiting 1;
-Steam Linux Runtime container integration is not implemented.
-No legitimate non-EAC private execution path is
-established. Native CLI, synthetic tests, diagnostics
-and Wine/Proton command execution work within the measured limits below; no
-functional game startup or gameplay is claimed. All ten previously pending commits through
-`f142446` were pushed to main after access was restored, followed by tracing
-checkpoints through `3bea573`. Current release core tests pass 153 checks; release and
-ASan/UBSan CTest pass 7/7 (sanitizer leak detection disabled). Earlier restricted-run
-results below remain historical evidence, not the current environment status.
-Graphics-enabled LeakSanitizer findings remain unresolved.
+its metadata, structure and all 398 local-manifest file hashes are verified.
+GPU/socket restrictions were removed by the user. The opt-in isolated 12.50
+launcher-context probe now reaches a visually verified sign-in screen using
+Proton Experimental/DXVK on CachyOS/NVIDIA/Hyprland. Baseline arguments still exit
+early; distinguish those historical runs from the context experiment. Steam Linux
+Runtime container integration is not implemented. No login, lobby, private join,
+hosting or 12.61 gameplay is verified.
+
+Private-backend discovery narrowed the next blocker: MCPCONFIG=localhost did not
+change selection; epicapp=Localhost is recognized but lacks the game's service
+configuration and is rejected with host unconfigured. Do not interpret this
+known-negative opt-in as a working private launch path. Latest verified release
+suite passes 8/8 targets, including 177 core checks and 15 game-evidence checks.
+Historical sanitizer results below are scoped to their exact revisions and
+settings; graphics-enabled LeakSanitizer findings remain unresolved. Findings
+through b8406b7 are pushed and GitHub CI passed (run 36615515180).
 
 Installed native CLI: `/home/atlas/.local/bin/fortnite-linux`. Source checkout:
 `/home/atlas/Projects/FortniteOnLinux`. Dedicated prefixes `12.61` and
@@ -37,14 +37,13 @@ noninteractive UDisks mount attempt was denied with `NotAuthorizedCanObtain`.
 It was not mounted or inspected, and no filesystem repair/write was attempted.
 It may contain the missing game files; their presence/version is unknown.
 
-Latest startup lead: an unsuccessful Epic launcher-registration lookup immediately
-before exit in a registry trace. Causality and any protection requirement remain
-unproven. Next: inspect authorized development-launch requirements and complete
-evaluate evidence beyond the reproduced launcher-discovery failure without changing
-game authorization requirements. Do not blindly repeat
-the same exit-1 configuration. Do not start authentication modules,
-paused EAC stand-ins, protected services, or security-bypass experiments. Remaining
-graphics-stack LeakSanitizer findings are documented below, not suppressed.
+Current task: structured game-log diagnostics and regression tests, followed by
+the unresolved private-service configuration contract. The successful context-only
+sign-in baseline remains available. Reboot source search found no MCPConfig
+configuration setting, and the supplied installation has no loose relevant INI
+file. Neither result proves no supported configuration route exists. Do not
+blindly repeat known-negative arguments, start paused EAC stand-ins, contact
+protected production services or treat offline sign-in as private gameplay.
 
 ## 2026-09-28/29: milestone 1, native core and evidence collection
 
@@ -1096,3 +1095,39 @@ context-only Proton sign-in baseline remains available without this opt-in.
 Next: surface these exact engine/backend/startup observations in structured
 diagnostics, with evidence locations and no false gameplay or crash claim. A
 game-side private-service configuration contract remains unresolved.
+
+### Structured game evidence and real-run verification (2026-09-29)
+
+Added a separate bounded analyzer for exact known engine-version, compatible
+engine-version, backend-selection, missing-configuration, rejection and manual
+sign-in diagnostic lines. Reports include source line numbers and explicit limits;
+no rendering, authentication or gameplay is inferred from log markers. Arbitrary
+command lines and HTTP payloads are not copied into the summary. Collection adds
+the report to each captured log, and a backend rejection is surfaced separately
+from the supervisor's raw timeout/signal status. Historical logs can be inspected
+with `fortnite-linux logs analyze PATH` without launching the game or network code.
+
+Fifteen asset-free evidence tests cover empty logs, timestamps/BOM/CRLF, engine
+metadata separation, missing configuration, sign-in markers, mixed observations,
+false-positive substrings, credential-like fields, bounded evidence/lines/input,
+CLI errors and automatic capture integration. All eight release CTest targets
+pass (25.20 seconds). Historical real sign-in and Localhost rejection logs produce
+distinct correct summaries. Updated the stale current-handoff section above;
+older baseline failures remain in the historical record rather than being erased.
+
+Real repeat session `2026-09-29_18-59-23_ae62dde0` validates the new automatic
+reporting, not another blind attempt at the same backend. It captures 141314 bytes
+with all five expected observations, including missing configuration at line1488
+and rejection at line1490. The top-level game_reported_blocker is explicit. At the
+30-second bound, the supervisor stops and cleans up; 520 samples/max13/no PID0/1,
+no EAC/BattlEye observed. Shipping SHA-256 remains unchanged. No private backend
+or authentication component was started. The missing configuration contract and
+missing 12.61 installation remain the next startup/integration prerequisites.
+
+Rebuilt the current ASan/UBSan configuration and passed all eight CTest targets
+(39.46 seconds), with ASAN_OPTIONS=detect_leaks=0 and UBSAN_OPTIONS=halt_on_error=1.
+This is not a resolution of historical graphics-stack leak findings. Installed
+the current release CLI to ~/.local/bin and verified its historical-log command.
+The isolated game-evidence test also passes all 15 checks with leak detection
+enabled; it does not initialize the graphics stack, so this does not close the
+separate graphics leak issue.

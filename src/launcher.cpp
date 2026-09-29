@@ -228,9 +228,17 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                 log.seek(qMax(qint64(0), log.size() - 1024 * 1024));
                 result["likely_subsystem"] = classifyFailure(QString::fromUtf8(log.readAll()));
             }
-            if (outcome.started && !outcome.remaining)
+            if (outcome.started && !outcome.remaining) {
                 result["game_logs"] = captureGameLogs(prefixPath, directory, launchStarted);
-            else
+                const auto files = result["game_logs"].toObject()["files"].toArray();
+                for (const auto &file : files) {
+                    const auto observations = file.toObject()["observations"].toObject();
+                    if (observations["backend_rejected_logged"].toBool())
+                        result["game_reported_blocker"] =
+                            "Backend configuration rejected; see game_logs observations and "
+                            "source line numbers. This is separate from runtime exit status.";
+                }
+            } else
                 result["game_logs"] =
                     QJsonObject{{"status", "not collected: no start or incomplete cleanup"}};
         }
