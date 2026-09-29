@@ -23,6 +23,7 @@ async function main() {
   stage = 'prepare-local-account';
   const User = upstream('./model/user.js');
   const Profile = upstream('./model/profiles.js');
+  Profile.schema.set('minimize', false);
   const Friends = upstream('./model/friends.js');
   let user = await User.findOne({email: login.username});
   if (!user) {
@@ -40,6 +41,8 @@ async function main() {
   }
   if (!await Profile.exists({accountId: user.accountId}) ||
       !await Friends.exists({accountId: user.accountId})) throw new Error('Incomplete local account');
+  const repaired = await require('./profile-schema.cjs').repairEmptyInventories(Profile, user.accountId);
+  process.send?.({event: 'profile-schema-checked', empty_inventories_restored: repaired});
   global.JWT_SECRET = crypto.randomBytes(32).toString('hex');
   global.accessTokens = [];
   global.refreshTokens = [];
@@ -77,15 +80,9 @@ async function main() {
   // Do not adopt upstream platform-check disabling hotfixes or fabricated manifests.
   require('./cloud.cjs').register(app);
   app.use('/fortnite/api/game/v2/profileToken', (req, res) => {
-    const fields = ['token', 'profileToken', 'profile_token', 'accountId', 'signature'];
-    const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const metadata = Object.entries(body).slice(0, 16).map(([key, value]) => ({
-      field: fields.includes(key) ? key : 'unrecognized', type: typeof value,
-      length: typeof value === 'string' ? value.length : undefined,
-      matches_local_access_token: typeof value === 'string' &&
-        global.accessTokens.some(entry => entry.token === value)
-    }));
-    process.send?.({event: 'profile-token-unimplemented', fields: metadata,
+    const shape = require('./payload-shape.cjs').describe(req.body,
+      value => global.accessTokens.some(entry => entry.token === value));
+    process.send?.({event: 'profile-token-unimplemented', shape,
       content_type: ['application/json','application/x-www-form-urlencoded'].includes(
         (req.headers['content-type'] || '').split(';')[0]) ? req.headers['content-type'].split(';')[0] : 'other',
       authenticated_local_session: global.accessTokens.some(entry =>

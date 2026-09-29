@@ -1981,7 +1981,7 @@ binding/session/ping, unsupported IQ, unsupported rooms, and exact cloud hashes.
 Real isolated HTTP+WebSocket smoke in lawin-xmpp-smoke-VT3rcN passed password
 rejection/login, account verify, profile/keychain transport, XMPP auth/bind/session.
 Release build and all13 CTest targets passed in25.27s (five Node subtests).
-Actual game session2026-09-29_23-17-45_bc59bd91, Protonexperimental-20260924 Wine11.18,
+Actual game session2026-09-29_23-17-45_bc59bd91, Protonexperimental-20260924 bundled Wine11.0,
 same offline/context/helper/private-backend/development-login command as prior
 Lawin runs, timeout120, OPENSSL_ia32cap unset: XMPP authenticates/binds at23:18:11,
 game logs OnXmppLoginChanged LoggedIn. Cloud delivery now works. Party creation
@@ -2012,7 +2012,7 @@ party create/query/leave, original auth/profile/keychain and XMPP handshake. All
 release CTest targets passed25.38s; formatting adjusted after the format check.
 
 Actual session2026-09-29_23-22-29_63f1dcea used the same120-second isolated Lawin
-command and Protonexperimental-20260924 Wine11.18. Backend records party-created,
+command and Protonexperimental-20260924 bundled Wine11.0. Backend records party-created,
 party-updated, party-member-updated. Game line3251 reports Successfully created
 party; lines3282/3292 report persistent party state Active. Completed at3298 and
 HandleLoginRequestComplete Result2 at3315. Client visibility/config change receives
@@ -2031,3 +2031,54 @@ and the independently found FNLauncher source depend on paused launcher/EAC
 processes; no such process spoofing/suspension or packaged bypass was executed.
 Recorded references/limits in EAC.md. The exact AppES condition remains unknown,
 not assumed fixed by XMPP or party state. Pushed50c0a98; XMPP checkpoint CI passed.
+
+### Profile schema repair and controlled runtime comparison (2026-09-29)
+
+Previous goal turn made actual implementation/runtime progress: authenticated XMPP
+and Active local party verified, committed and pushed. Revalidated clean main741fa92;
+goal remains a functional Lawin lobby, not simply these accepted backend stages.
+CI for50c0a98 passed. Searches for VerifyProfileTokenPayload did not establish a
+public contract; no unrelated search results were used as technical evidence.
+
+Added bounded metadata-only nested payload inspection (depth3, at most48 nodes,
+16 children per node, fixed recognized keys, no scalar contents/arbitrary names).
+Synthetic tests cover secret exclusion, null distinction and wide/cyclic input.
+Session2026-09-29_23-28-01_02d042ab shows a single nested object with three strings
+of lengths2,1,5; one recognized field is version; none matches an issued local
+access token. AppES closing code1 occurs before the501 response. No response or
+protection behavior changed during this diagnostic test.
+
+Revalidated both imported runtime binaries directly with --version: Experimental
+and Hotfix bundle Wine11.0. Corrected the two preceding entries that mistakenly
+attributed the separate system Wine11.18 to those Proton sessions. Controlled
+Hotfix comparison used registered12.50-proton-hotfix, runtimehotfix-20260828 and
+its existing separately owned prefix, same Lawin/helper/context flags and120s
+bound, OPENSSL_ia32cap unset. Session2026-09-29_23-29-32_86cfbc45 reaches successful
+party creation/Completed then the same AppES closing code1 and profile-token501.
+No owned processes remained; no EAC observed in sampled monitoring. No runtime
+switching within another runtime's prefix, system changes or protected networking.
+
+Source/log diagnosis identified a separate concrete defect: both common profiles
+log Field items was not found then Null used as Object. Lawin Profile schema uses
+Mongoose default minimize=true. A synthetic document demonstrated items{} omitted
+from toObject before the schema option and retained with minimize=false. Added
+an original module that preserves empty inventory objects and restores only missing
+fields of fixed known profiles in the one local account, with $exists:false
+preconditions. Existing objects/items/preferences are untouched; invalid existing
+inventories explicitly fail rather than being replaced. No assets or entitlements
+are added. HTTP smoke now verifies fullProfileUpdate.items is an object.
+
+All11 Node tests pass. Real isolated smoke lawin-profile-smoke-TQt6f8 passed HTTP,
+party and XMPP checks, restoring12 omitted empty inventories. The following game
+session269d0947 reports0 repairs, proving the persisted correction is idempotent.
+Release build/all13 CTest targets passed25.53s. Actual Experimental session
+2026-09-29_23-32-24_269d0947 has neither missing-items warnings nor Null-as-Object
+errors, still successfully creates its party and reaches Completed. AppES closing
+code1 and verification501 remain; no functional lobby. Cleanup completed with no
+EAC observed in samples. Attempted final screenshot found the game already closed;
+no image was captured and no extra identical launch was performed for it.
+
+Next: establish a supported private launch context for the remaining startup
+rejection. Runtime substitution, local XMPP/party state and the corrected profile
+schema did not remove it; do not repeat those unchanged configurations as fixes,
+invent a successful token verifier, or claim the goal complete.

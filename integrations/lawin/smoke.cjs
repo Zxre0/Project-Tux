@@ -23,6 +23,11 @@ async function main() {
     '/client/QueryProfile?profileId=common_core&rvn=-1', {method: 'POST',
       headers: {...headers, 'content-type': 'application/json'}, body: '{}'});
   if (profile.status !== 200) throw new Error('profile-failed');
+  const snapshot = (await profile.json()).profileChanges?.find(change =>
+    change.changeType === 'fullProfileUpdate')?.profile;
+  if (!snapshot || !Object.hasOwn(snapshot, 'items') || !snapshot.items ||
+      typeof snapshot.items !== 'object' || Array.isArray(snapshot.items))
+    throw new Error('profile-inventory-field-missing');
   const keys = await fetch(base + '/fortnite/api/storefront/v2/keychain', {headers});
   const data = await keys.json();
   if (keys.status !== 200 || !Array.isArray(data) || !data.every(x => typeof x === 'string'))

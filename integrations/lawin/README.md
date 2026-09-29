@@ -125,3 +125,20 @@ visibility is not silently acknowledged. No public listing, invitations,
 matchmaking, remote members or multiplayer support is claimed.
 The same independent startup dialog and profile-token failure still prevent a
 verified functional lobby. Party creation is not gameplay or lobby completion.
+
+The profile model disables Mongoose empty-object minimization. Existing local
+profiles whose `items` field was omitted are repaired with an empty object using
+an account-scoped, absence-conditional update. Existing inventories are never
+replaced; malformed inventories fail startup for investigation. This corrects
+the real client's `Field items was not found` / null-object errors. The HTTP smoke
+now checks the actual full-profile response field, not only its HTTP status.
+
+Session `2026-09-29_23-32-24_269d0947` confirms those profile errors are absent,
+while the startup rejection remains. Proton Hotfix session
+`2026-09-29_23-29-32_86cfbc45`, using its separate owned prefix, reproduced the
+same active-party/startup-error outcome as Experimental. Both imported runtimes
+report bundled Wine11.0; system Wine11.18 is a separate installation.
+The profile-token diagnostic records bounded schema names/types/lengths, never
+scalar values. Current requests contain a nested object with three short strings,
+none matching a local access token. This does not establish a verification
+contract or justify returning unverified success.
