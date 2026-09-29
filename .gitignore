@@ -1,0 +1,12 @@
+/build*/
+/dist/
+/target/
+/.cache/
+/logs/
+/prefixes/
+/runtimes/
+*.log
+*.dmp
+*.dxvk-cache
+*.vkd3d-cache
+/config.local.toml
