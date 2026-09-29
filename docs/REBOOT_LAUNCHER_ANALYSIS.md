@@ -92,3 +92,15 @@ diagnostics and localhost strings. These justify a bounded built-in configuratio
 discovery experiment, not an assumption that a URL or config name is accepted.
 No TLS interception, production routing or authentication replacement is needed
 to observe how an isolated game parses that option.
+
+## Supplied-build configuration follow-up
+
+The later epicapp Localhost experiment is recognized by 12.50, unlike the earlier
+MCPCONFIG experiment, but reports a missing service configuration and rejects the
+backend. See FORTNITE_12_50.md for session-specific results. Read-only strings also
+identify `OnlineSubsystemMcp.BaseServiceMcp` and `Fortnite.McpConfig`; these names
+alone do not specify accepted keys, config-file precedence or a working service
+address override. A static reference scan did not resolve a usable configuration
+call site. No game instructions, registry, certificate handling or configuration
+files were changed, and no protected services were contacted. Do not present a
+guessed INI schema as a verified private backend contract.

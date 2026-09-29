@@ -1131,3 +1131,12 @@ the current release CLI to ~/.local/bin and verified its historical-log command.
 The isolated game-evidence test also passes all 15 checks with leak detection
 enabled; it does not initialize the graphics stack, so this does not close the
 separate graphics leak issue.
+
+Final configuration lead: read-only strings expose OnlineSubsystemMcp.BaseServiceMcp
+and Fortnite.McpConfig, but no accepted schema or override contract was established;
+a static reference scan did not resolve usable configuration call sites. No game
+binary/configuration/certificate changes were made. This is an unresolved interface
+prerequisite, not proof that every private configuration path is impossible.
+Do not retest identical missing-config arguments without new evidence. The native
+diagnostics implementation and its tests are complete for this checkpoint; the
+original private-gameplay milestone is not complete.
