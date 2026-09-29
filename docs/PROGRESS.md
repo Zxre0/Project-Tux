@@ -2082,3 +2082,34 @@ Next: establish a supported private launch context for the remaining startup
 rejection. Runtime substitution, local XMPP/party state and the corrected profile
 schema did not remove it; do not repeat those unchanged configurations as fixes,
 invent a successful token verifier, or claim the goal complete.
+
+### Functional-lobby blocked audit (2026-09-29)
+
+Revalidated clean main8bd19b6. Previous turn was real progress: fixed profile
+serialization with game verification, schema diagnostics and controlled Hotfix
+comparison, all pushed. Current CI run36645952504 passed for8bd19b6; earlier party
+and XMPP checkpoints also passed. These checks are asset-free regression evidence,
+not proof of a working lobby.
+
+The same startup rejection persisted across the active-party implementation turn,
+the inventory/runtime-comparison turn, and this startup-prerequisite audit. No
+game session remains live: last session269d0947 is terminal and reports no owned
+processes remaining. No identical launch was restarted during this audit.
+Re-read supplied EAC/BattlEye launch configs (both target Shipping), pinned Reboot
+Launcher paused-bootstrap flow, local12.50 profile and repository documentation.
+No Development/Debug/Test/Server-named executable was found in the installation.
+Two bounded read-only static checks of known AppES/dialog strings did not resolve
+a direct code/data reference or a usable launch contract; no patch or offset was
+inferred from those negative results. Original Shipping SHA256 still matches the
+profile. No upstream code, runtime, game file or prefix was modified by the audit.
+
+Completion audit: real local auth/XMPP/party/profile transport is verified, but a
+stable rendered and interactive Lawin lobby is contradicted by the startup dialog
+and exit. The objective is not complete. Current impasse is the absent supported
+private startup procedure/client interface for this Shipping build under the
+no-EAC/no-spoofing project boundary. Inspected upstream alternatives use bootstrap
+stand-ins or protection/exit changes, not a verified compatible private entry.
+Further unrelated backend polish would not establish the missing launch path.
+Record goal blocked after the repeated-condition audit. Resume when an authorized
+private-development build or supported no-EAC launch procedure becomes available;
+retain the complete functional-lobby objective and all verified commits.

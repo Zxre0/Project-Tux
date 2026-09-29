@@ -104,3 +104,28 @@ classify that dependency, not installed or executed. The [official support note]
 associates the generic message with interference or networking problems, but
 does not establish its cause for this old build, Wine, or private services.
 No protection check, process-presence stand-in, token or exit patch is introduced.
+
+## Current blocking prerequisite
+
+The functional Lawin lobby goal is **not achieved**. Local account authentication,
+XMPP, Active party creation and valid empty profile inventories are tested; the
+supplied Shipping client still reports its AppES startup rejection and exits.
+This persists with both imported Proton runtimes. The exact internal rejection
+condition remains unknown; do not equate the message with a proven requirement
+for a particular anti-cheat process or pretend that an HTTP501 caused an earlier
+client-side marker.
+
+Final read-only checks found no Development/Debug/Test/Server-named executable
+in the supplied installation. Both bootstrap configurations target ordinary
+Shipping, without a documented private-development entry. Limited static string
+reference checks did not identify a usable startup contract; that negative result
+does not prove obfuscation or that every possible private path is impossible.
+Shipping SHA256 remains the profile-pinned
+`34a10af4ddff20b75d889e269a66644d570c3000f13548a5799d3a7ef690190c`.
+
+To resume the blocked launch work, the missing prerequisite is a supported,
+authorized private-development launch procedure or suitable client build that
+does not require EAC/process spoofing. No such procedure/build was found in the
+provided materials. More approval to patch a check is not the missing interface.
+Repeating the same launch, returning invented verification success, or claiming
+an Active party is a functional lobby would not resolve this prerequisite.
