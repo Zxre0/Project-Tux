@@ -8,5 +8,5 @@ eac_policy = "must-not-start"
 linux_status = "diagnostic-only-unverified"
 reboot_status = "unverified; 12.61-specific behavior must not be applied"
 private_path_verified = false
-runtime_recommendation = "Wine diagnostic baseline; no game-runtime comparison yet"
+runtime_recommendation = "Wine 11.18 and Proton Experimental/Hotfix host-script probes exit early; no working game runtime established. See docs/RUNTIME_COMPARISON.md"
 graphics = "D3D11 diagnostic baseline; no component modifications"

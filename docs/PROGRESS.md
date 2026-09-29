@@ -867,3 +867,25 @@ No new game launch, protection modification, asset write, prefix reset or driver
 change was performed. The goal remains incomplete; this is a prerequisite audit,
 not a milestone or gameplay claim. Changes are documentation only, so validation
 is source/link inspection and Git diff checking, not another game or build test.
+
+### Follow-up prerequisite audit (2026-09-29)
+
+Previous turn added primary-source evidence and pushed `1682bfe`; it did not
+advance game startup. Revalidated clean main, current CLI capabilities, supplied
+profile, registered build metadata and module validation code. All three build
+registrations still reference the same supplied 12.50 installation; aliases are
+not additional game builds. The app-owned configuration/data TOML filename scan
+found only builds.toml, with runtime/prefix/backup trees excluded. No supplied
+development profile or module compatibility manifest was discovered in that
+scope. The 12.50 profile still correctly keeps private_path_verified false.
+
+Corrected stale profile recommendation text claiming no game-runtime comparison
+had occurred. It now reflects the measured early exits without recommending a
+runtime as working. No launch arguments, safety gates or 12.61 profile changed.
+This consistency correction does not resolve or reset the same development-launch
+prerequisite blocker. No new in-scope launch experiment is justified by this audit.
+Further advancement remains dependent on new diagnostic evidence or a verifiable
+authorized private-development execution contract/build. No game was relaunched.
+The profile resource rebuilt successfully and all seven release CTest targets
+passed (14.79 seconds); Git diff checking passed. These asset-free regressions
+do not establish game startup or a valid private execution path.
