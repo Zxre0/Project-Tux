@@ -1,0 +1,4 @@
+fortnite_version = "12.50"
+role = "http-lifecycle-probe"
+sha256 = "@MODULE_SHA256@"
+# Build receipt only; not certification of game/runtime compatibility.

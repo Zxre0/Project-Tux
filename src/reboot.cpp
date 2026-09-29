@@ -4,10 +4,14 @@
 #include <toml++/toml.hpp>
 
 namespace fol {
-QJsonObject moduleReport(const QString &path, const QString &manifest) {
+QJsonObject moduleReport(const QString &path, const QString &manifest,
+                         const QString &expectedVersion) {
+    const auto targetVersion =
+        expectedVersion.isEmpty() ? Profile::load().version : expectedVersion;
+    require(Profile::forVersion(targetVersion).has_value(), "Unsupported module target version");
     auto pe = inspectPe(path);
     QJsonObject result{{"module", path},
-                       {"expected_version", Profile::load().version},
+                       {"expected_version", targetVersion},
                        {"architecture", pe.x64 ? "x64" : "unknown/unsupported"},
                        {"status", "invalid"},
                        {"error", pe.error},
@@ -20,6 +24,7 @@ QJsonObject moduleReport(const QString &path, const QString &manifest) {
         return result;
     }
     auto table = toml::parse(readFile(manifest).toStdString());
+    result["role"] = QString::fromStdString(table["role"].value_or(""));
     auto version = QString::fromStdString(table["fortnite_version"].value_or(""));
     auto expected = QByteArray::fromStdString(table["sha256"].value_or(""));
     QFile file(path);
@@ -29,7 +34,7 @@ QJsonObject moduleReport(const QString &path, const QString &manifest) {
     auto actual = hash.result().toHex();
     result["sha256"] = QString::fromLatin1(actual);
     bool matches =
-        version == Profile::load().version && expected.size() == 64 && expected.toLower() == actual;
+        version == targetVersion && expected.size() == 64 && expected.toLower() == actual;
     result["status"] = matches ? "manifest-matches; runtime-compatibility-unverified" : "invalid";
     result["error"] = matches ? "" : "Manifest version or SHA-256 does not match";
     return result;

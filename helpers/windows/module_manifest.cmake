@@ -1,0 +1,5 @@
+if(NOT DEFINED ARTIFACT OR NOT EXISTS "${ARTIFACT}")
+  message(FATAL_ERROR "Built module artifact required")
+endif()
+file(SHA256 "${ARTIFACT}" MODULE_SHA256)
+configure_file("${CMAKE_CURRENT_LIST_DIR}/module.toml.in" "${ARTIFACT}.toml" @ONLY)

@@ -1,7 +1,8 @@
 /* Default: read-only interface discovery in one owned child. The separately
  * compiled observer variant uses debugging registers to observe requests.
- * Neither accepts arbitrary PIDs, writes game memory, injects a module, or changes
- * authentication, certificate validation or security checks. */
+ * The separately compiled module bootstrap loads one explicitly supplied project
+ * DLL into its own child using a fresh allocation for the DLL path. None accepts
+ * arbitrary PIDs or changes authentication, certificate validation or security checks. */
 #define WIN32_LEAN_AND_MEAN
 #define _ACRTIMP
 #include <windows.h>
@@ -121,6 +122,9 @@ static ULONG_PTR image_base(DWORD pid, const wchar_t *name) {
     CloseHandle(snapshot);
     return base;
 }
+#ifdef FOL_MODULE_BOOTSTRAP
+#include "module_loader.h"
+#endif
 static BOOL in_range(DWORD offset, SIZE_T size, DWORD image_size) {
     return offset <= image_size && size <= image_size - offset;
 }
@@ -464,6 +468,8 @@ void probe_entry(void) {
     BOOL observation = discovered && observed_function && observed_reference &&
                        observe_requests(&child, base, observed_function, observed_reference,
                                         equal(name, L"fol-http-fixture.exe"));
+#elif defined(FOL_MODULE_BOOTSTRAP)
+    BOOL observation = discovered && load_owned_module(&child);
 #else
     BOOL observation = TRUE;
 #endif

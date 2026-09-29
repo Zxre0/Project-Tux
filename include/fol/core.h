@@ -96,7 +96,8 @@ QJsonObject vulkanReport();
 QJsonObject portReport(const QString &address, quint16 port);
 QJsonObject udpSocketCreationReport(bool ipv6);
 QJsonObject localIpcReport();
-QJsonObject moduleReport(const QString &path, const QString &manifest);
+QJsonObject moduleReport(const QString &path, const QString &manifest,
+                         const QString &expectedVersion = {});
 struct Process {
     qint64 pid, parent;
     quint64 started;
@@ -133,9 +134,10 @@ QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlin
                    int timeoutSeconds, bool traceStartup = false, bool engineStdout = false,
                    const QString &protonId = {}, bool launcherContextProbe = false,
                    BackendProbe backendProbe = BackendProbe::None,
-                   const QString &httpProbeHelper = {});
+                   const QString &httpProbeHelper = {}, const QString &httpModule = {});
 QString classifyFailure(const QString &text);
 QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session);
+QJsonObject analyzeModuleReceipt(const QByteArray &report, const QString &session, qint64 childPid);
 QJsonObject analyzeGameLog(const QByteArray &data);
 QJsonObject captureGameLogs(const QString &prefix, const QString &directory,
                             const QDateTime &notBefore);

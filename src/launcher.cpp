@@ -41,7 +41,7 @@ QString classifyFailure(const QString &text) {
 QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup, bool engineStdout,
                    const QString &protonId, bool launcherContextProbe, BackendProbe backendProbe,
-                   const QString &httpProbeHelper) {
+                   const QString &httpProbeHelper, const QString &httpModule) {
     const bool localBackendProbe = backendProbe != BackendProbe::None;
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
@@ -67,6 +67,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                     : "none"},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(httpModule.isEmpty() || !httpProbeHelper.isEmpty(),
+                "HTTP module requires the owned-child module bootstrap helper");
         require(
             httpProbeHelper.isEmpty() ||
                 (offlineProbe && launcherContextProbe && !localBackendProbe),
@@ -81,13 +83,16 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         auto selectedProfile = Profile::forVersion(build.version);
         require(selectedProfile.has_value(), "Unsupported build: " + build.version);
         auto profile = *selectedProfile;
-        QString helper;
-        bool requestObserver = false;
+        QString helper, checkedModule;
+        bool requestObserver = false, moduleBootstrap = false;
         if (!httpProbeHelper.isEmpty()) {
             require(profile.httpInterfaceProbeAllowed,
                     "HTTP interface probe is not enabled for this build");
             helper = QFileInfo(httpProbeHelper).canonicalFilePath();
             requestObserver = QFileInfo(helper).fileName() == "fol-http-observer.exe";
+            moduleBootstrap = QFileInfo(helper).fileName() == "fol-module-bootstrap.exe";
+            require(moduleBootstrap == !httpModule.isEmpty(),
+                    "HTTP module and fol-module-bootstrap.exe must be supplied together");
             const auto pe = inspectPe(helper);
             require(pe.valid && pe.x64 && !pe.dll,
                     "HTTP probe helper must be a valid x64 PE executable");
@@ -97,9 +102,9 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                  QString::fromLatin1(QCryptographicHash::hash(readFile(helper, 8 * 1024 * 1024),
                                                               QCryptographicHash::Sha256)
                                          .toHex())},
-                {"scope", "trusted supplied helper; owned-child read-only interface discovery; "
+                {"scope", "trusted supplied helper; owned-child diagnostic; "
                           "no route or login is established by a candidate"}};
-            if (requestObserver) {
+            if (requestObserver || moduleBootstrap) {
                 require(!profile.httpObserverHash.isEmpty() &&
                             !profile.httpObserverLayout.isEmpty(),
                         "No request observer is defined for this build");
@@ -107,8 +112,19 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                 QCryptographicHash hash(QCryptographicHash::Sha256);
                 require(game.open(QIODevice::ReadOnly) && hash.addData(&game) &&
                             QString::fromLatin1(hash.result().toHex()) == profile.httpObserverHash,
-                        "Request observer executable hash mismatch; no debugger started");
-                result["request_observer"] = true;
+                        "Request observer executable hash mismatch; no diagnostic child started");
+                result["request_observer"] = requestObserver;
+            }
+            if (moduleBootstrap) {
+                checkedModule = QFileInfo(httpModule).canonicalFilePath();
+                require(QFileInfo(checkedModule).fileName() == "fol-http-adapter.dll",
+                        "Only the explicitly built lifecycle diagnostic module is supported");
+                const auto module =
+                    moduleReport(checkedModule, checkedModule + ".toml", build.version);
+                require(module["status"] == "manifest-matches; runtime-compatibility-unverified" &&
+                            module["role"] == "http-lifecycle-probe",
+                        "Module architecture, version, role or SHA-256 manifest check failed");
+                result["http_module"] = module;
             }
         }
         const auto backendArguments = backendProbe == BackendProbe::ServiceIni
@@ -125,6 +141,9 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         QJsonObject prefix;
         QString runtime, prefixPath;
         auto environment = QProcessEnvironment::systemEnvironment();
+        require(!environment.contains("FOL_HTTP_MODULE") &&
+                    !environment.contains("FOL_HTTP_MODULE_REPORT"),
+                "Module path and report must come from the checked launch options");
         require(!environment.contains("FOL_HTTP_OBSERVER_LAYOUT"),
                 "Observer layout must come from the checked compatibility profile");
         QMap<QString, QString> overrides;
@@ -153,6 +172,14 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             result["runtime_mode"] = "Proton script on host; no Steam Linux Runtime container";
         }
         result["prefix"] = prefix;
+        if (moduleBootstrap) {
+            QString modulePath = "Z:" + checkedModule;
+            QString moduleReportPath = "Z:" + directory + "/http-module.json";
+            modulePath.replace('/', '\\');
+            moduleReportPath.replace('/', '\\');
+            overrides["FOL_HTTP_MODULE"] = modulePath;
+            overrides["FOL_HTTP_MODULE_REPORT"] = moduleReportPath;
+        }
         if (requestObserver)
             overrides["FOL_HTTP_OBSERVER_LAYOUT"] = profile.httpObserverLayout;
         if (environment.contains("FOL_HTTP_OBSERVER_DELAY_MS")) {
@@ -313,6 +340,18 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                     receipt.open(QIODevice::ReadOnly) ? receipt.read(65537) : QByteArray{},
                     session);
                 result["http_probe_report"] = evidence;
+                if (moduleBootstrap) {
+                    QFile moduleReceipt(directory + "/http-module.json");
+                    const auto readiness = analyzeModuleReceipt(
+                        moduleReceipt.open(QIODevice::ReadOnly) ? moduleReceipt.read(4097)
+                                                                : QByteArray{},
+                        session, evidence["child_windows_pid"].toInteger());
+                    result["http_module_receipt"] = readiness;
+                    if ((!readiness["ready"].toBool() || !evidence["module_loaded"].toBool() ||
+                         !evidence["module_control_child_live"].toBool()) &&
+                        !result.contains("error"))
+                        result["error"] = "Module lifecycle validation failed; inspect receipts";
+                }
                 if (requestObserver && !evidence["request_observation_completed"].toBool() &&
                     !result.contains("error"))
                     result["error"] = "No completed request observation; inspect probe report";

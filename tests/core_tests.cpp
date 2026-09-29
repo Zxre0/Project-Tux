@@ -47,6 +47,22 @@ int main(int argc, char **argv) {
     try {
         QTemporaryDir temp;
         check(temp.isValid(), "temporary directory");
+        const QByteArray moduleReceipt =
+            "{\"event\":\"module-ready\",\"session_id\":\"module-test\",\"process_id\":42}\n";
+        check(fol::analyzeModuleReceipt(moduleReceipt, "module-test", 42)["ready"].toBool(),
+              "module receipt proves matching session and owned child only");
+        check(!fol::analyzeModuleReceipt(moduleReceipt, "stale", 42)["ready"].toBool(),
+              "stale module session rejected");
+        check(!fol::analyzeModuleReceipt(moduleReceipt, "module-test", 43)["ready"].toBool(),
+              "different module process rejected");
+        check(!fol::analyzeModuleReceipt({}, "module-test", 42)["ready"].toBool(),
+              "missing module receipt cannot count as loaded");
+        check(!fol::analyzeModuleReceipt(moduleReceipt.chopped(1), "module-test", 42)["ready"]
+                   .toBool(),
+              "truncated module receipt rejected");
+        check(
+            !fol::analyzeModuleReceipt(QByteArray(4097, 'x'), "module-test", 42)["ready"].toBool(),
+            "oversized module receipt rejected");
         const QByteArray receipt =
             "FOL_HTTP_PROBE {\"event\":\"started\",\"session_id\":\"test\"}\n"
             "FOL_HTTP_PROBE {\"event\":\"owned_child_started\",\"value\":42}\n"
@@ -327,6 +343,10 @@ int main(int argc, char **argv) {
         check(fol::classifyFailure("error: DXVK device initialization failed") == "dxvk",
               "component-scoped DXVK error evidence");
         auto launch = fol::launch(paths, "missing", false, false, 1);
+        auto noBootstrap = fol::launch(paths, "missing", true, true, 1, false, false, {}, true,
+                                       fol::BackendProbe::None, {}, "module.dll");
+        check(noBootstrap["error"].toString().contains("requires the owned-child"),
+              "module cannot launch without explicit bootstrap");
         check(launch["status"] == "blocked" &&
                   QFile::exists(launch["logs"].toString() + "/result.json"),
               "failed launch persists session evidence");
@@ -383,6 +403,17 @@ int main(int argc, char **argv) {
                   .toString()
                   .startsWith("manifest-matches"),
               "matching module manifest");
+        check(fol::moduleReport(temp.path() + "/module.dll", manifest, "12.50")["status"] ==
+                  "invalid",
+              "12.61 module manifest cannot authorize 12.50");
+        fol::writeFile(manifest, "fortnite_version = \"12.50\"\nsha256 = \"" + checksum + "\"\n");
+        check(fol::moduleReport(temp.path() + "/module.dll", manifest, "12.50")["status"]
+                  .toString()
+                  .startsWith("manifest-matches"),
+              "module manager accepts explicit 12.50 target without defaulting to 12.61");
+        check(fol::moduleReport(temp.path() + "/module.dll", manifest)["status"] == "invalid",
+              "default module validation still targets 12.61");
+        fol::writeFile(manifest, "fortnite_version = \"12.61\"\nsha256 = \"" + checksum + "\"\n");
         auto changed = syntheticPe(true);
         changed[800] = 'x';
         fol::writeFile(temp.path() + "/module.dll", changed);

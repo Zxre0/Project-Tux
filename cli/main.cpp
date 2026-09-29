@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
           "path"},
          {"proton", "Project-imported Proton runtime ID (runtime test-proton or launch)", "id"},
          {"print-command", "Plan only; never execute"},
-         {"offline-probe", "Network-isolated, unmodified direct startup diagnostic"},
+         {"offline-probe", "Network-isolated direct startup diagnostic"},
          {"trace-startup",
           "Capture Wine message-box, debug-string, process, shell and registry traces"},
          {"engine-stdout",
@@ -50,9 +50,13 @@ int main(int argc, char **argv) {
          {"backend-probe-method", "Local backend experiment: selector or service-ini", "method",
           "selector"},
          {"http-probe-helper",
-          "Trusted locally built read-only Windows interface probe; "
+          "Trusted locally built Windows diagnostic helper; "
           "requires isolated context probe",
           "exe"},
+         {"http-module",
+          "Trusted lifecycle DLL with adjacent .dll.toml manifest; requires "
+          "fol-module-bootstrap.exe and network isolation",
+          "dll"},
          {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});
     parser.process(app);
     auto args = parser.positionalArguments();
@@ -175,11 +179,11 @@ int main(int argc, char **argv) {
             const auto backendProbe = !parser.isSet("local-backend-probe") ? fol::BackendProbe::None
                                       : method == "service-ini" ? fol::BackendProbe::ServiceIni
                                                                 : fol::BackendProbe::Selector;
-            result = fol::launch(paths, args[1], parser.isSet("print-command"),
-                                 parser.isSet("offline-probe"), timeout,
-                                 parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
-                                 parser.value("proton"), parser.isSet("launcher-context-probe"),
-                                 backendProbe, parser.value("http-probe-helper"));
+            result = fol::launch(
+                paths, args[1], parser.isSet("print-command"), parser.isSet("offline-probe"),
+                timeout, parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
+                parser.value("proton"), parser.isSet("launcher-context-probe"), backendProbe,
+                parser.value("http-probe-helper"), parser.value("http-module"));
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||

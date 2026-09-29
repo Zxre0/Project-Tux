@@ -13,7 +13,8 @@
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     try {
-        fol::require(argc == 3, "Usage: windows-probe-runner HELPER_EXE FIXTURE_EXE");
+        fol::require(argc == 3 || argc == 4,
+                     "Usage: windows-probe-runner HELPER_EXE FIXTURE_EXE [LIFECYCLE_DLL]");
         const auto paths = fol::Paths::system();
         const auto status = fol::prefixStatus(paths, "runtime-smoke");
         fol::require(status["owned"].toBool() && status["initialized"].toBool() &&
@@ -26,6 +27,18 @@ int main(int argc, char **argv) {
                      "Smoke prefix requires its standard Z drive mapping");
         const auto helper = QFileInfo(app.arguments()[1]).canonicalFilePath();
         const bool observer = QFileInfo(helper).fileName() == "fol-http-observer.exe";
+        const bool moduleBootstrap = QFileInfo(helper).fileName() == "fol-module-bootstrap.exe";
+        fol::require(moduleBootstrap == (argc == 4),
+                     "Module bootstrap requires one diagnostic DLL");
+        QString module;
+        if (moduleBootstrap) {
+            module = QFileInfo(app.arguments()[3]).canonicalFilePath();
+            const auto validation = fol::moduleReport(module, module + ".toml", "12.50");
+            fol::require(validation["status"] ==
+                                 "manifest-matches; runtime-compatibility-unverified" &&
+                             validation["role"] == "http-lifecycle-probe",
+                         "Diagnostic module failed manifest checks");
+        }
         const auto fixture = QFileInfo(app.arguments()[2]).canonicalFilePath();
         const auto helperPe = fol::inspectPe(helper), fixturePe = fol::inspectPe(fixture);
         fol::require(helperPe.valid && helperPe.x64 && !helperPe.dll && fixturePe.valid &&
@@ -48,6 +61,17 @@ int main(int argc, char **argv) {
         QString reportPath = "Z:" + directory + "/http-probe.jsonl";
         reportPath.replace('/', '\\');
         env.insert("FOL_HTTP_PROBE_LOG", reportPath);
+        QString moduleAssignments;
+        if (moduleBootstrap) {
+            QString modulePath = "Z:" + module;
+            QString moduleReportPath = "Z:" + directory + "/http-module.json";
+            modulePath.replace('/', '\\');
+            moduleReportPath.replace('/', '\\');
+            env.insert("FOL_HTTP_MODULE", modulePath);
+            env.insert("FOL_HTTP_MODULE_REPORT", moduleReportPath);
+            moduleAssignments = " FOL_HTTP_MODULE=" + fol::quote(modulePath) +
+                                " FOL_HTTP_MODULE_REPORT=" + fol::quote(moduleReportPath);
+        }
         env.insert("WINEDEBUG", "+timestamp,+pid,+seh,+loaddll");
         env.insert("WINEDLLOVERRIDES", "winemenubuilder.exe=d");
         const bool codeRequested = env.contains("FOL_HTTP_PROBE_CODE");
@@ -62,7 +86,7 @@ int main(int argc, char **argv) {
                        ("env WINEPREFIX=" + fol::quote(env.value("WINEPREFIX")) +
                         " FOL_SESSION_ID=" + fol::quote(session) + " FOL_HTTP_PROBE_LOG=" +
                         fol::quote(reportPath) + (codeRequested ? " FOL_HTTP_PROBE_CODE=1" : "") +
-                        " WINEDEBUG=" + fol::quote(env.value("WINEDEBUG")) +
+                        moduleAssignments + " WINEDEBUG=" + fol::quote(env.value("WINEDEBUG")) +
                         " WINEDLLOVERRIDES=" + fol::quote(env.value("WINEDLLOVERRIDES")) + " " +
                         fol::quote(unshare) + " " + quoted.join(' ') + "\n")
                            .toUtf8());
@@ -72,6 +96,13 @@ int main(int argc, char **argv) {
         const auto receiptData =
             receipt.open(QIODevice::ReadOnly) ? receipt.read(65537) : QByteArray{};
         const auto evidence = fol::analyzeHttpProbe(receiptData, session);
+        QJsonObject moduleReceipt;
+        if (moduleBootstrap) {
+            QFile file(directory + "/http-module.json");
+            moduleReceipt = fol::analyzeModuleReceipt(
+                file.open(QIODevice::ReadOnly) ? file.read(4097) : QByteArray{}, session,
+                evidence["child_windows_pid"].toInteger());
+        }
         const auto requests = evidence["requests"].toArray();
         bool observedRequests = evidence["request_observation_completed"].toBool() &&
                                 requests.size() == 8 && !receiptData.contains("fixture-secret") &&
@@ -89,7 +120,10 @@ int main(int argc, char **argv) {
                             outcome.error.isEmpty() && !outcome.timedOut &&
                             evidence["complete"].toBool() &&
                             evidence["candidate_observed"].toBool() && fixtureTable &&
-                            (!observer || observedRequests);
+                            (!observer || observedRequests) &&
+                            (!moduleBootstrap || (moduleReceipt["ready"].toBool() &&
+                                                  evidence["module_loaded"].toBool() &&
+                                                  evidence["module_control_child_live"].toBool()));
         QJsonObject result{{"session_id", session},
                            {"logs", directory},
                            {"passed", passed},
@@ -97,6 +131,7 @@ int main(int argc, char **argv) {
                            {"owned_processes_remaining", outcome.remaining},
                            {"error", outcome.error},
                            {"http_probe_report", evidence},
+                           {"module_receipt", moduleReceipt},
                            {"fortnite_executed", false}};
         fol::writeFile(directory + "/result.json", QJsonDocument(result).toJson());
         QTextStream(stdout) << QJsonDocument(result).toJson();

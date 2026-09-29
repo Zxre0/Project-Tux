@@ -1341,3 +1341,42 @@ observation/control distinction, redacted category validation and executable-has
 rejection. Attach-only control has 403 process samples, max16, no PID0/1 selected.
 The original read-only discovery helper remains available separately. No Fortnite
 files, prefixes outside the project, certificates or system packages were modified.
+
+### Owned-child module lifecycle verified (2026-09-29)
+
+Following the upstream architecture comparison, implemented an original Windows
+bootstrap and readiness-only DLL. This is a separate opt-in diagnostic, not a
+replacement for the native Linux launcher. Only the bootstrap's freshly created
+child may receive the module. It copies a pathname to fresh RW memory, resolves
+the child's LoadLibraryW including forwarded exports, waits for completion and
+verifies module presence. No debugger attachment, instruction/security/exit patch,
+request hook, credential submission or networking is involved. Module worker
+receipt is independently checked against the session and child PID. Native launch
+checks the exact supplied Shipping SHA256, x64 DLL format, version, role and hash;
+the build-generated manifest alone is not runtime compatibility certification.
+
+Built with Clang22.1.8/LLD and existing Wine headers/import libraries. Asset-free
+fixture http-fixture-beeb5b73-6597-4c3f-98f2-bf8d1f5d0023 passed: module loaded,
+receipt from child212, child alive20s, scoped cleanup complete. Real command:
+
+```sh
+env -u OPENSSL_ia32cap ./build/fortnite-linux launch 12.50 \
+  --offline-probe --launcher-context-probe --proton experimental-20260924 \
+  --timeout 60 --http-probe-helper build/windows/fol-module-bootstrap.exe \
+  --http-module build/windows/fol-http-adapter.dll
+```
+
+Real session2026-09-29_20-14-37_f7e318b5 succeeded at module lifecycle only:
+module presence and ready receipt from child336, child alive20s, helper exit0,
+owned_processes_remaining=false. DLL SHA256:
+a3235088356da406af0a490d7dcc91def36610713ca7d547bd980bfa81428f34.
+Fresh Fortnite log286988 bytes retains manual sign-in and production backend
+selection (unreachable in the isolated namespace). No observed EAC/BattlEye.
+No screenshot was captured for this run; no private backend was started or reached.
+No login or gameplay claim is warranted. Unlike the debugger approach, ordinary
+module loading preserved the established sign-in baseline. Next: narrowly scoped
+in-process request observation before implementing any local routing/backend.
+
+Native regression:8/8 CTest targets pass in25.27s, including219 core checks for
+receipt identity/truncation, explicit version matching and bootstrap requirements.
+All original work remains in FortniteOnLinux; upstream source was read, not copied.

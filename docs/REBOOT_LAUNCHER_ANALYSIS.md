@@ -181,3 +181,10 @@ failure to debugger interaction under the tested configuration; it does not prov
 an anti-cheat/DRM root cause or invalidate the separate module-based architecture.
 Next is an independently implemented, owned-child module lifecycle with fixture
 tests, then a non-authentication request observer before any local-only routing.
+
+That independently implemented lifecycle now passes both the synthetic fixture and
+real isolated 12.50 run2026-09-29_20-14-37_f7e318b5: ordinary LoadLibraryW loading,
+module presence, in-child session receipt, and20s liveness. Manual sign-in remains
+in the game log. No HTTP hook or backend login has yet been implemented. This is
+evidence supporting the loading architecture, not proof of upstream auth/module
+compatibility and not permission to import its unrelated security patches.

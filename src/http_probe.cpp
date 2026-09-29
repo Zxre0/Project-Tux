@@ -7,7 +7,7 @@ namespace fol {
 QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
     QJsonObject result{{"complete", false},
                        {"candidate_observed", false},
-                       {"scope", "read-only candidate discovery; not routing or login"}};
+                       {"scope", "diagnostic interface evidence; not routing or login"}};
     try {
         require(!report.isEmpty() && report.size() <= 65536 && report.endsWith('\n'),
                 "HTTP probe report missing, truncated or oversized");
@@ -54,6 +54,10 @@ QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
                 require(candidate && discovered == 1 && !attached && record["value"].toInt() > 0,
                         "Invalid request-observer attachment record");
                 attached = true;
+            } else if (event == "module_loaded" || event == "module_control_child_live") {
+                require(candidate && discovered == 1 && !attached && record["value"].toInt(-1) == 1,
+                        "Module load or owned-child liveness check failed");
+                result[event] = true;
             } else if (event == "observer_delay_ms") {
                 require(candidate && !attached && record["value"].toInt(-1) >= 0 &&
                             record["value"].toInt(-1) <= 30000,
@@ -127,6 +131,28 @@ QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
         require(complete, "HTTP probe did not complete; wrapper exit is not helper success");
         result["complete"] = true;
         result["candidate_observed"] = discovered == 1;
+    } catch (const std::exception &error) {
+        result["error"] = QString::fromUtf8(error.what());
+    }
+    return result;
+}
+QJsonObject analyzeModuleReceipt(const QByteArray &report, const QString &session,
+                                 qint64 childPid) {
+    QJsonObject result{{"ready", false}, {"scope", "module lifecycle only; not routing or login"}};
+    try {
+        require(!report.isEmpty() && report.size() <= 4096 && report.endsWith('\n'),
+                "Module receipt missing, oversized or truncated");
+        QJsonParseError error;
+        const auto document = QJsonDocument::fromJson(report, &error);
+        require(error.error == QJsonParseError::NoError && document.isObject(),
+                "Invalid module receipt JSON");
+        const auto object = document.object();
+        require(object["event"] == "module-ready" && !session.isEmpty() &&
+                    object["session_id"].toString() == session && childPid > 0 &&
+                    object["process_id"].toInteger() == childPid,
+                "Module receipt event/session/child identity mismatch");
+        result["ready"] = true;
+        result["process_id"] = childPid;
     } catch (const std::exception &error) {
         result["error"] = QString::fromUtf8(error.what());
     }

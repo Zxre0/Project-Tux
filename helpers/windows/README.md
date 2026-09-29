@@ -1,4 +1,7 @@
-# Read-only HTTP interface discovery
+# Windows HTTP interface diagnostics
+
+The default `fol-http-probe.exe` is read-only. The debugger observer and the
+explicit module-bootstrap variant below are separate experiments, not normal launch.
 
 This optional, original C helper is a Windows PE component. The launcher remains
 native Linux. It is **not** a backend, an authentication module or a routing DLL.
@@ -99,3 +102,32 @@ Diagnostic controls (recorded in launch commands):
 
 Control runs deliberately return an observation failure, even if their control
 receipt is complete. They are not routing, backend or login success.
+
+## Owned-child module lifecycle
+
+`fol-module-bootstrap.exe` loads the original `fol-http-adapter.dll` into only the
+child it created. This variant writes a DLL pathname to a fresh RW allocation and
+calls Windows LoadLibraryW on an owned-child thread. It resolves forwarded loader
+exports against the child's actual module base and checks the runtime code match.
+It does not attach a debugger or patch game instructions, authentication or checks.
+The DLL currently only writes a session/child-bound readiness receipt from a worker
+thread; it does not inspect requests, hook methods, route traffic or log in.
+
+The build generates an adjacent version/role/SHA-256 manifest. Native launch checks
+PE x64 DLL structure, the exact 12.50 Shipping hash, the manifest and the receipt.
+A matching manifest is not a claim of runtime compatibility. Supplying a DLL remains
+an explicit trust decision; only use the project-built diagnostic artifact.
+
+```sh
+bash helpers/windows/build.sh
+./build/windows-probe-runner build/windows/fol-module-bootstrap.exe \
+  build/windows/fol-http-fixture.exe build/windows/fol-http-adapter.dll
+./build/fortnite-linux launch 12.50 --offline-probe --launcher-context-probe \
+  --proton experimental-20260924 --timeout 60 \
+  --http-probe-helper build/windows/fol-module-bootstrap.exe \
+  --http-module build/windows/fol-http-adapter.dll
+```
+
+The fixture and real 12.50 run both verified module presence, its in-child receipt,
+and 20 seconds of child liveness. The real game retained logged manual sign-in.
+This establishes a module lifecycle, not a private-backend connection or login.
