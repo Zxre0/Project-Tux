@@ -623,3 +623,11 @@ testing a null name. 24 assertions pass. Core 128 and manifest 32 continue passi
 ASan/UBSan portable subset passes with leak detection disabled as documented.
 Full release CTest remains honestly 5/7: IPC/network operations are denied.
 Reports are outside Git under XDG state `logs/12.50-import-inventory*.json`.
+
+Dependency diagnostics committed/installed as `6f4b634`. Updated complete inventory
+confirms all 67 names have at least one valid x64 DLL candidate in the explicitly
+inventoried directories; the x86 CEF compiler candidate remains reported separately.
+Push retried and still fails GitHub DNS. `git fsck --full` passes. A verified
+recovery bundle preserves the nine pending commits through `6f4b634` at XDG state
+`checkpoints/pending-6f4b634.bundle`; it requires base commit `1e6ba64` and is local
+recovery material, not an off-machine backup or successful publication.
