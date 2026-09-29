@@ -42,6 +42,7 @@ fortnite-linux builds
 fortnite-linux verify 12.61
 fortnite-linux verify 12.61 --manifest /path/to/integrity.toml
 fortnite-linux manifest /path/to/build.manifest --installation /path/to/Fortnite --hash-files
+fortnite-linux imports /path/to/FortniteClient-Win64-Shipping.exe --dll-dir /path/to/prefix/drive_c/windows/system32
 fortnite-linux remove 12.61              # registration only; preserves files
 fortnite-linux runtime list
 fortnite-linux runtime import-proton '/path/to/Proton - Experimental' --id experimental
@@ -82,6 +83,11 @@ to stream SHA-1 verification (a full installation can take several minutes).
 This is read-only and never executes the manifest's launcher or downloads files.
 Matches prove consistency with the supplied local manifest, not authenticity.
 See [manifest verification](docs/MANIFESTS.md) for scope and format limits.
+
+`imports PE_PATH` inventories immediate/delayed DLL names and candidate files in
+the executable directory and repeated `--dll-dir` directories. It does not load
+DLLs, change Wine search paths, or equate missing optional imports with failure.
+See [dependency diagnostics](docs/DEPENDENCIES.md).
 
 Normal `launch` and `host` currently report a blocker. `--offline-probe` is only a
 network-isolated direct startup experiment using installed Wine, not working

@@ -19,6 +19,8 @@ network checks. `launcher.cpp` orchestrates session planning and monitoring.
 `manifest.cpp` independently reads a bounded legacy Epic manifest subset and
 optionally verifies existing local files. It never executes manifest commands,
 downloads files or treats a local manifest as authenticated provenance.
+`pe_imports.cpp` reads bounded x64 import descriptors and inventories explicit DLL
+directories; it does not load libraries or emulate the Windows loader.
 `prefix_backup.cpp` owns recoverable Wine-prefix snapshots and restoration.
 `proton.cpp` owns runtime import and isolated command smoke tests. Proton data is
 separate from Wine prefixes; neither manager silently adopts the other's storage.

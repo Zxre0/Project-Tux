@@ -10,10 +10,10 @@ established. Native CLI, synthetic tests, diagnostics
 and Wine/Proton command execution work within the measured limits below; no game
 startup or gameplay is claimed. Latest pushed code checkpoint: `1e6ba64`.
 Last unrestricted release tests passed 109 assertions; sanitized non-GPU tests
-passed 100. Portable tests currently pass 128 core and 32 manifest
+passed 100. Portable tests currently pass 128 core, 32 manifest and 24 PE-import
 assertions, including ASan/UBSan with leak detection explicitly disabled. The
 separate network and IPC tests fail their socket operations; do not report the
-full suite (4/6 targets passing) as passing.
+full suite (5/7 targets passing) as passing.
 Graphics-enabled LeakSanitizer remains unresolved, and sandbox leak checks fail.
 
 Installed native CLI: `/home/atlas/.local/bin/fortnite-linux`. Source checkout:
@@ -590,3 +590,36 @@ disabled under the already documented sandbox restriction. Formatting and diff
 checks pass. Fresh diagnostics saved to XDG state `logs/headless-ipc-diagnostics.json`.
 Next required action remains a permitted environment with working AF_UNIX IPC;
 only then can Wine startup and the targeted Fortnite trace proceed meaningfully.
+
+### Continued static startup dependency investigation
+
+User requested continued autonomous engineering. IPC/GPU/UDP restrictions remain
+unchanged. Read-only `git ls-remote origin HEAD` still fails GitHub DNS. Checked
+the separate available GitHub connector as an authorized publication alternative:
+`get_repo` for `Zxre0/FortniteOnLinux` returns 404. That does not prove the repository
+is absent; it may not be available to the connector. No external writes attempted
+through that inaccessible connection. Previous IPC diagnostics are committed as
+`c7e7a97` and installed; their normal Git push failed DNS as well.
+
+Inspected real Shipping PE imports with GNU objdump and LLVM. Implemented native
+`imports PE_PATH [--dll-dir DIRECTORY]` using the documented PE structures, not
+an executable loader. Results: 50 immediate and 17 delayed DLL names, independently
+matching LLVM exactly. All immediate imports have candidates in the game directory
+or dedicated prefix system32. Nine delayed imports absent from those two locations
+were found in the supplied third-party subdirectories; see DEPENDENCIES.md.
+
+Inventory caught a real architecture distinction: CEF3/Win64/d3dcompiler_43.dll is
+x86, while the prefix system32 counterpart is x64 (`file` confirms both). This
+is not a proven startup cause: the corrected Wine log contains no load evidence
+for d3dcompiler/libcef. Kept both untouched. Every import has a candidate when
+explicit third-party directories are inventoried; this is not proof of Wine
+resolution, exported-symbol compatibility or transitive dependencies.
+
+Parser tests cover immediate/delayed descriptors, bounds, null terminators,
+overlap, names, case-insensitive candidates, API sets and wrong architectures.
+The null-name test initially accidentally built a null descriptor (a valid table
+terminator); corrected the synthetic fixture to retain its thunk fields before
+testing a null name. 24 assertions pass. Core 128 and manifest 32 continue passing.
+ASan/UBSan portable subset passes with leak detection disabled as documented.
+Full release CTest remains honestly 5/7: IPC/network operations are denied.
+Reports are outside Git under XDG state `logs/12.50-import-inventory*.json`.

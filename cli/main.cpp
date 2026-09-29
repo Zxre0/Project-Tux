@@ -21,6 +21,7 @@ int main(int argc, char **argv) {
         "prefix restore ID BACKUP_TOKEN, launch ID, "
         "runtime import-proton PATH --id NAME, runtime test-proton ID --proton NAME, "
         "manifest PATH [--installation ROOT] [--hash-files], "
+        "imports PE_PATH [--dll-dir DIRECTORY...], "
         "module PATH, "
         "network ADDRESS PORT, logs, processes, version");
     parser.addHelpOption();
@@ -32,6 +33,9 @@ int main(int argc, char **argv) {
          {"manifest", "Module compatibility or build-integrity TOML manifest", "path"},
          {"installation", "Installation root for local Epic manifest verification", "path"},
          {"hash-files", "Hash all files listed in the supplied legacy Epic manifest (read-only)"},
+         {"dll-dir",
+          "Additional DLL inventory directory; repeatable; does not change Wine search paths",
+          "path"},
          {"proton", "Project-imported Proton runtime ID (runtime test-proton only)", "id"},
          {"print-command", "Plan only; never execute"},
          {"offline-probe", "Network-isolated, unmodified direct startup diagnostic"},
@@ -165,6 +169,9 @@ int main(int argc, char **argv) {
             if (result.contains("all_listed_files_match") &&
                 !result["all_listed_files_match"].toBool())
                 exitCode = 2;
+        } else if (command == "imports") {
+            arity(2);
+            result = fol::peImportReport(args[1], parser.values("dll-dir"));
         } else if (command == "module") {
             arity(2);
             result = fol::moduleReport(args[1], parser.value("manifest"));

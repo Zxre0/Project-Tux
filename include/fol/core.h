@@ -41,6 +41,7 @@ struct PeInfo {
     QString error;
 };
 PeInfo inspectPe(const QString &path);
+QJsonObject peImportReport(const QString &path, const QStringList &directories = {});
 struct Build {
     QString root, version, engine;
     QStringList evidence, errors, warnings;
