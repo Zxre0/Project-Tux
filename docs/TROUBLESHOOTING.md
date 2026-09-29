@@ -59,7 +59,7 @@ passed in the normal build. This was **not** a
 clean full sanitizer result; ownership of the graphics-related allocations is
 still unresolved. No suppression or global driver modification is used.
 
-In the current managed sandbox, LeakSanitizer itself reports a fatal error
+In the earlier managed sandbox, LeakSanitizer itself reported a fatal error
 (`does not work under ptrace`). ASan/UBSan still pass the socket-independent
 suite with `ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1` (98 core
 and 32 manifest assertions). Leak detection was explicitly disabled for that

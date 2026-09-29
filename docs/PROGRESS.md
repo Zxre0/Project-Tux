@@ -4,17 +4,15 @@
 
 Fortnite 12.61 files remain unavailable. The user supplied a separate 12.50 build;
 its metadata, structure and all 398 local-manifest file hashes are verified, and isolated startup diagnostics are in
-progress, now blocked by sandbox GPU/socket restrictions. The corrected Wine run
-exited 1; its cause is unresolved. No legitimate non-EAC private execution path is
+progress. GPU/socket restrictions were removed by the user; Wine command execution
+and the full seven-target release suite pass again. Three new isolated game runs
+still exited 1; the cause is unresolved. No legitimate non-EAC private execution path is
 established. Native CLI, synthetic tests, diagnostics
 and Wine/Proton command execution work within the measured limits below; no game
-startup or gameplay is claimed. Latest pushed code checkpoint: `1e6ba64`.
-Last unrestricted release tests passed 109 assertions; sanitized non-GPU tests
-passed 100. Portable tests currently pass 128 core, 32 manifest and 24 PE-import
-assertions, including ASan/UBSan with leak detection explicitly disabled. The
-separate network and IPC tests fail their socket operations; do not report the
-full suite (5/7 targets passing) as passing.
-Graphics-enabled LeakSanitizer remains unresolved, and sandbox leak checks fail.
+startup or gameplay is claimed. All ten previously pending commits through
+`f142446` were pushed to main after access was restored. Earlier restricted-run
+results below remain historical evidence, not the current environment status.
+Graphics-enabled LeakSanitizer findings remain unresolved.
 
 Installed native CLI: `/home/atlas/.local/bin/fortnite-linux`. Source checkout:
 `/home/atlas/Projects/FortniteOnLinux`. Dedicated prefixes `12.61` and
@@ -33,9 +31,9 @@ noninteractive UDisks mount attempt was denied with `NotAuthorizedCanObtain`.
 It was not mounted or inspected, and no filesystem repair/write was attempted.
 It may contain the missing game files; their presence/version is unknown.
 
-Resume by inspecting/validating supplied files, registering the detected build,
-checking the embedded profile and bootstrap inventory, then running the offline
-probe and capturing the first real failure. Do not start authentication modules,
+Next: investigate early file-access/initialization evidence or compare an isolated
+runtime without changing game authorization requirements. Do not blindly repeat
+the same exit-1 configuration. Do not start authentication modules,
 paused EAC stand-ins, protected services, or security-bypass experiments. Remaining
 graphics-stack LeakSanitizer findings are documented below, not suppressed.
 
@@ -631,3 +629,41 @@ Push retried and still fails GitHub DNS. `git fsck --full` passes. A verified
 recovery bundle preserves the nine pending commits through `6f4b634` at XDG state
 `checkpoints/pending-6f4b634.bundle`; it requires base commit `1e6ba64` and is local
 recovery material, not an off-machine backup or successful publication.
+
+### Restored permissions: real startup tracing resumed
+
+User restored local execution access. Native AF_UNIX bind/listen and UDP 7777
+binding now pass; NVIDIA RTX 4070 SUPER and AMD iGPU Vulkan enumeration succeeds.
+All ten pending commits through `f142446` were pushed successfully to canonical
+main. Diagnostics are saved outside Git at `logs/restored-access-diagnostics.json`.
+Wine 11.18 runtime session `runtime-f9f49bed-d225-4f1c-9073-cd7031a01754`
+passed with a fresh Windows execution receipt, exit 0 and no owned processes left.
+
+Three isolated ordinary-Shipping runs completed (session directories under XDG
+state `logs/sessions/`, UTC 2026-09-29):
+
+- `17-38-00_3e18f314`: existing msgbox/debugstr trace; exit 1, no explanatory
+  message, 309 process snapshots, maximum nine owned processes, no PID 0/1.
+- `17-39-23_45189492`: added Wine process/exec channels after inspecting Wine's
+  process and shell-execution source; same exit, no game shell handoff captured.
+- `17-41-08_8e7cac88`: new opt-in `--engine-stdout` adds only stdout/full-output/
+  flush logging arguments found in the supplied executable; no earlier engine
+  error appeared. Exit 1, 307 snapshots, maximum nine processes, no PID 0/1.
+
+All three report no EAC/BattlEye process or matching module-load evidence observed,
+no Unix crash, no timeout and no owned processes remaining. Anti-cheat absence is
+sampled, not absolute attestation. No game files, authorization checks, launcher
+stand-ins, network isolation, graphics components or drivers changed. The absence
+of a new message does not prove an authentication or graphics root cause.
+`--engine-stdout` reports requested logging, not verified logging activation.
+
+Build and all seven release CTest targets pass; 139 core checks now pass with
+GPU/namespace cases enabled. All seven ASan/UBSan targets also pass with leak
+detection explicitly disabled (`ASAN_OPTIONS=detect_leaks=0`); previous graphics
+LeakSanitizer findings are not resolved by this result. Added opt-in argument
+regression coverage and updated the CLI help, README and Linux/12.50 evidence.
+
+After interruption, rechecked the worktree and dedicated prefix: zero active
+processes, no test/game handles still pending from the completed runs. Next:
+read-only startup file-access evidence before another compatibility hypothesis;
+do not repeat the identical exit-1 configuration or claim 12.61 compatibility.

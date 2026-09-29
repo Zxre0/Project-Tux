@@ -60,6 +60,7 @@ fortnite-linux diagnose --output system.json
 fortnite-linux launch 12.61 --offline-probe --print-command
 fortnite-linux launch 12.61 --offline-probe --timeout 60
 fortnite-linux launch 12.50 --offline-probe --trace-startup --timeout 35
+fortnite-linux launch 12.50 --offline-probe --trace-startup --engine-stdout --timeout 35
 fortnite-linux module /path/to/module.dll --manifest /path/to/module.toml
 fortnite-linux network 127.0.0.1 7777
 fortnite-linux processes
@@ -95,6 +96,11 @@ offline gameplay. It requires unprivileged Linux user/network namespaces and an
 initialized dedicated prefix. It never starts the EAC bootstrap intentionally.
 Process-name monitoring is sampled; absence from snapshots is not proof that EAC
 never loaded. See [EAC findings](docs/EAC.md).
+
+`--trace-startup` adds Wine message-box, debug-string, process and shell traces.
+`--engine-stdout` separately requests engine stdout logging and line flushing;
+Shipping builds may ignore these arguments. They did not explain the tested
+12.50 exit 1. Neither option changes authentication or anti-cheat requirements.
 
 The core detects Steam-local Proton installations and tests imported runtime copies;
 Fortnite launch through Proton is not implemented. DXVK/VKD3D rendering validation,

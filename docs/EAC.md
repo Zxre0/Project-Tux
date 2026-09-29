@@ -35,3 +35,10 @@ not complete module attestation. Preflight without execution reports `not tested
 2026-09-29 baseline: no EAC-named processes observed; this is a system snapshot,
 not a Fortnite 12.61 result. The first launch request failed before execution due
 to missing build registration and has a persisted session result.
+
+Restored-access 12.50 traces on 2026-09-29 at 17:38, 17:39 and 17:41 UTC all
+exited 1 with no sampled EAC/BattlEye process or matching module-load evidence
+and no owned processes remaining. Logging-only trace/engine-output options did
+not identify the exit cause. These results do not establish an authorized
+private gameplay path or prove an anti-cheat requirement. See
+[12.50 evidence](FORTNITE_12_50.md) for exact sessions and argument differences.

@@ -522,9 +522,16 @@ int main(int argc, char **argv) {
                   "offline plan includes managed environment");
             auto traced = fol::launch(paths, "12.61", true, true, 5, true);
             check(traced["startup_trace"].toBool() &&
-                      traced["command"].toString().contains("+msgbox,+debugstr") &&
+                      traced["command"].toString().contains("+msgbox,+debugstr,+process,+exec") &&
                       !planned["command"].toString().contains("+msgbox"),
                   "startup trace is explicit and preserves baseline command");
+            auto engineLogging = fol::launch(paths, "12.61", true, true, 5, true, true);
+            check(engineLogging["engine_stdout_requested"].toBool() &&
+                      engineLogging["command"].toString().contains(
+                          "'-log' '-d3d11' '-stdout' '-FullStdOutLogOutput' '-forcelogflush'") &&
+                      !traced["command"].toString().contains("'-stdout'") &&
+                      !planned["engine_stdout_requested"].toBool(),
+                  "engine stdout is a separate opt-in logging-only argument change");
             auto failed = fol::launch(paths, "12.61", false, true, 5);
             check(failed["exit_code"] == 53 && failed["likely_subsystem"] == "missing-library",
                   "supervisor captures synthetic crash evidence");

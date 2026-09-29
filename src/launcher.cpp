@@ -38,7 +38,7 @@ QString classifyFailure(const QString &text) {
     return "unknown; inspect logs";
 }
 QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool offlineProbe,
-                   int timeoutSeconds, bool traceStartup) {
+                   int timeoutSeconds, bool traceStartup, bool engineStdout) {
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
                    QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
@@ -51,6 +51,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                        {"eac_status", "not tested; no game started"},
                        {"status", "blocked"},
                        {"startup_trace", traceStartup},
+                       {"engine_stdout_requested", engineStdout},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
         auto build = inspectBuild(Registry(paths).resolve(id));
@@ -73,6 +74,11 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         auto executable = build.root + "/" + profile.executable;
         QStringList args{"--user", "--map-root-user", "--net", "--", wine, executable};
         args.append(profile.arguments);
+        // Logging-only experiment, kept separate from the unchanged baseline.
+        // A shipping build may ignore these; requesting output does not prove it
+        // was enabled or that startup reached engine logging initialization.
+        if (engineStdout)
+            args.append({"-stdout", "-FullStdOutLogOutput", "-forcelogflush"});
         QStringList shellArgs;
         for (const auto &arg : args)
             shellArgs.append(quote(arg));
@@ -83,7 +89,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                          {"VKD3D_LOG_FILE", directory + "/vkd3d.log"},
                                          {"WINEDLLOVERRIDES", "winemenubuilder.exe=d"}};
         if (traceStartup)
-            overrides["WINEDEBUG"] += ",+msgbox,+debugstr";
+            overrides["WINEDEBUG"] += ",+msgbox,+debugstr,+process,+exec";
         QStringList assignments;
         for (auto it = overrides.begin(); it != overrides.end(); ++it)
             assignments.append(it.key() + "=" + quote(it.value()));

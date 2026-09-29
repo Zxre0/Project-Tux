@@ -51,17 +51,24 @@ failed before Windows command execution. Session
 `runtime-4ad5f6d6-464a-46ac-ad2c-03036090db01` records exit 1, no execution receipt,
 `sock_init: ERROR in sock_check_pollhup()` and
 `wineserver: bind: Operation not permitted`. No owned processes remained.
-This rules out treating a headless render option as a solution to the current
+This rules out treating a headless render option as a solution to that
 environment problem: Wine server IPC must work even without a GPU or display.
 It does not prove a Fortnite-specific launch restriction.
 
 `diagnose.local_ipc` now tests an AF_UNIX stream socket bind/listen in a newly
 created private temporary directory, then closes/removes only its own resources.
 It sends no traffic and never touches existing Wine sockets or prefixes. It
-reports the precise failing operation and errno; the current sandbox returns
+reports the precise failing operation and errno; the restricted sandbox returned
 EPERM at `bind`, independently matching the Wine error. Success is only a native
 IPC prerequisite, not proof that Wine or the game can execute. The `ipc` CTest
 target requires real bind/listen success and is not suppressed in CI/full builds.
+
+After the user restored access, AF_UNIX bind/listen and UDP 7777 binding passed,
+both NVIDIA and AMD Vulkan devices enumerated, and all seven release CTest
+targets passed. Runtime session `runtime-f9f49bed-d225-4f1c-9073-cd7031a01754`
+verified a fresh Windows-written execution receipt, exit 0 and clean shutdown.
+The former permission failure is no longer the blocker. Real game probes still
+exit 1; see [12.50 evidence](FORTNITE_12_50.md).
 
 Diagnostics now report installed Arch-family package versions and vendor-specific
 package suggestions. Names were cross-checked against local pacman evidence and

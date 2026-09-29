@@ -44,20 +44,46 @@ with Wine service/RPC and Mesa EGL warnings. None of these, alone, proves why th
 game exited. In particular, module teardown is not proof of an authentication
 failure, and graphics warnings must not be assumed causal without more evidence.
 
-Next targeted probe:
+Targeted trace command:
 `fortnite-linux launch 12.50 --offline-probe --trace-startup --timeout 35`.
-This adds only Wine `msgbox` and `debugstr` channels; executable and game arguments
-are unchanged. Wine's [message-box implementation](https://raw.githubusercontent.com/wine-mirror/wine/master/dlls/user32/msgbox.c)
+This adds Wine `msgbox`, `debugstr`, `process` and `exec` channels; executable and
+game arguments are unchanged. Wine's [message-box implementation](https://raw.githubusercontent.com/wine-mirror/wine/master/dlls/user32/msgbox.c)
 contains a dedicated text trace, allowing a hidden/transient dialog to be recorded.
 It does not install a hook or bypass a launch requirement.
 
-That probe is currently **environment-blocked**. After the execution environment
+That probe was temporarily **environment-blocked**. After the execution environment
 changed to a restricted sandbox, Vulkan instance creation succeeded but physical
 device enumeration returned -3 and no devices; `/dev/dri`, `/dev/nvidia0` and
 `/dev/nvidiactl` are absent from that environment. Local socket creation also
 returns EPERM. Session `2026-09-29_13-37-40_7e950a34` stopped before Wine/game start.
-The exact game-exit cause therefore remains unresolved pending suitable device
-access. Do not remove the Vulkan gate or bypass the sandbox to force a retest.
+Permissions were subsequently restored; see the completed probes below. The
+Vulkan gate and network namespace were retained throughout.
+
+## Restored-access startup probes
+
+All three sessions used Wine 11.18 and the same dedicated 12.50 prefix. Every run
+exited 1 without a Unix crash or timeout, left no owned processes, and recorded no
+EAC/BattlEye process or matching module-load evidence. No gameplay was verified.
+
+| Session (UTC, 2026-09-29) | Difference from baseline | Finding |
+| --- | --- | --- |
+| `17-38-00_3e18f314` | Wine msgbox/debugstr trace | No explanatory dialog/debug message; same engine teardown |
+| `17-39-23_45189492` | Added Wine process/exec trace | No game shell-execution handoff captured; same exit |
+| `17-41-08_8e7cac88` | Added `--engine-stdout` | No additional engine startup diagnostics captured; same exit |
+
+Wine's [process implementation](https://raw.githubusercontent.com/wine-mirror/wine/master/dlls/kernelbase/process.c)
+uses the `process` channel; [shell execution](https://raw.githubusercontent.com/wine-mirror/wine/master/dlls/shell32/shlexec.c)
+uses `exec`. These traces observe existing behavior; they do not create launcher
+stand-ins, modify return values or bypass any checks.
+
+`--engine-stdout` separately requests `-stdout -FullStdOutLogOutput -forcelogflush`.
+All three strings occur in the supplied Shipping binary. Epic's
+[argument reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/unreal-engine-command-line-arguments-reference)
+documents stdout output and line flushing generically; it is not proof this
+Shipping build enables logging at the failed startup stage. Output remains in
+the session's `wine.log`; the launcher reports only that logging was requested.
+Neither this experiment nor the observed LauncherCheck teardown proves an
+authentication requirement. The exact exit cause is still unknown.
 
 ## Local manifest verification
 
