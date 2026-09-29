@@ -1,5 +1,12 @@
 # Architecture decision: native Linux core first
 
+Optional backend provider: `--lawin-config` selects a pinned LawinServerV2
+deployment without replacing the default C++ backend. The native supervisor
+prepares the existing isolated namespace; the local Node session adapter starts
+dedicated MongoDB and the upstream HTTP routes, gates game launch on readiness,
+and cleans up its owned service processes. CLI integration stays platform-native.
+See [integration scope and GPL notices](../integrations/lawin/README.md).
+
 2026-09-29. Priority: Fortnite 12.61 startup evidence on Linux. No gameplay success claimed.
 
 | Option | Linux/process support | Packaging and maintenance | Decision |

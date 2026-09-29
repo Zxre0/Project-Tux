@@ -21,8 +21,12 @@ An experimental [native private backend](docs/BACKEND.md) now receives the real
 12.50 client's application-token and generated local-password requests inside an
 isolated namespace. The game received a player token, then exposed a session
 revocation bug. Its fix now passes a real account-authentication retest, but the
-overall login then aborts at a later backend stage: **completed Fortnite login
-is not yet verified**. The backend is not the Project Reboot game server.
+native backend's login then aborts at QueryKeychain. An optional
+[LawinServerV2 provider](integrations/lawin/README.md) passes keychain processing
+and reaches the game's `Completed` login stage in actual12.50 runs. The separate
+startup-error dialog/profile-token failure persists and the game exits later:
+**a stable logged-in menu or gameplay is not yet verified**. Neither backend
+replaces the Project Reboot game server.
 
 ## Build
 

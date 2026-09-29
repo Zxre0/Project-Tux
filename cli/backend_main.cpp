@@ -8,6 +8,7 @@
 #include <QProcess>
 #include <QTextStream>
 #include <QUuid>
+#include <memory>
 
 static void createPrivateFile(const QString &path, const QJsonObject &object) {
     QFile file(path);
@@ -32,6 +33,7 @@ int main(int argc, char **argv) {
          {"outer-netns", "Trusted launcher namespace identity captured before unshare",
           "device:inode"},
          {"log", "New session JSONL log", "file"}});
+    parser.addOption({"lawin-config", "Explicit isolated LawinServerV2 deployment", "file"});
     parser.addPositionalArgument("mode", "init, serve, or run -- COMMAND [ARGS]");
     parser.addPositionalArgument("command", "Owned child command for run", "[command...]");
     parser.process(app);
@@ -98,9 +100,40 @@ int main(int argc, char **argv) {
                 app.exit(74);
             QTextStream(stdout) << bytes;
         };
-        fol::backend::HttpServer server(std::move(identity), logger);
-        fol::require(server.start(quint16(port)), "Backend bind failed: " + server.errorString());
-        logger({{"component", "backend"}, {"event", "listening-loopback"}, {"port", int(port)}});
+        std::unique_ptr<fol::backend::HttpServer> server;
+        QString childProgram;
+        QStringList childArgs;
+        auto childEnvironment = QProcessEnvironment::systemEnvironment();
+        if (parser.isSet("lawin-config")) {
+            fol::require(mode == "run" && parser.isSet("isolated-session") && parser.isSet("log") &&
+                             port == 3551,
+                         "Lawin requires isolated run, session log and port3551");
+            const QFileInfo deployment(parser.value("lawin-config"));
+            fol::require(deployment.isFile() && !deployment.isSymLink() &&
+                             !(deployment.permissions() & (QFile::ReadGroup | QFile::WriteGroup |
+                                                           QFile::ReadOther | QFile::WriteOther)),
+                         "Lawin config must be an owner-only regular file");
+            const auto config = fol::readJson(deployment.absoluteFilePath());
+            childProgram = config["node"].toString();
+            const auto runner = config["runner"].toString();
+            fol::require(QFileInfo(childProgram).isExecutable() && QFileInfo(runner).isFile(),
+                         "Lawin Node runtime or session adapter missing");
+            childArgs = {runner, deployment.absoluteFilePath(),
+                         QFileInfo(parser.value("log")).absolutePath() + "/lawin.log"};
+            childArgs.append(args.mid(1));
+            childEnvironment.insert("FOL_OUTER_NETNS", parser.value("outer-netns"));
+            logger({{"component", "backend"}, {"event", "starting-lawin-v2"}});
+        } else {
+            server = std::make_unique<fol::backend::HttpServer>(std::move(identity), logger);
+            fol::require(server->start(quint16(port)),
+                         "Backend bind failed: " + server->errorString());
+            logger(
+                {{"component", "backend"}, {"event", "listening-loopback"}, {"port", int(port)}});
+            if (mode == "run") {
+                childProgram = args[1];
+                childArgs = args.mid(2);
+            }
+        }
         QProcess child;
         if (mode == "run") {
             fol::require(parser.isSet("isolated-session"),
@@ -118,7 +151,8 @@ int main(int argc, char **argv) {
                                  if (error == QProcess::FailedToStart)
                                      app.exit(71);
                              });
-            child.start(args[1], args.mid(2));
+            child.setProcessEnvironment(childEnvironment);
+            child.start(childProgram, childArgs);
         }
         return app.exec();
     } catch (const std::exception &error) {

@@ -1901,3 +1901,62 @@ yielded no matching implementation/issue. Full post-revert regression passed12/1
 in25.53s. Source is restored exactly; only the research/test documentation changed.
 Diff whitespace check passed.
 No successful-login screenshot or protection bypass was produced.
+
+### Optional LawinServerV2 provider implemented (2026-09-29)
+
+User approved integration. Clean baseline2ce03e4. Pinned upstream2205696e and
+inspected index, account/profile/friends schemas, authentication/token handling,
+route modules and cloud configuration. Upstream hardcodes HTTP8080, loads Discord
+unconditionally and starts XMPP on wildcard80; therefore an original local entry
+point reuses route modules with loopback3551 in the existing isolated namespace.
+Node22.23.3 and MongoDB7.0.43 official archives were checksum-verified and installed
+under project XDG data, without global package changes. npm ci used the upstream
+lock with scripts disabled; bcrypt alone was rebuilt from source. Upstream tree
+and reference checkout remain separate from all original integration development.
+
+Added --lawin-config to native CLI/backend supervisor, private-config validation,
+exclusive deployment preparation, dedicated MongoDB state, local bcrypt account
+initialization, readiness gating, owned-child service cleanup and route-template
+logging. Existing generated local credentials are reused privately; no passwords
+printed or Epic account data used. Account inventories start empty. No Discord,
+hotfixes that disable platform checks, fabricated manifests or unconditional
+profile-token verification success. XMPP remains deferred, not falsely claimed.
+
+Isolated HTTP smoke passes: bad password400, correct password200, verification200,
+common_core200, array-shaped keychain200/800entries (no key contents logged).
+Services shut down successfully. Configuration tests reject public files,
+symlinks, oversized data, nonlocal credentials, wrong revision and missing/same
+namespace receipt. Native CLI test rejects Lawin without private-backend mode.
+
+Real session2026-09-29_22-55-12_83effcb2 passes QueryKeychain: game line2826 logs
+RefreshKeychain complete HTTP200, then moves through rewards/rejoin/QoS/voice/party
+to Completed at3338 and HandleLoginRequestComplete Result2 at3622. Profile-token
+verification returns501; party-network calls remain unreachable; startup dialog
+persists and RequestExit occurs later. Wrapper67 is still the incomplete helper
+observation, not proof of a Wine crash. No EAC observed in sampled monitoring,
+owned_processes_remaining=false; MongoDB exits0 during cleanup.
+
+Session2026-09-29_22-57-28_e4ce3df3 repeats this behavior. Real screenshots27/37/43/48s
+were captured in its private session directory. The37s capture shows the same
+startup-error dialog (window clipped by tiling); it is not a successful menu image.
+No game protection, certificate validation or exit behavior was modified.
+Next investigation: metadata-only profile-token contract diagnosis, separately
+from completed HTTP login-stage progression.
+
+Third session2026-09-29_23-00-48_93c5b0ba confirms the profile-token request has
+an authenticated local session, application/json, and one object-valued field
+(name/value excluded by the diagnostic allowlist); it is not simply the access
+token string. No verification shortcut added;501 remains. Owned-process cleanup
+completed. Added deployment ownership receipt so MongoDB is never started against
+an arbitrary unrelated directory. Node configuration tests pass, full suite passed
+13/13 in25.47s before the ownership guard; final repeat smoke/regression follows.
+CI now provisions Node22 and tests the adapter configuration without game files,
+upstream datasets or MongoDB. Integration has explicit GPL-3.0-only notices and
+license text; original upstream source/license remain in the external deployment.
+
+Final ownership-guard HTTP smoke passes all five checks and cleans up both
+services. Final full regression13/13 passes in25.39s; formatting and diff checks
+pass. Third game log again reports keychain complete at2806, Completed at3338,
+and login callback Result2/empty error at3355. No mongod process remains after
+cleanup. This is a verified selectable-backend integration milestone, not stable
+menu/gameplay, resolved profile-token verification, or12.61 compatibility.

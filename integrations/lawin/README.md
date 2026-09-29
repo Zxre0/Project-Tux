@@ -1,0 +1,99 @@
+# Isolated LawinServerV2 provider
+
+Experimental integration, explicitly selected; the native backend remains the
+default. The native Linux launcher supervises a native Node.js/MongoDB backend
+and the Proton game process in one loopback-only network namespace. No host
+network interface, firewall, driver, or router setting is changed.
+
+Upstream: https://github.com/Lawin0129/LawinServerV2
+Pinned revision: `2205696e4e1f828b4f6457233901373c07f3e180` (GPL-3.0).
+The original adapter files in this directory are GPL-3.0-only. Keep upstream
+LICENSE and credits in deployments; no upstream source, datasets, game assets,
+runtime archives, credentials, databases or session logs are committed here.
+
+## Tested setup
+
+- Native Node.js22.23.3 Linux x64, official release archive SHA256:
+  `df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de`.
+- MongoDB7.0.43 Ubuntu22.04 x86_64 official archive, SHA256:
+  `cba84b47932ebcdd093de37f2fdbbbd415116d21187ccf9117568726859d6f81`.
+- Both extracted under XDG data `fortnite-on-linux/backend-tools/`; no global install.
+- CachyOS, Protonexperimental-20260924, supplied Fortnite12.50 CL13137020.
+
+Use official downloads and verify their checksums before extracting. Python3.12+
+is needed for preparation (`tarfile` data extraction filter). Node/MongoDB are
+needed only for this optional provider, not the native backend. Native bcrypt
+compilation also needs a C/C++ build toolchain and Python.
+
+Prepare a fresh deployment (substitute your own absolute paths):
+
+```sh
+python3 integrations/lawin/prepare.py \
+  --checkout /path/to/pinned/LawinServerV2 \
+  --deployment /path/to/xdg-data/fortnite-on-linux/backends/lawin-v2-2205696 \
+  --node /path/to/node/bin/node --mongod /path/to/mongodb/bin/mongod \
+  --login /path/to/xdg-config/fortnite-on-linux/backend/local-login.json \
+  --config /path/to/xdg-config/fortnite-on-linux/backend/lawin.json
+```
+
+Preparation archives the pinned committed tree, never modifies the reference
+checkout, and refuses existing deployment/config targets. It retains the
+upstream npm lockfile. In the deployment's `source` directory, using the pinned
+Node runtime on PATH:
+
+```sh
+npm ci --ignore-scripts --no-audit --no-fund
+npm rebuild bcrypt --build-from-source
+```
+
+Dependencies are old; they have **not** been security-audited. Keep the deployment
+isolated and do not expose it publicly. Only bcrypt's build is deliberately run;
+other dependency lifecycle scripts are not enabled by the install command.
+
+Build the project normally, then append this to the existing isolated launch:
+
+```sh
+./build/fortnite-linux launch 12.50 --offline-probe --launcher-context-probe \
+  --proton experimental-20260924 --timeout 120 \
+  --http-probe-helper build/windows/fol-module-bootstrap.exe \
+  --http-module build/windows/fol-http-local-router.dll \
+  --private-backend --development-login \
+  --lawin-config /absolute/path/to/backend/lawin.json
+```
+
+The adapter validates private local credentials, initializes a separate MongoDB
+account with bcrypt, and refuses to overwrite an existing mismatching password.
+It uses the existing generated @localhost credentials, not Epic credentials.
+It creates empty inventories rather than importing the upstream full locker.
+An owner-only deployment receipt is required before starting MongoDB, preventing
+accidental use of an unrelated existing database directory.
+There is no Discord requirement. A deployment lock prevents two sessions from
+using the same database. A forced kill may leave this lock behind; verify no owned
+process is still using the database before manually recovering it. The adapter
+does not automatically delete stale locks, databases or user registrations.
+
+The service reuses upstream route modules, **not** its index.js entry point:
+HTTP binds127.0.0.1:3551; MongoDB binds127.0.0.1:27017 in the private namespace.
+Tokens are session-local. XMPP/party-network integration remains deferred.
+Upstream check-disabling cloud hotfixes, fabricated launcher manifests, and
+unimplemented profile-token verification are not enabled. Profile-token requests
+fail explicitly rather than receiving fabricated verification success.
+
+`lawin.log` contains route-template/status/process events, not request bodies,
+raw URLs, credentials, tokens or key data. `lawin-service.log` and `mongodb.log`
+are owner-only raw diagnostic logs; inspect/redact before sharing. The original
+game’s prefix log may contain the disposable local password.
+
+## Verification
+
+`node --test integrations/lawin/config.test.cjs` uses synthetic fixtures only.
+CTest runs it when Node is available; CI provisions Node22. The separate
+`smoke.cjs` requires a running isolated provider and checks wrong-password
+rejection, real password login, token verification, common_core and keychain
+transport. It never prints passwords, tokens or keychain contents.
+
+Actual sessions83effcb2 ande4ce3df3 pass QueryKeychain and reach the game's
+`Completed` login stage and HandleLoginRequestComplete Result2. This does **not**
+prove a stable logged-in menu: the startup-error dialog persists, profile-token
+verification returns501, and the game requests exit about50 seconds after launch.
+All owned processes were cleaned up; no EAC was observed during sampled monitoring.

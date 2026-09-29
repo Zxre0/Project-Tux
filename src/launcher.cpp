@@ -42,7 +42,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                    int timeoutSeconds, bool traceStartup, bool engineStdout,
                    const QString &protonId, bool launcherContextProbe, BackendProbe backendProbe,
                    const QString &httpProbeHelper, const QString &httpModule, bool privateBackend,
-                   bool developmentLogin) {
+                   bool developmentLogin, const QString &lawinConfig) {
     const bool localBackendProbe = backendProbe != BackendProbe::None;
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
@@ -68,6 +68,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                     : "none"},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(lawinConfig.isEmpty() || privateBackend,
+                "Lawin deployment requires --private-backend");
         require(!developmentLogin || (privateBackend && !traceStartup && !engineStdout),
                 "Development login requires the isolated private backend and excludes verbose "
                 "argument tracing");
@@ -262,12 +264,18 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             require(QFileInfo(backend).isExecutable() && QFileInfo(identity).isFile(),
                     "Native backend or private identity missing; run fortnite-backend init first");
             args.append({backend, "--config", identity, "--log", directory + "/backend.log",
-                         "--isolated-session", "--outer-netns", networkNamespaceIdentity(), "run",
-                         "--"});
+                         "--isolated-session", "--outer-netns", networkNamespaceIdentity()});
+            if (!lawinConfig.isEmpty()) {
+                const QFileInfo config(lawinConfig);
+                require(config.isFile() && !config.isSymLink(), "Lawin deployment config missing");
+                args.append({"--lawin-config", config.absoluteFilePath()});
+            }
+            args.append({"run", "--"});
             overrides["NO_PROXY"] = "127.0.0.1,localhost";
             overrides["no_proxy"] = "127.0.0.1,localhost";
             result["private_backend"] =
                 QJsonObject{{"bind", "127.0.0.1:3551"},
+                            {"provider", lawinConfig.isEmpty() ? "native" : "lawin-v2"},
                             {"scope", "same isolated namespace; request/login outcome must be "
                                       "verified from backend log"}};
         }

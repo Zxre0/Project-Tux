@@ -1,5 +1,12 @@
 # Native private backend
 
+**Update:** an optional [LawinServerV2 provider](../integrations/lawin/README.md)
+now passes the supplied12.50 client's QueryKeychain stage and reaches its
+`Completed` login stage in two actual runs. The native implementation below
+remains the default and still rejects at keychain. A startup-error dialog and
+profile-token verification failure remain with Lawin; no stable menu/gameplay
+success is claimed. Select the provider explicitly with `--lawin-config`.
+
 The current backend is original C++/Qt code, separate from Wine, the Windows HTTP
 adapter and Project Reboot's gameplay server. It binds IPv4 loopback only. It does
 not connect to Epic, accept real Epic accounts, distribute game files, implement

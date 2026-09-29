@@ -387,6 +387,11 @@ int main(int argc, char **argv) {
         check(fol::classifyFailure("error: DXVK device initialization failed") == "dxvk",
               "component-scoped DXVK error evidence");
         auto launch = fol::launch(paths, "missing", false, false, 1);
+        auto lawinWithoutPrivate =
+            fol::launch(paths, "missing", true, true, 1, false, false, {}, false,
+                        fol::BackendProbe::None, {}, {}, false, false, "/example/lawin.json");
+        check(lawinWithoutPrivate["error"].toString().contains("requires --private-backend"),
+              "external Lawin provider cannot omit private isolation profile");
         auto noBootstrap = fol::launch(paths, "missing", true, true, 1, false, false, {}, true,
                                        fol::BackendProbe::None, {}, "module.dll");
         check(noBootstrap["error"].toString().contains("requires the owned-child"),
