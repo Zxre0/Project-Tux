@@ -1869,3 +1869,35 @@ The independent startup-error dialog and earlier profile-token failure also
 remain unresolved. The goal is blocked, not complete; no successful-login
 screenshot or gameplay claim is justified. All existing implementation commits
 are pushed; the last full local suite passed12/12.
+
+### Broader private-backend research and parser probe (2026-09-29)
+
+User explicitly requested a broader GitHub investigation. Inspected pinned
+keychain handlers in LawinServer7f0f26d, LawinServerV22205696,
+ReloadBackenda0a35e7, Aphrodite0726ce9, and NeoniteV28a60e5c. Full source links
+and distinctions are in BACKEND.md. First four return bundled JSON, with no
+12.50-specific keychain branch. Several share Lawin lineage; do not count them
+as independent compatibility tests. Neonite has a remote-fetch handler and a
+one-string fallback, providing a new array-length hypothesis. Its source also
+contains production credential/fetch and permissive verification behavior; none
+was adopted or executed. No upstream dataset or actual key was imported.
+
+Temporarily changed only the original local response from [] to [""] to test
+whether a nonempty array alone changes parser behavior. This is an invalid-entry
+diagnostic fixture, not a production feature or claim of key compatibility.
+Rebuilt successfully and launched the isolated12.50 development session through
+Protonexperimental-20260924 using the documented BACKEND.md command, timeout120,
+with OPENSSL_ia32cap unset. Session2026-09-29_22-43-29_10e19784 returned200 for
+local-keychain-shape-probe but produced the same UnableToParseJson/result37.
+Game-log lines2807–2809 record the failure. EAC not observed during sampled
+monitoring; owned_processes_remaining=false. Wrapper67 still indicates the
+missing final helper observation, not a newly diagnosed game crash.
+
+Reverted the temporary response immediately. The test disproves the hypothesis
+that merely making the array nonempty fixes login; it does not establish the
+exact entry requirements or authorize using actual key material. The repo-wide
+FMcpKeychainHelper code search and keychain issue searches in LawinV1/V2/Neonite
+yielded no matching implementation/issue. Full post-revert regression passed12/12
+in25.53s. Source is restored exactly; only the research/test documentation changed.
+Diff whitespace check passed.
+No successful-login screenshot or protection bypass was produced.

@@ -131,3 +131,37 @@ Both log `UnableToParseJson` with HTTP200 and abort at QueryKeychain/result37.
 The exact parser requirement remains unproven. A successful backend account
 authentication is not a completed game login, and the independent startup-error
 dialog still needs resolution. There is no genuine successful-login screenshot.
+
+### Broader GitHub comparison (2026-09-29)
+
+Read route source at pinned revisions, without installing/running upstream
+backends or downloading their keychain datasets:
+
+| Reference | Keychain handler behavior | What it establishes |
+| --- | --- | --- |
+| [LawinServer](https://github.com/Lawin0129/LawinServer/blob/7f0f26d7a772c6122c42b1783fd75f497e86d3a9/structure/storefront.js#L24) | Express JSON response from bundled file | Same route shape as Reboot Launcher; no version branch in this handler |
+| [LawinServerV2](https://github.com/Lawin0129/LawinServerV2/blob/2205696e4e1f828b4f6457233901373c07f3e180/routes/storefront.js#L52) | Express JSON response from bundled file | No empty-array fallback or 12.50-specific handling here |
+| [Reload Backend](https://github.com/Project-Reload/Reload-Backend/blob/a0a35e799231e49749809902cc7839348dbc0896/routes/storefront.js#L59) | Same pattern, with route logging | Not independent evidence of parser behavior; shares Lawin lineage |
+| [Aphrodite](https://github.com/simplyzetax/Aphrodite/blob/0726ce9e91e883d5930342ceef4610d9deaef008/src/routes/storefront.ts#L10) | Reads static JSON through Bun and returns it | Another framework, but no version-specific shape conversion |
+| [NeoniteV2](https://github.com/NeoniteDev/NeoniteV2/blob/8a60e5c5ca7cf0d37cd36450f19f2e5c02439536/managers/api.js#L1025) | Remote fetch, falling back to a one-string array | A new nonempty-array hypothesis, not proof that empty arrays or arbitrary strings work |
+
+No upstream key value, production credential, permissive authentication handler,
+profile-verification shortcut or certificate/anti-cheat workaround is reused.
+The remote fetch was not executed. Lawin V1/V2 identify GPL-3.0 licenses;
+Aphrodite has no license reported by GitHub, and Neonite's license was not recognized
+as a standard SPDX license. This comparison records behavior only, not copied code.
+Issue searches for keychain in Lawin V1/V2 and Neonite returned no matches.
+
+The resulting diagnostic experiment changes only the local response from `[]`
+to `[""]`: one empty string, no asset key. It is intentionally not a production
+keychain or a proposed protection workaround. Acceptance or rejection can narrow
+the array-length hypothesis without granting access to encrypted content. The
+temporary response must be removed after the experiment; do not label a malformed
+fixture as verified keychain support.
+
+**Result:** session `2026-09-29_22-43-29_10e19784` served `[""]` with HTTP200.
+The real client still reported `UnableToParseJson`, then QueryKeychain/result37
+(game-log lines2807–2809). This rules out a fix based only on making the array
+nonempty. It does not distinguish entry validation from response handling, or
+prove a need for real asset keys. Reverted the temporary response immediately.
+Owned-process cleanup completed; no EAC observed during sampled monitoring.
