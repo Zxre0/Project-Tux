@@ -196,42 +196,14 @@ QJsonObject testRuntime(const Paths &paths, const QString &id) {
     // Wine's server socket identity depends on effective UID. Waiting outside
     // this user namespace can target a different server despite the same prefix.
     // The fixed script uses positional parameters; no user text is evaluated.
-    QString worker = "\"$1\" cmd.exe /d /c ver; fol_wine_status=$?; "
+    auto receipt = paths.prefix(id) + "/drive_c/" + session + ".txt";
+    auto cmd = "ver & echo " + session + ">C:\\" + session + ".txt";
+    QString worker = "\"$1\" cmd.exe /d /c \"$3\"; fol_wine_status=$?; "
                      "\"$2\" --wait; fol_wait_status=$?; "
                      "if [ \"$fol_wine_status\" -ne 0 ]; then exit \"$fol_wine_status\"; fi; "
                      "exit \"$fol_wait_status\"";
-    QStringList args{"--user", "--map-root-user",  "--net", "--",  "/bin/sh", "-c",
-                     worker,   "fol-runtime-test", wine,    server};
-    auto outcome = run(unshare, args, 35000, env);
-    auto remaining = ownedProcesses(paths.prefix(id), session);
-    QJsonArray processLog;
-    for (const auto &item : remaining)
-        processLog.append(item.json());
-    if (outcome.timedOut) {
-        for (const auto &item : remaining)
-            signalProcess(item, 15);
-        QThread::msleep(100);
-        for (const auto &item : remaining)
-            signalProcess(item, 9);
-    }
-    QElapsedTimer cleanup;
-    cleanup.start();
-    while (!ownedProcesses(paths.prefix(id), session).isEmpty() && cleanup.elapsed() < 3000)
-        QThread::msleep(50);
-    bool ok = !outcome.timedOut && outcome.exitCode == 0 &&
-              ownedProcesses(paths.prefix(id), session).isEmpty();
-    QJsonObject report{{"session_id", session},
-                       {"component", "runtime"},
-                       {"runtime", wine},
-                       {"prefix", paths.prefix(id)},
-                       {"test", "network-isolated cmd.exe /d /c ver"},
-                       {"passed", ok},
-                       {"exit_code", outcome.exitCode},
-                       {"timed_out", outcome.timedOut},
-                       {"server_wait_scope", "same user and network namespace as Wine"},
-                       {"logs", directory},
-                       {"fortnite_tested", false}};
-    writeFile(directory + "/wine.log", outcome.output.toUtf8());
+    QStringList args{"--user", "--map-root-user",  "--net", "--",   "/bin/sh", "-c",
+                     worker,   "fol-runtime-test", wine,    server, cmd};
     QStringList quotedArgs;
     for (const auto &arg : args)
         quotedArgs.append(quote(arg));
@@ -241,7 +213,31 @@ QJsonObject testRuntime(const Paths &paths, const QString &id) {
                       " WINEDLLOVERRIDES=" + quote(env.value("WINEDLLOVERRIDES")) + " " +
                       quote(unshare) + " " + quotedArgs.join(' ');
     writeFile(directory + "/launch-command.txt", command.toUtf8() + '\n');
-    writeFile(directory + "/processes.log", QJsonDocument(processLog).toJson());
+    auto outcome = superviseRuntime(unshare, args, env, directory, "wine.log", 35000);
+    bool receiptOk = QFileInfo(receipt).isFile() && !QFileInfo(receipt).isSymLink() &&
+                     QString::fromUtf8(readFile(receipt, 4096)).trimmed() == session;
+    bool ok = outcome.started && !outcome.crashed && !outcome.timedOut && outcome.exitCode == 0 &&
+              !outcome.remaining && !outcome.eac && !outcome.interrupted &&
+              outcome.error.isEmpty() && receiptOk;
+    QJsonObject report{
+        {"session_id", session},
+        {"component", "runtime"},
+        {"runtime", wine},
+        {"prefix", paths.prefix(id)},
+        {"test", "network-isolated cmd.exe version and execution receipt"},
+        {"execution_receipt_verified", receiptOk},
+        {"passed", ok},
+        {"exit_code", outcome.exitCode},
+        {"timed_out", outcome.timedOut},
+        {"interrupted", outcome.interrupted},
+        {"owned_processes_remaining", outcome.remaining},
+        {"eac_status", outcome.eac ? "detected; terminated"
+                                   : "not observed in sampled monitoring; not proof of absence"},
+        {"server_wait_scope", "same user and network namespace as Wine"},
+        {"logs", directory},
+        {"fortnite_tested", false}};
+    if (!outcome.error.isEmpty())
+        report["error"] = outcome.error;
     writeFile(directory + "/result.json", QJsonDocument(report).toJson());
     writeFile(directory + "/launcher.log",
               QJsonDocument(QJsonObject{{"timestamp", QDateTime::currentDateTimeUtc().toString(

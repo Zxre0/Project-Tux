@@ -21,6 +21,10 @@ network checks. `launcher.cpp` orchestrates session planning and monitoring.
 separate from Wine prefixes; neither manager silently adopts the other's storage.
 Import copies a trusted installed runtime because Proton may update its default
 prefix and SteamPipe files. The CLI never patches Proton or Steam installations.
+`supervisor.cpp` shares bounded execution, ancestry tracking, signal handling and
+cleanup between Wine and Proton runtime tests. It is serialized within a CLI
+process; future parallel GUI operations must use worker processes rather than
+competing process-wide signal handlers.
 
 The profile in `profiles/fortnite/12.61.toml` is embedded as a Qt resource, so an
 installed binary does not depend on its original working directory. Native GUI,

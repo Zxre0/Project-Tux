@@ -10,6 +10,14 @@
   PCI drivers and distribution packages. GPU presence alone does not prove Vulkan.
 - Prefix failure: the error identifies its initialization log. Only dedicated
   launcher-owned prefixes are permitted; unrelated Wine prefixes are never adopted.
+- Interrupted runtime test: SIGINT/SIGTERM produces `interrupted: true` and a
+  failed result after scoped cleanup. Inspect `owned_processes_remaining` and
+  `processes.log`. Do not use global `wineserver -k`. SIGKILL cannot be caught.
+- Runtime exits zero but test fails: inspect `execution_receipt_verified`;
+  successful process exit alone does not prove the Windows command executed.
+- Prefix recovery: stop all users, inspect `prefix backups ID`, archive any
+  existing active directory, then `prefix restore ID TOKEN`. Restore never
+  overwrites an existing directory or accepts incomplete backup metadata.
 - Private-development path unverified: this is a compatibility blocker. An
   `--offline-probe` can investigate direct startup without network connectivity;
   it cannot provide authentication or private gameplay.
@@ -28,8 +36,8 @@ No empty placeholder logs are created to imply that components ran.
 The full graphics-enabled sanitizer suite reports retained allocations after
 Vulkan enumeration on this CachyOS graphics stack (NVIDIA and Radeon, with Mesa
 device-selection/anti-lag layers installed). Stacks include Vulkan initialization,
-unloaded driver modules and libdbus. The 46 checks run with
+unloaded driver modules and libdbus. The current 86 checks run with
 `build-sanitized/core-tests --skip-gpu` pass with ASan/UBSan and leak checking
-enabled. All 51 functional checks pass in the normal build. This is **not** a
+enabled. All 91 functional checks pass in the normal build. This is **not** a
 clean full sanitizer result; ownership of the graphics-related allocations is
 still unresolved. No suppression or global driver modification is used.

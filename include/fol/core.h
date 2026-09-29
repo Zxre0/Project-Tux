@@ -87,6 +87,15 @@ bool isEacName(const QString &name);
 QList<Process> processes();
 QList<Process> ownedProcesses(const QString &prefix, const QString &session);
 bool signalProcess(const Process &, int signal);
+struct SupervisionResult {
+    bool started = false, crashed = false, timedOut = false, interrupted = false;
+    bool eac = false, remaining = false;
+    int exitCode = -1;
+    QString error;
+};
+SupervisionResult superviseRuntime(const QString &program, const QStringList &args,
+                                   const QProcessEnvironment &env, const QString &logs,
+                                   const QString &outputName, int timeoutMs);
 QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds);
 QString classifyFailure(const QString &text);

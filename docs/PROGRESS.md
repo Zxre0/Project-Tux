@@ -273,3 +273,35 @@ client path is intentional; no account or production login is needed for cmd.exe
 No game-specific compatibility or rendering conclusion follows from these tests.
 Next: review failure/interrupt cleanup and strengthen runtime diagnostic reporting
 while actual Fortnite 12.61 startup remains blocked by inaccessible game files.
+
+### Runtime interruption and descendant cleanup
+
+Proton checkpoint `d9719ea` pushed; Ubuntu CI run 36527549548 passed. Review found
+that the older Wine smoke path used a blocking subprocess helper without the
+Proton test's interrupt handling. Extracted shared runtime supervision, including
+SIGINT/SIGTERM handling, timeout, timestamped process-tree snapshots, pidfd cleanup,
+and verified descendant ownership retained across reparenting. Zombies are not
+counted as live processes. PID reuse remains guarded by recorded start ticks.
+Proton and Wine both use this module; the game-launch supervisor is unchanged.
+
+Added CLI subprocess tests that wait until a synthetic runtime is actually running,
+send SIGTERM, then require structured failure and no owned survivors. Added timeout
+cleanup and synthetic EAC-named descendants with WINEPREFIX/session removed;
+ancestry still detects/stops them. No anti-cheat code is executed. Wine now requires
+a fresh Windows-written execution receipt as well as exit status, matching the
+Proton false-success safeguards. Command evidence is saved before starting Wine.
+
+Initial rebuild caught Qt's `signals` macro conflicting with a local variable name;
+renamed it to `signalScope`. Retest: CTest 3/3; 91 assertions; ASan/UBSan non-GPU
+86 assertions. All passed. Real command retests with shared supervision also passed:
+Experimental `proton-3c06beb2-9ae6-4696-b0e7-e4a8bbeb31b4`, Hotfix
+`proton-f57d6a61-20e6-45d8-8466-75f7a44c3af7`, and Wine with the new receipt
+`runtime-0f3089e0-b2b5-406a-b3dd-03aacc3a93e4`. No owned processes remained.
+
+Rechecked accessible game roots `/home/atlas/Games`, `/mnt`, `/run/media/atlas`:
+no installation candidates. NTFS volumes remain unmounted. Explicit startup attempt
+`launch 12.61 --offline-probe --timeout 10` correctly stopped at registration
+preflight: `Build is not registered: 12.61; use add /path/to/Fortnite`.
+Session `2026-09-29_05-49-23_325daeb5` retains the blocked result. No game or EAC
+was started. An accessible legitimate 12.61 installation is still the prerequisite
+for the next real startup experiment; runtime tests cannot replace this evidence.

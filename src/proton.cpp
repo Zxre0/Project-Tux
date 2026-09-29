@@ -2,15 +2,11 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
-#include <QElapsedTimer>
 #include <QFile>
 #include <QJsonDocument>
 #include <QLockFile>
-#include <QProcess>
 #include <QStandardPaths>
-#include <QThread>
 #include <QUuid>
-#include <csignal>
 
 namespace fol {
 static void checkStorage(const Paths &paths, const QString &path) {
@@ -79,7 +75,6 @@ QJsonObject importProton(const Paths &paths, const QString &id, const QString &s
     require(QDir().rename(staging, target), "Cannot publish runtime import; retained " + staging);
     return metadata;
 }
-static volatile std::sig_atomic_t protonInterrupted = 0;
 QJsonArray importedProtonRuntimes(const Paths &paths) {
     auto root = paths.data + "/runtimes";
     checkStorage(paths, root);
@@ -111,7 +106,6 @@ QJsonArray importedProtonRuntimes(const Paths &paths) {
     }
     return entries;
 }
-static void interruptProton(int) { protonInterrupted = 1; }
 QJsonObject testProton(const Paths &paths, const QString &id, const QString &runtimeId) {
     validateId(id);
     validateId(runtimeId);
@@ -219,83 +213,27 @@ QJsonObject testProton(const Paths &paths, const QString &id, const QString &run
         auto command = "env " + unsetArgs.join(' ') + " " + assignments.join(' ') + " " +
                        quote(unshare) + " " + quoted.join(' ');
         writeFile(logs + "/launch-command.txt", command.toUtf8() + '\n');
-        QFile snapshots(logs + "/processes.log");
-        require(snapshots.open(QIODevice::WriteOnly), "Cannot open Proton process log");
-        QProcess process;
-        process.setProcessEnvironment(env);
-        process.setProcessChannelMode(QProcess::MergedChannels);
-        process.setStandardOutputFile(logs + "/runtime.log");
-        protonInterrupted = 0;
-        auto oldInt = std::signal(SIGINT, interruptProton);
-        auto oldTerm = std::signal(SIGTERM, interruptProton);
-        process.start(unshare, args);
-        bool started = process.waitForStarted(5000), eac = false, timedOut = false;
-        QElapsedTimer elapsed;
-        elapsed.start();
-        QList<Process> observed;
-        while (started) {
-            auto members = ownedProcesses(prefix, session);
-            QJsonArray snapshot;
-            for (const auto &item : members) {
-                observed.append(item);
-                snapshot.append(item.json());
-                eac |= item.eac;
-            }
-            snapshots.write(QJsonDocument(QJsonObject{{"elapsed_ms", elapsed.elapsed()},
-                                                      {"processes", snapshot}})
-                                .toJson(QJsonDocument::Compact) +
-                            '\n');
-            snapshots.flush();
-            timedOut = elapsed.elapsed() >= 90000;
-            if (eac || timedOut || protonInterrupted ||
-                (process.state() == QProcess::NotRunning && members.isEmpty()))
-                break;
-            if (process.state() == QProcess::NotRunning)
-                QThread::msleep(50);
-            else
-                process.waitForFinished(50);
-        }
-        // Always stop by recorded identity, never by global wineserver or name.
-        observed.append(ownedProcesses(prefix, session));
-        for (const auto &item : observed)
-            signalProcess(item, SIGTERM);
-        if (process.state() != QProcess::NotRunning) {
-            process.terminate();
-            process.waitForFinished(2000);
-        }
-        for (const auto &item : observed)
-            signalProcess(item, SIGKILL);
-        if (process.state() != QProcess::NotRunning) {
-            process.kill();
-            process.waitForFinished(2000);
-        }
-        std::signal(SIGINT, oldInt);
-        std::signal(SIGTERM, oldTerm);
-        QElapsedTimer cleanup;
-        cleanup.start();
-        while (!ownedProcesses(prefix, session).isEmpty() && cleanup.elapsed() < 3000)
-            QThread::msleep(50);
+        auto outcome = superviseRuntime(unshare, args, env, logs, "runtime.log", 90000);
         bool receiptOk = QFileInfo(receipt).isFile() && !QFileInfo(receipt).isSymLink() &&
                          QString::fromUtf8(readFile(receipt, 4096)).trimmed() == session;
-        bool drained = ownedProcesses(prefix, session).isEmpty();
-        bool passed = started && process.exitStatus() == QProcess::NormalExit &&
-                      process.exitCode() == 0 && receiptOk && drained && !eac && !timedOut &&
-                      !protonInterrupted;
+        bool passed = outcome.started && !outcome.crashed && outcome.exitCode == 0 && receiptOk &&
+                      !outcome.remaining && !outcome.eac && !outcome.timedOut &&
+                      !outcome.interrupted && outcome.error.isEmpty();
         result["passed"] = passed;
         result["runtime"] = runtime;
         result["version"] = marker["version"];
         result["prefix"] = prefix;
-        result["exit_code"] = started ? process.exitCode() : -1;
-        result["timed_out"] = timedOut;
-        result["interrupted"] = bool(protonInterrupted);
+        result["exit_code"] = outcome.exitCode;
+        result["timed_out"] = outcome.timedOut;
+        result["interrupted"] = outcome.interrupted;
         result["execution_receipt_verified"] = receiptOk;
-        result["owned_processes_remaining"] = !drained;
+        result["owned_processes_remaining"] = outcome.remaining;
         result["eac_status"] =
-            eac ? "detected; terminated"
-                : "not observed in sampled process monitoring; not proof of absence";
+            outcome.eac ? "detected; terminated"
+                        : "not observed in sampled process monitoring; not proof of absence";
         result["test"] = "network-isolated Proton run cmd.exe execution receipt and server drain";
-        if (!started)
-            result["error"] = process.errorString();
+        if (!outcome.error.isEmpty())
+            result["error"] = outcome.error;
     } catch (const std::exception &error) {
         result["error"] = QString::fromUtf8(error.what());
     }

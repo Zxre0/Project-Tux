@@ -93,8 +93,9 @@ backups are retained for inspection but cannot be restored automatically. Stop a
 prefix users first; launcher locks cannot prevent an independently started Wine.
 No permanent prefix deletion or automatic backup pruning is implemented.
 
-`runtime test ID` runs Wine's built-in `cmd.exe /d /c ver` in an offline namespace
-and waits for that namespace's Wine server. This tests Windows command execution
+`runtime test ID` runs Wine's built-in cmd.exe version command and writes a unique
+execution receipt in an offline namespace, then waits for that namespace's Wine
+server. This tests Windows command execution
 and clean shutdown only; it does not test D3D rendering or Fortnite compatibility.
 
 `runtime import-proton DIRECTORY --id NAME` copies a trusted, already-installed
@@ -106,6 +107,9 @@ for success; exit zero alone is insufficient. Custom `user_settings.py` is rejec
 and inherited Steam/Proton/Wine overrides are removed from this baseline test.
 This supports the tested `files/bin/wine` layout, not every Proton/UMU release.
 Wine prefix backup commands do not currently manage Proton compatibility data.
+Both runtime tests handle SIGINT/SIGTERM and bounded timeout with session-scoped
+cleanup and process-tree logs. EAC-name observation fails the test and stops its
+processes. SIGKILL or machine power loss cannot be handled by userspace cleanup.
 
 Configuration, data, cache and logs follow XDG conventions under
 `fortnite-on-linux`. Every launch request records a unique session under

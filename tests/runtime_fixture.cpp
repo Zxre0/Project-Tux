@@ -16,10 +16,23 @@ int main(int argc, char **argv) {
         QTextStream(stdout) << "synthetic-runtime-fixture\n";
         return 0;
     }
-    if (qEnvironmentVariable("FOL_FIXTURE_MODE") == "eac-name") {
+    if (qEnvironmentVariable("FOL_FIXTURE_MODE") == "hang") {
+        QFile ready(qEnvironmentVariable("FOL_FIXTURE_READY"));
+        if (!ready.open(QIODevice::WriteOnly))
+            return 1;
+        ready.write("ready\n");
+        ready.close();
+        QThread::msleep(30000);
+        return 0;
+    }
+    if (qEnvironmentVariable("FOL_FIXTURE_MODE").startsWith("eac-")) {
         QProcess child;
         auto env = QProcessEnvironment::systemEnvironment();
         env.insert("WINEPREFIX", env.value("WINEPREFIX") + "/");
+        if (qEnvironmentVariable("FOL_FIXTURE_MODE") == "eac-stripped") {
+            env.remove("WINEPREFIX");
+            env.remove("FOL_SESSION_ID");
+        }
         child.setProcessEnvironment(env);
         child.start("/bin/bash", {"-c", "exec -a EasyAntiCheat_synthetic.exe /bin/sleep 30"});
         if (!child.waitForStarted())
@@ -27,7 +40,8 @@ int main(int argc, char **argv) {
         child.waitForFinished(30000);
         return 0;
     }
-    if (executable == "proton") {
+    if (executable == "proton" ||
+        (executable == "wine" && qEnvironmentVariable("FOL_FIXTURE_MODE") == "no-receipt")) {
         if (!qEnvironmentVariable("STEAM_COMPAT_MEDIA_PATH").isEmpty() ||
             !qEnvironmentVariable("PROTON_REMOTE_DEBUG_CMD").isEmpty())
             return 88;

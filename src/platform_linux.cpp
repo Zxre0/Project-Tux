@@ -25,6 +25,10 @@ static std::optional<Process> inspectProcess(qint64 pid) {
     auto fields = bytes.mid(end + 2).split(' ');
     if (fields.size() < 20)
         return {};
+    // Zombies cannot execute or be signalled; counting them as live descendants
+    // can turn a completed launch into a spurious supervisor timeout.
+    if (fields[0] == "Z" || fields[0] == "X")
+        return {};
     Process process{pid, fields[1].toLongLong(), fields[19].toULongLong(),
                     QString::fromLocal8Bit(bytes.mid(begin + 1, end - begin - 1)), false};
     process.eac = isEacName(process.name);

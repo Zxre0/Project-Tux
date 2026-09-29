@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QHostAddress>
 #include <QJsonDocument>
@@ -270,6 +271,70 @@ int main(int argc, char **argv) {
             fol::importProton(paths, "synthetic-second", protonSource);
             check(fol::testProton(paths, "probe", "synthetic-second").contains("error"),
                   "Proton runtime changes require a separate test prefix");
+
+            check(invoke({"runtime", "import-proton", protonSource, "--id", "synthetic-cli"})
+                          .exitCode == 0,
+                  "CLI Proton runtime import");
+            auto cliData = temp.path() + "/cli/data/fortnite-on-linux";
+            for (const QString runtimeKind : {"wine", "proton"}) {
+                auto prefix = runtimeKind == "wine"
+                                  ? cliData + "/prefixes/interrupt-wine"
+                                  : cliData + "/proton-prefixes/interrupt-proton/pfx";
+                if (runtimeKind == "wine") {
+                    fol::writeFile(prefix + "/.fol-prefix.json",
+                                   QJsonDocument(QJsonObject{{"owner", "fortnite-on-linux"},
+                                                             {"id", "interrupt-wine"},
+                                                             {"path", prefix}})
+                                       .toJson());
+                    fol::writeFile(prefix + "/system.reg", "synthetic registry\n");
+                    QDir().mkpath(prefix + "/drive_c/windows");
+                }
+                auto ready = temp.path() + "/" + runtimeKind + "-interrupt-ready";
+                auto interruptEnv = cliEnvironment;
+                interruptEnv.insert("FOL_FIXTURE_MODE", "hang");
+                interruptEnv.insert("FOL_FIXTURE_READY", ready);
+                interruptEnv.insert("PATH",
+                                    protonSource + "/files/bin:" + interruptEnv.value("PATH"));
+                QProcess interruptedCli;
+                interruptedCli.setProcessEnvironment(interruptEnv);
+                interruptedCli.setProcessChannelMode(QProcess::MergedChannels);
+                QStringList command =
+                    runtimeKind == "wine"
+                        ? QStringList{"runtime", "test", "interrupt-wine"}
+                        : QStringList{"runtime", "test-proton", "interrupt-proton", "--proton",
+                                      "synthetic-cli"};
+                interruptedCli.start(cli, command);
+                check(interruptedCli.waitForStarted(), "interrupt test CLI starts");
+                QElapsedTimer readyTimer;
+                readyTimer.start();
+                while (!QFileInfo::exists(ready) &&
+                       interruptedCli.state() != QProcess::NotRunning &&
+                       readyTimer.elapsed() < 5000)
+                    interruptedCli.waitForFinished(50);
+                bool reached = QFileInfo::exists(ready);
+                interruptedCli.terminate();
+                bool finished = interruptedCli.waitForFinished(7000);
+                if (!finished) {
+                    interruptedCli.kill();
+                    interruptedCli.waitForFinished(1000);
+                }
+                auto result = QJsonDocument::fromJson(interruptedCli.readAll()).object();
+                auto leftovers = fol::ownedProcesses(prefix, {});
+                for (const auto &item : leftovers)
+                    fol::signalProcess(item, 9);
+                check(reached && finished && interruptedCli.exitStatus() == QProcess::NormalExit &&
+                          interruptedCli.exitCode() == 2 && result["interrupted"].toBool(),
+                      "SIGTERM produces a structured failed runtime result");
+                check(leftovers.isEmpty(), "interrupted runtime leaves no owned processes");
+                if (runtimeKind == "wine") {
+                    interruptEnv.insert("FOL_FIXTURE_MODE", "no-receipt");
+                    auto missingReceipt = fol::run(cli, command, 5000, interruptEnv);
+                    auto report = QJsonDocument::fromJson(missingReceipt.output.toUtf8()).object();
+                    check(missingReceipt.exitCode == 2 && report["exit_code"].toInt() == 0 &&
+                              !report["execution_receipt_verified"].toBool(),
+                          "Wine zero exit without receipt is not success");
+                }
+            }
         } else
             QTextStream(stdout) << "SKIP Proton supervisor: namespaces unavailable\n";
         fol::writeFile(paths.data + "/runtimes/synthetic/version", "changed\n");
@@ -306,6 +371,19 @@ int main(int argc, char **argv) {
         check(unrelated.state() == QProcess::Running, "unrelated process survives");
         unrelated.terminate();
         check(unrelated.waitForFinished(1000), "test cleanup");
+
+        auto supervisorEnv = QProcessEnvironment::systemEnvironment();
+        supervisorEnv.insert("WINEPREFIX", temp.path() + "/timeout-prefix");
+        supervisorEnv.insert("FOL_SESSION_ID", "timeout-test");
+        auto timeout = fol::superviseRuntime("/bin/sh", {"-c", "sleep 30"}, supervisorEnv,
+                                             temp.path() + "/timeout-logs", "runtime.log", 150);
+        check(timeout.timedOut && !timeout.remaining, "runtime timeout cleans descendants");
+        supervisorEnv.insert("FOL_FIXTURE_MODE", "eac-stripped");
+        auto stripped = fol::superviseRuntime(
+            QCoreApplication::applicationDirPath() + "/runtime-fixture", {}, supervisorEnv,
+            temp.path() + "/stripped-logs", "runtime.log", 3000);
+        check(stripped.eac && !stripped.remaining,
+              "ancestry catches EAC-named child even without ownership environment");
 
         // Exercise the full offline supervisor when this host allows namespaces
         // and has a Vulkan device. CI without those facilities still runs all
