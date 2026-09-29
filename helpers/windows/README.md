@@ -131,3 +131,30 @@ bash helpers/windows/build.sh
 The fixture and real 12.50 run both verified module presence, its in-child receipt,
 and 20 seconds of child liveness. The real game retained logged manual sign-in.
 This establishes a module lifecycle, not a private-backend connection or login.
+
+## In-process request observation
+
+`fol-http-request-observer.dll` is a separate artifact with manifest role
+`http-request-observer`. Select it using the same bootstrap and `--http-module`
+option. It validates the hash-gated profile layout, PE section roles, memory pages
+and expected function pointer, atomically replaces that data pointer, and forwards
+every invocation unchanged. No game instructions, URLs, authentication or certificate
+checks are patched. It restores the pointer and original page permission after20s;
+the bootstrap waits25s and the module remains mapped until owned-child shutdown.
+No unloading race with late callbacks is introduced.
+
+The observer checks the request vptr and bounded FString descriptor, retaining at
+most eight fixed origin/endpoint categories. It never writes a URL, query, header,
+body or credential to its receipt. Raw URL scratch space is cleared after inspection.
+The session/child-bound `http-module.json.requests` must show installation,
+restoration and valid observations; readiness or wrapper exit0 alone does not pass.
+Fixture queries contain a fake secret and the manual runner checks it is absent.
+The asset-free fixture also checks the forwarded return value.
+
+Wine's fixture data page is PAGE_WRITECOPY. The real 12.50 Proton mapping reports
+PAGE_EXECUTE_WRITECOPY for the checked .rdata table as well as code. Validation
+therefore separately requires a non-executable PE data section for the pointer
+and an executable section for its original target. Permission changes preserve
+existing execution permission and restore the original flags. Guard/no-access
+pages, unexpected pointers and executable PE-section targets for the table fail
+closed. Observing requests is still not backend routing or authentication.

@@ -9,7 +9,9 @@ static BOOL load_owned_module(PROCESS_INFORMATION *child) {
     for (DWORD i = 0; i < count; ++i)
         if (path[i] == L'\\' || path[i] == L'/')
             name = path + i + 1;
-    if (!equal(name, L"fol-http-adapter.dll") || image_base(child->dwProcessId, name)) {
+    BOOL observer = equal(name, L"fol-http-request-observer.dll");
+    if ((!observer && !equal(name, L"fol-http-adapter.dll")) ||
+        image_base(child->dwProcessId, name)) {
         event("module_name_or_existing_load_rejected", 1);
         return FALSE;
     }
@@ -78,7 +80,7 @@ static BOOL load_owned_module(PROCESS_INFORMATION *child) {
     event("module_loaded", loaded);
     if (!loaded)
         return FALSE;
-    DWORD wait = WaitForSingleObject(child->hProcess, 20000);
+    DWORD wait = WaitForSingleObject(child->hProcess, observer ? 25000 : 20000);
     event("module_control_child_live", wait == WAIT_TIMEOUT);
     if (wait != WAIT_TIMEOUT) {
         DWORD exit_code;

@@ -66,3 +66,14 @@ profiles/experiments/service-address.ini, not an enabled default.
 
 Future saved server records and browser adapters should support hostnames, IPv4,
 IPv6 and user-managed tunnels. They must remain optional for local development.
+
+## Verified request observation, not routing
+
+An original opt-in Windows diagnostic module now observes real12.50 HTTP method
+calls inside the isolated owned child. Session2026-09-29_20-33-09_cdc67e77 validated
+seven request objects and restored its method pointer. Categories include automatic
+token-endpoint calls; no request URL, authentication payload, header or body is
+logged or changed. There is still no local listener or working redirect. The next
+integration must keep the game and private service in the same isolated namespace,
+enable only that namespace's loopback, and authenticate explicit local development
+identities. It must not reuse production credentials or depend on Epic services.

@@ -1,7 +1,11 @@
-/* Original diagnostic DLL. Report successful execution in the owned child only.
- * No hook, URL modification, networking, authentication or security changes. */
+/* Original diagnostic DLL. Default: lifecycle receipt only. Separately compiled
+ * observer: forward one validated HTTP method unchanged and report categories.
+ * Neither changes URLs, networking, authentication, security or game files. */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#ifdef FOL_INPROCESS_OBSERVER
+#include "inprocess_observer.h"
+#endif
 
 static DWORD WINAPI module_worker(void *unused) {
     (void)unused;
@@ -44,7 +48,11 @@ static DWORD WINAPI module_worker(void *unused) {
     BOOL okay = WriteFile(file, report, count, &written, NULL) && written == count &&
                 FlushFileBuffers(file);
     CloseHandle(file);
+#ifdef FOL_INPROCESS_OBSERVER
+    return okay ? observe_inprocess(path, session) : 68;
+#else
     return okay ? 0 : 68;
+#endif
 }
 BOOL WINAPI module_entry(HINSTANCE module, DWORD reason, void *reserved) {
     (void)reserved;

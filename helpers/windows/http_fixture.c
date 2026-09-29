@@ -2,16 +2,21 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-__declspec(noinline) void synthetic_request(void *object) {
+__declspec(noinline) BYTE synthetic_request(void *object) {
     GetModuleHandleW(L"STAT_FCurlHttpRequest_ProcessRequest");
     if (object)
         Sleep(1);
+    return 1;
 }
-__declspec(noinline) void synthetic_other(void *object) {
+__declspec(noinline) BYTE synthetic_other(void *object) {
     if (object)
         Sleep(2);
+    return 1;
 }
-void (*volatile synthetic_table[])(void *) = {synthetic_request, synthetic_other};
+__declspec(dllexport) BYTE (*volatile synthetic_table[])(void *) = {
+    synthetic_request,
+    synthetic_other
+};
 static wchar_t synthetic_url[] =
     L"http://127.0.0.1:3551/account/api/oauth/token?fixture-secret=never-log-this";
 struct fixture_request {
@@ -29,7 +34,8 @@ static struct fixture_request request = {(void *)synthetic_table,
                                           sizeof(synthetic_url) / sizeof(wchar_t)}};
 void fixture_entry(void) {
     for (;;) {
-        synthetic_table[0](&request);
+        if (synthetic_table[0](&request) != 1)
+            ExitProcess(69);
         Sleep(250);
     }
 }

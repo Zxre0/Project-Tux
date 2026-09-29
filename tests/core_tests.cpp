@@ -63,6 +63,37 @@ int main(int argc, char **argv) {
         check(
             !fol::analyzeModuleReceipt(QByteArray(4097, 'x'), "module-test", 42)["ready"].toBool(),
             "oversized module receipt rejected");
+        const QByteArray moduleObservation =
+            "{\"event\":\"module-observation\",\"session_id\":\"module-test\",\"process_id\":42,"
+            "\"installed\":true,\"restored\":true,\"rejected\":0,\"error\":\"none\","
+            "\"requests\":[{\"origin\":\"loopback\",\"route\":\"oauth-token\"}]}\n";
+        check(fol::analyzeModuleObservation(moduleObservation, "module-test", 42)["observed"]
+                  .toBool(),
+              "restored session-bound module observation accepted");
+        check(!fol::analyzeModuleObservation(moduleObservation, "stale", 42)["observed"].toBool(),
+              "stale observation rejected");
+        check(!fol::analyzeModuleObservation(moduleObservation, "module-test", 43)["observed"]
+                   .toBool(),
+              "wrong observation child rejected");
+        check(!fol::analyzeModuleObservation({}, "module-test", 42)["observed"].toBool(),
+              "missing observation rejected");
+        check(!fol::analyzeModuleObservation(moduleObservation.chopped(1), "module-test",
+                                             42)["observed"]
+                   .toBool(),
+              "truncated observation rejected");
+        for (const auto &pair : QList<QPair<QByteArray, QByteArray>>{
+                 {"\"restored\":true", "\"restored\":false"},
+                 {"\"rejected\":0", "\"rejected\":1"},
+                 {"\"error\":\"none\"", "\"error\":\"no-requests\""},
+                 {"\"route\":\"oauth-token\"", "\"route\":\"sensitive-text\""},
+                 {"\"origin\":\"loopback\"", "\"origin\":\"loopback\",\"query\":\"secret\""}}) {
+            auto invalid = moduleObservation;
+            invalid.replace(pair.first, pair.second);
+            const auto result = fol::analyzeModuleObservation(invalid, "module-test", 42);
+            check(!result["observed"].toBool() &&
+                      !QJsonDocument(result).toJson().contains("secret"),
+                  "invalid or non-redacted module observation cannot report success");
+        }
         const QByteArray receipt =
             "FOL_HTTP_PROBE {\"event\":\"started\",\"session_id\":\"test\"}\n"
             "FOL_HTTP_PROBE {\"event\":\"owned_child_started\",\"value\":42}\n"

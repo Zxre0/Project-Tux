@@ -1380,3 +1380,54 @@ in-process request observation before implementing any local routing/backend.
 Native regression:8/8 CTest targets pass in25.27s, including219 core checks for
 receipt identity/truncation, explicit version matching and bootstrap requirements.
 All original work remains in FortniteOnLinux; upstream source was read, not copied.
+
+### In-process request observer experiment (2026-09-29, ongoing)
+
+Checkpoint3329aa4 is pushed and its GitHub Linux build passed (as did0d8c354).
+Added a separate original request-observer DLL, not a change to the lifecycle-only
+artifact. The native launcher requires the distinct manifest role and exact12.50
+Shipping hash, supplies the checked layout and validates a separate observation
+receipt. The module changes only one validated HTTP data pointer, forwards every
+call unchanged, then restores the pointer/page flags. It does not change URLs,
+authentication, certificate verification, game code, exit behavior or game files.
+No backend listener has been started; no credentials have been submitted.
+
+Fixture9207fa25-844e-4688-89bd-60458ec8fc34 rejected layout before installation.
+More precise diagnostics in fixture49f44ccd-3eee-4f78-ad71-abbd86941841 identified
+table page protection8 (PAGE_WRITECOPY), code32 (PAGE_EXECUTE_READ). Supporting
+that ordinary data mapping produced a passing fixture
+http-fixture-8d372849-3ebd-4545-a9cc-21ae64ce37cf: eight loopback/oauth-token
+categories, no fake query secret, original return preserved, pointer restored,
+child remained alive, cleanup complete. Earlier failures retained local receipts;
+the runner now also writes a result.json on failed observations.
+
+First real observer session2026-09-29_20-30-15_4e0da321 safely rejected before
+installation: table and code protections128 (PAGE_EXECUTE_WRITECOPY). It still
+logged manual sign-in, no observed EAC/BattlEye, no remaining owned processes.
+llvm-readobj confirms tableRVA107847656 is in non-executable .rdata in the checked
+Shipping file, while functionRVA59236016 is in .text. Added separate runtime PE
+section-role checks, and preserve existing execute permission on mapped data
+pages during pointer replacement/restoration. This addresses measured mapping
+semantics; it is not a security-check patch. Retesting fixture before another game
+run. Latest completed native regression:8/8 in25.50s with229 core checks.
+
+Section-aware fixture http-fixture-ebbce692-4237-4a43-825d-30987c8d5f78 passes
+all eight observations/restoration/return-value checks with scoped cleanup.
+Real retest2026-09-29_20-33-09_cdc67e77 succeeds at actual request observation:
+seven matching request objects, zero rejected layouts, two epic/other and five
+epic/oauth-token categories. Method pointer installed and restored; module receipt
+from child336; child remained alive25s; helper exit0 and cleanup complete. Original
+request calls/results are forwarded; no URL rewrite occurred. Manual sign-in is
+still logged in286972-byte Fortnite log. No EAC/BattlEye observed during sampling.
+DLL SHA256d216246dbee4ef399d080553e0ec7ab450d1aab353b52af9799f02347dd87ab1.
+The automatic token-endpoint calls are not a successful authentication, credential
+submission by this project, or proof of backend reachability: networking remained
+isolated and no backend listener exists yet. No request payload or raw URL was
+logged. This verifies the real vptr/offset/method hypothesis that was previously
+only inferred from code. Next: independently implemented strict loopback routing,
+then a same-namespace private service with explicit development authentication.
+
+Final regression after the section/protection fix:8/8 CTest targets in25.25s,
+229 core checks. The separate lifecycle-only DLL still passes with the updated
+fixture in http-fixture-b8ba6f83-4a43-4355-9495-3c0b8fbd8a85. No game assets,
+raw code observations, DLL artifacts, private prefixes or credentials enter Git.

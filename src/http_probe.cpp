@@ -158,4 +158,58 @@ QJsonObject analyzeModuleReceipt(const QByteArray &report, const QString &sessio
     }
     return result;
 }
+QJsonObject analyzeModuleObservation(const QByteArray &report, const QString &session,
+                                     qint64 childPid) {
+    QJsonObject result{{"observed", false},
+                       {"scope", "request categories only; not routing or login"}};
+    try {
+        require(!report.isEmpty() && report.size() <= 4096 && report.endsWith('\n'),
+                "Module observation missing, oversized or truncated");
+        QJsonParseError error;
+        const auto document = QJsonDocument::fromJson(report, &error);
+        require(error.error == QJsonParseError::NoError && document.isObject(),
+                "Invalid module observation JSON");
+        const auto object = document.object();
+        require(object["event"] == "module-observation" && !session.isEmpty() &&
+                    object["session_id"].toString() == session && childPid > 0 &&
+                    object["process_id"].toInteger() == childPid,
+                "Module observation event/session/child identity mismatch");
+        const QStringList errors{"image-rejected",    "section-rejected",       "pointer-rejected",
+                                 "page-rejected",     "protect-failed",         "none",
+                                 "layout-rejected",   "pointer-changed",        "restore-failed",
+                                 "protection-failed", "request-shape-rejected", "no-requests"};
+        require(errors.contains(object["error"].toString()) && object["installed"].isBool() &&
+                    object["restored"].isBool() && object["requests"].isArray() &&
+                    object["rejected"].toInt(-1) >= 0 && object["rejected"].toInt() <= 8,
+                "Malformed module observation result");
+        result["installed"] = object["installed"];
+        result["restored"] = object["restored"];
+        result["rejected"] = object["rejected"];
+        result["reported_error"] = object["error"];
+        const auto requests = object["requests"].toArray();
+        require(requests.size() + object["rejected"].toInt() <= 8, "Too many request observations");
+        const QStringList origins{"epic", "loopback", "other"};
+        const QStringList routes{"oauth-token",      "account-public", "fortnite-profile",
+                                 "fortnite-version", "lightswitch",    "launcher",
+                                 "content",          "other"};
+        QJsonArray checked;
+        for (const auto &entry : requests) {
+            const auto request = entry.toObject();
+            require(entry.isObject() && request.size() == 2 &&
+                        origins.contains(request["origin"].toString()) &&
+                        routes.contains(request["route"].toString()),
+                    "Non-redacted or invalid request category");
+            checked.append(request);
+        }
+        result["requests"] = checked;
+        require(object["installed"].toBool() && object["restored"].toBool() &&
+                    object["rejected"].toInt() == 0 && object["error"] == "none" &&
+                    !checked.isEmpty(),
+                "Module did not complete clean request observation and pointer restoration");
+        result["observed"] = true;
+    } catch (const std::exception &error) {
+        result["error"] = QString::fromUtf8(error.what());
+    }
+    return result;
+}
 } // namespace fol

@@ -36,6 +36,15 @@ lld-link /dll /entry:module_entry /subsystem:console /nodefaultlib /machine:x64 
 cmake -DARTIFACT="$PWD/build/windows/fol-http-adapter.dll" -P helpers/windows/module_manifest.cmake
 file build/windows/fol-module-bootstrap.exe build/windows/fol-http-adapter.dll
 clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
+    -DFOL_INPROCESS_OBSERVER -I/usr/include/wine/windows -I/usr/include/wine/msvcrt \
+    -Wall -Wextra -Werror -O1 -c helpers/windows/http_module.c -o build/windows/request_module.obj
+lld-link /dll /entry:module_entry /subsystem:console /nodefaultlib /machine:x64 /timestamp:0 \
+    /out:build/windows/fol-http-request-observer.dll build/windows/request_module.obj \
+    /usr/lib/wine/x86_64-windows/libkernel32.a
+cmake -DARTIFACT="$PWD/build/windows/fol-http-request-observer.dll" \
+    -DMODULE_ROLE=http-request-observer -P helpers/windows/module_manifest.cmake
+file build/windows/fol-http-request-observer.dll
+clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
     -I/usr/include/wine/windows -I/usr/include/wine/msvcrt -Wall -Wextra -Werror -O1 \
     -c helpers/windows/http_fixture.c -o build/windows/http_fixture.obj
 lld-link /entry:fixture_entry /subsystem:console /nodefaultlib /machine:x64 /timestamp:0 \

@@ -188,3 +188,15 @@ module presence, in-child session receipt, and20s liveness. Manual sign-in remai
 in the game log. No HTTP hook or backend login has yet been implemented. This is
 evidence supporting the loading architecture, not proof of upstream auth/module
 compatibility and not permission to import its unrelated security patches.
+
+### Actual 12.50 request ABI observation
+
+Original in-process observer session2026-09-29_20-33-09_cdc67e77 validates seven
+actual request objects: vptrRVA107847520 and FString at offset104, entering the
+candidate ProcessRequest at logical slot17/RVA59236016. It forwarded calls and
+restored the pointer after20s, without invoking GetURL/SetURL or changing a URL.
+The fixed categories were two epic/other and five epic/oauth-token; no raw URLs,
+queries, headers or bodies were recorded. Sign-in remains in the engine log.
+This is stronger evidence for the interface than the prior static table analysis.
+It still does not validate the setter/allocator contract, private authentication,
+backend responses, server loading or gameplay. Those remain separate next tasks.

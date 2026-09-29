@@ -138,6 +138,8 @@ QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlin
 QString classifyFailure(const QString &text);
 QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session);
 QJsonObject analyzeModuleReceipt(const QByteArray &report, const QString &session, qint64 childPid);
+QJsonObject analyzeModuleObservation(const QByteArray &report, const QString &session,
+                                     qint64 childPid);
 QJsonObject analyzeGameLog(const QByteArray &data);
 QJsonObject captureGameLogs(const QString &prefix, const QString &directory,
                             const QDateTime &notBefore);

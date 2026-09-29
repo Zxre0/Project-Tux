@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
           "requires isolated context probe",
           "exe"},
          {"http-module",
-          "Trusted lifecycle DLL with adjacent .dll.toml manifest; requires "
+          "Trusted diagnostic DLL with adjacent .dll.toml manifest; requires "
           "fol-module-bootstrap.exe and network isolation",
           "dll"},
          {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});

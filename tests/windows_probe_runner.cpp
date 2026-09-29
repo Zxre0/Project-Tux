@@ -31,13 +31,16 @@ int main(int argc, char **argv) {
         fol::require(moduleBootstrap == (argc == 4),
                      "Module bootstrap requires one diagnostic DLL");
         QString module;
+        bool moduleObserver = false;
         if (moduleBootstrap) {
             module = QFileInfo(app.arguments()[3]).canonicalFilePath();
+            moduleObserver = QFileInfo(module).fileName() == "fol-http-request-observer.dll";
             const auto validation = fol::moduleReport(module, module + ".toml", "12.50");
-            fol::require(validation["status"] ==
-                                 "manifest-matches; runtime-compatibility-unverified" &&
-                             validation["role"] == "http-lifecycle-probe",
-                         "Diagnostic module failed manifest checks");
+            fol::require(
+                validation["status"] == "manifest-matches; runtime-compatibility-unverified" &&
+                    validation["role"] ==
+                        (moduleObserver ? "http-request-observer" : "http-lifecycle-probe"),
+                "Diagnostic module failed manifest checks");
         }
         const auto fixture = QFileInfo(app.arguments()[2]).canonicalFilePath();
         const auto helperPe = fol::inspectPe(helper), fixturePe = fol::inspectPe(fixture);
@@ -96,12 +99,27 @@ int main(int argc, char **argv) {
         const auto receiptData =
             receipt.open(QIODevice::ReadOnly) ? receipt.read(65537) : QByteArray{};
         const auto evidence = fol::analyzeHttpProbe(receiptData, session);
-        QJsonObject moduleReceipt;
+        QJsonObject moduleReceipt, moduleObservation;
+        bool moduleObservationOkay = false;
         if (moduleBootstrap) {
             QFile file(directory + "/http-module.json");
             moduleReceipt = fol::analyzeModuleReceipt(
                 file.open(QIODevice::ReadOnly) ? file.read(4097) : QByteArray{}, session,
                 evidence["child_windows_pid"].toInteger());
+            if (moduleObserver) {
+                QFile observations(directory + "/http-module.json.requests");
+                const auto data =
+                    observations.open(QIODevice::ReadOnly) ? observations.read(4097) : QByteArray{};
+                moduleObservation = fol::analyzeModuleObservation(
+                    data, session, evidence["child_windows_pid"].toInteger());
+                moduleObservationOkay = moduleObservation["observed"].toBool() &&
+                                        moduleObservation["requests"].toArray().size() == 8 &&
+                                        !data.contains("fixture-secret") &&
+                                        !data.contains("never-log-this");
+                for (const auto &request : moduleObservation["requests"].toArray())
+                    moduleObservationOkay &= request.toObject()["origin"] == "loopback" &&
+                                             request.toObject()["route"] == "oauth-token";
+            }
         }
         const auto requests = evidence["requests"].toArray();
         bool observedRequests = evidence["request_observation_completed"].toBool() &&
@@ -115,15 +133,15 @@ int main(int argc, char **argv) {
                                   tables[0].toObject()["candidate_slot"].toInt(-1) == 0 &&
                                   tables[0].toObject()["function_rvas"].toArray().size() == 2 &&
                                   !tables[0].toObject()["scan_limit_reached"].toBool(true);
-        const bool passed = outcome.started && outcome.exitCode == 0 && !outcome.remaining &&
-                            !outcome.eac && !outcome.battleye && outcome.moduleEvidence.isEmpty() &&
-                            outcome.error.isEmpty() && !outcome.timedOut &&
-                            evidence["complete"].toBool() &&
-                            evidence["candidate_observed"].toBool() && fixtureTable &&
-                            (!observer || observedRequests) &&
-                            (!moduleBootstrap || (moduleReceipt["ready"].toBool() &&
-                                                  evidence["module_loaded"].toBool() &&
-                                                  evidence["module_control_child_live"].toBool()));
+        const bool passed =
+            outcome.started && outcome.exitCode == 0 && !outcome.remaining && !outcome.eac &&
+            !outcome.battleye && outcome.moduleEvidence.isEmpty() && outcome.error.isEmpty() &&
+            !outcome.timedOut && evidence["complete"].toBool() &&
+            evidence["candidate_observed"].toBool() && fixtureTable &&
+            (!observer || observedRequests) && (!moduleObserver || moduleObservationOkay) &&
+            (!moduleBootstrap ||
+             (moduleReceipt["ready"].toBool() && evidence["module_loaded"].toBool() &&
+              evidence["module_control_child_live"].toBool()));
         QJsonObject result{{"session_id", session},
                            {"logs", directory},
                            {"passed", passed},
@@ -132,6 +150,7 @@ int main(int argc, char **argv) {
                            {"error", outcome.error},
                            {"http_probe_report", evidence},
                            {"module_receipt", moduleReceipt},
+                           {"module_observation", moduleObservation},
                            {"fortnite_executed", false}};
         fol::writeFile(directory + "/result.json", QJsonDocument(result).toJson());
         QTextStream(stdout) << QJsonDocument(result).toJson();

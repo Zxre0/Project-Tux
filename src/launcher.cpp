@@ -84,7 +84,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         require(selectedProfile.has_value(), "Unsupported build: " + build.version);
         auto profile = *selectedProfile;
         QString helper, checkedModule;
-        bool requestObserver = false, moduleBootstrap = false;
+        bool requestObserver = false, moduleBootstrap = false, moduleObserver = false;
         if (!httpProbeHelper.isEmpty()) {
             require(profile.httpInterfaceProbeAllowed,
                     "HTTP interface probe is not enabled for this build");
@@ -117,12 +117,16 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             }
             if (moduleBootstrap) {
                 checkedModule = QFileInfo(httpModule).canonicalFilePath();
-                require(QFileInfo(checkedModule).fileName() == "fol-http-adapter.dll",
-                        "Only the explicitly built lifecycle diagnostic module is supported");
+                moduleObserver =
+                    QFileInfo(checkedModule).fileName() == "fol-http-request-observer.dll";
+                require(moduleObserver ||
+                            QFileInfo(checkedModule).fileName() == "fol-http-adapter.dll",
+                        "Only the explicitly built diagnostic modules are supported");
                 const auto module =
                     moduleReport(checkedModule, checkedModule + ".toml", build.version);
                 require(module["status"] == "manifest-matches; runtime-compatibility-unverified" &&
-                            module["role"] == "http-lifecycle-probe",
+                            module["role"] ==
+                                (moduleObserver ? "http-request-observer" : "http-lifecycle-probe"),
                         "Module architecture, version, role or SHA-256 manifest check failed");
                 result["http_module"] = module;
             }
@@ -180,7 +184,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             overrides["FOL_HTTP_MODULE"] = modulePath;
             overrides["FOL_HTTP_MODULE_REPORT"] = moduleReportPath;
         }
-        if (requestObserver)
+        if (requestObserver || moduleObserver)
             overrides["FOL_HTTP_OBSERVER_LAYOUT"] = profile.httpObserverLayout;
         if (environment.contains("FOL_HTTP_OBSERVER_DELAY_MS")) {
             bool validDelay;
@@ -347,6 +351,17 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                 : QByteArray{},
                         session, evidence["child_windows_pid"].toInteger());
                     result["http_module_receipt"] = readiness;
+                    if (moduleObserver) {
+                        QFile observations(directory + "/http-module.json.requests");
+                        const auto observed = analyzeModuleObservation(
+                            observations.open(QIODevice::ReadOnly) ? observations.read(4097)
+                                                                   : QByteArray{},
+                            session, evidence["child_windows_pid"].toInteger());
+                        result["http_module_observation"] = observed;
+                        if (!observed["observed"].toBool() && !result.contains("error"))
+                            result["error"] =
+                                "No completed in-process request observation; inspect receipts";
+                    }
                     if ((!readiness["ready"].toBool() || !evidence["module_loaded"].toBool() ||
                          !evidence["module_control_child_live"].toBool()) &&
                         !result.contains("error"))
