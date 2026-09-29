@@ -450,6 +450,42 @@ int main(int argc, char **argv) {
         check(stripped.eac && !stripped.remaining,
               "ancestry catches EAC-named child even without ownership environment");
 
+        const auto fixture = QCoreApplication::applicationDirPath() + "/runtime-fixture";
+        for (const QString &mode : {QString("trace-eac"), QString("trace-be"),
+                                    QString("trace-boundary"), QString("trace-mention")}) {
+            supervisorEnv.insert("FOL_FIXTURE_MODE", mode);
+            auto traceLogs = temp.path() + "/" + mode;
+            const auto trace = fol::superviseRuntime(fixture, {}, supervisorEnv, traceLogs,
+                                                     "wine.log", 3000, {root, true});
+            check(trace.started && trace.traceReadable && !trace.remaining && !trace.timedOut,
+                  "trace-enabled shared supervisor cleans up synthetic launch");
+            check(trace.moduleEvidence.isEmpty() == (mode == "trace-mention"),
+                  "module trace detection handles boundaries and ignores mere mentions");
+            check(fol::readFile(traceLogs + "/wine.log", 2 * 1024 * 1024)
+                      .contains(("working-directory=" + root).toUtf8()),
+                  "shared game supervisor preserves requested working directory");
+        }
+        supervisorEnv.insert("FOL_FIXTURE_MODE", "orphan-stripped");
+        QProcess survivor;
+        survivor.start("/bin/sleep", {"30"});
+        check(survivor.waitForStarted(), "unrelated survivor starts");
+        auto orphan =
+            fol::superviseRuntime(fixture, {}, supervisorEnv, temp.path() + "/orphan-logs",
+                                  "wine.log", 700, {root, true});
+        check(orphan.timedOut && !orphan.remaining,
+              "observed child retains scoped ownership after reparenting and environment removal");
+        check(survivor.state() == QProcess::Running, "orphan cleanup preserves unrelated child");
+        survivor.terminate();
+        check(survivor.waitForFinished(1000), "survivor fixture cleanup");
+        auto brokenLogs = temp.path() + "/write-failure";
+        check(QDir().mkpath(brokenLogs) && QFile::link("/dev/full", brokenLogs + "/processes.log"),
+              "process-log failure fixture");
+        supervisorEnv.insert("FOL_FIXTURE_MODE", "trace-mention");
+        auto writeFailure = fol::superviseRuntime(fixture, {}, supervisorEnv, brokenLogs,
+                                                  "wine.log", 3000, {root, true});
+        check(writeFailure.error == "Process log write failed" && !writeFailure.remaining,
+              "failed process logging stops and cleans owned launch");
+
         // Exercise the full offline supervisor when this host allows namespaces
         // and has a Vulkan device. CI without those facilities still runs all
         // parser, registry, CLI, module and process-identity tests above.

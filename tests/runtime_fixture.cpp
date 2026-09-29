@@ -5,6 +5,7 @@
 #include <QProcess>
 #include <QTextStream>
 #include <QThread>
+#include <unistd.h>
 
 // Native synthetic runtime for supervisor tests. No Wine, Fortnite or EAC code.
 int main(int argc, char **argv) {
@@ -12,6 +13,39 @@ int main(int argc, char **argv) {
     auto executable = QFileInfo(app.arguments()[0]).fileName();
     if (executable == "wineserver")
         return 0;
+    const auto mode = qEnvironmentVariable("FOL_FIXTURE_MODE");
+    if (mode == "orphan-stripped") {
+        QProcess child;
+        auto environment = QProcessEnvironment::systemEnvironment();
+        environment.remove("WINEPREFIX");
+        environment.remove("FOL_SESSION_ID");
+        child.setProcessEnvironment(environment);
+        child.setProgram("/bin/sleep");
+        child.setArguments({"30"});
+        child.start();
+        if (!child.waitForStarted())
+            return 1;
+        // Allow at least one supervisor sample before this parent exits. The
+        // child's ownership must then be retained by PID/start-time identity.
+        QThread::msleep(200);
+        // Exit without QProcess's destructor killing the synthetic child.
+        ::_exit(0);
+    }
+    if (mode.startsWith("trace-")) {
+        QTextStream output(stdout);
+        if (mode == "trace-boundary")
+            output << QString(1024 * 1024 - 16, 'x') << '\n';
+        if (mode == "trace-eac" || mode == "trace-boundary")
+            output << "trace:loaddll:build_module Loaded L\"C:\\test\\EasyAntiCheat_x64.dll\" at "
+                      "0x10\n";
+        else if (mode == "trace-be")
+            output << "trace:loaddll:build_module Loaded L\"C:\\test\\BEClient_x64.dll\" at 0x10\n";
+        else
+            output << "Missing EasyAntiCheat_x64.dll; this is not a loaded-module trace\n";
+        output << "working-directory=" << QDir::currentPath() << Qt::endl;
+        QThread::msleep(mode == "trace-mention" ? 100 : 30000);
+        return 0;
+    }
     if (qEnvironmentVariable("FOL_FIXTURE_MODE") == "root-exits-first") {
         QProcess child;
         child.setProgram("/bin/sleep");

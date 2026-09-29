@@ -99,11 +99,17 @@ struct SupervisionResult {
     bool started = false, crashed = false, timedOut = false, interrupted = false;
     bool eac = false, battleye = false, remaining = false;
     int exitCode = -1;
-    QString error;
+    QString error, moduleEvidence;
+    bool traceReadable = true;
+};
+struct SupervisionOptions {
+    QString workingDirectory;
+    bool inspectAntiCheatModules = false;
 };
 SupervisionResult superviseRuntime(const QString &program, const QStringList &args,
                                    const QProcessEnvironment &env, const QString &logs,
-                                   const QString &outputName, int timeoutMs);
+                                   const QString &outputName, int timeoutMs,
+                                   const SupervisionOptions &options = {});
 QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup = false);
 QString classifyFailure(const QString &text);

@@ -31,7 +31,8 @@ class SignalScope {
 };
 SupervisionResult superviseRuntime(const QString &program, const QStringList &args,
                                    const QProcessEnvironment &env, const QString &logs,
-                                   const QString &outputName, int timeoutMs) {
+                                   const QString &outputName, int timeoutMs,
+                                   const SupervisionOptions &options) {
     auto prefix = env.value("WINEPREFIX"), session = env.value("FOL_SESSION_ID");
     require(QDir::isAbsolutePath(prefix) && !session.isEmpty() && timeoutMs > 0,
             "Runtime supervision requires absolute prefix, session and positive timeout");
@@ -41,6 +42,8 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
     require(snapshots.open(QIODevice::WriteOnly), "Cannot open runtime process log");
     SignalScope signalScope;
     QProcess process;
+    if (!options.workingDirectory.isEmpty())
+        process.setWorkingDirectory(options.workingDirectory);
     process.setProcessEnvironment(env);
     process.setProcessChannelMode(QProcess::MergedChannels);
     process.setStandardOutputFile(logs + "/" + outputName);
@@ -52,6 +55,10 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
         return result;
     }
     QMap<qint64, Process> observed;
+    QFile moduleTrace(logs + "/" + outputName);
+    QByteArray traceTail;
+    if (options.inspectAntiCheatModules)
+        result.traceReadable = moduleTrace.open(QIODevice::ReadOnly);
     auto members = [&] {
         auto all = processes();
         auto roots = ownedProcesses(prefix, session);
@@ -90,10 +97,22 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
             result.error = "Process log write failed";
             break;
         }
+        if (options.inspectAntiCheatModules && result.traceReadable) {
+            auto data = traceTail + moduleTrace.read(1024 * 1024);
+            result.moduleEvidence = antiCheatModuleEvidence(data);
+            traceTail = data.right(4096);
+            result.traceReadable = moduleTrace.error() == QFile::NoError;
+        }
+        if (!result.traceReadable) {
+            result.error = "Wine trace unreadable; probe stopped";
+            break;
+        }
         result.interrupted = bool(runtimeInterrupted);
         result.timedOut = elapsed.elapsed() >= timeoutMs;
-        if (result.eac || result.battleye || result.timedOut || result.interrupted ||
-            (process.state() == QProcess::NotRunning && current.isEmpty()))
+        if (result.eac || result.battleye || !result.moduleEvidence.isEmpty() || result.timedOut ||
+            result.interrupted ||
+            (process.state() == QProcess::NotRunning && current.isEmpty() &&
+             (!options.inspectAntiCheatModules || moduleTrace.atEnd())))
             break;
         if (process.state() == QProcess::NotRunning)
             QThread::msleep(50);

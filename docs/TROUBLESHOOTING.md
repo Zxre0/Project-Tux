@@ -57,3 +57,5 @@ suite with `ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1` (98 core
 and 32 manifest assertions). Leak detection was explicitly disabled for that
 run; it makes no claim about leaks, graphics or socket-dependent functionality.
 Five subsequent classifier regressions bring the portable core count to 103.
+Native socket diagnostics and shared game-supervisor regressions subsequently
+bring that count to 125 (plus 32 manifest assertions), with the same exclusions.

@@ -2,21 +2,14 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
-#include <QElapsedTimer>
 #include <QFile>
 #include <QJsonDocument>
 #include <QLockFile>
-#include <QProcess>
 #include <QRegularExpression>
-#include <QSet>
 #include <QStandardPaths>
-#include <QThread>
 #include <QUuid>
-#include <csignal>
 
 namespace fol {
-static volatile std::sig_atomic_t interrupted = 0;
-static void interrupt(int) { interrupted = 1; }
 QString classifyFailure(const QString &text) {
     auto lower = text.toLower();
     if (lower.contains("c0000135") || lower.contains("import_dll") ||
@@ -117,111 +110,42 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             auto env = QProcessEnvironment::systemEnvironment();
             for (auto it = overrides.begin(); it != overrides.end(); ++it)
                 env.insert(it.key(), it.value());
-            QProcess process;
-            process.setProcessEnvironment(env);
-            process.setWorkingDirectory(build.root + "/" + profile.workingDirectory);
-            process.setStandardOutputFile(directory + "/wine.log");
-            process.setProcessChannelMode(QProcess::MergedChannels);
-            QFile snapshots(directory + "/processes.log");
-            require(snapshots.open(QIODevice::WriteOnly), "Cannot open process log");
-            interrupted = 0;
-            auto oldInt = std::signal(SIGINT, interrupt);
-            auto oldTerm = std::signal(SIGTERM, interrupt);
-            process.start(unshare, args);
-            bool started = process.waitForStarted(5000);
-            bool eac = false, battleye = false, timedOut = false;
-            QFile moduleTrace(directory + "/wine.log");
-            bool traceReadable = moduleTrace.open(QIODevice::ReadOnly);
-            QByteArray traceTail;
-            QString moduleEvidence;
-            QElapsedTimer elapsed;
-            elapsed.start();
-            QList<Process> observed;
-            while (started) {
-                auto all = processes();
-                auto roots = ownedProcesses(paths.prefix(id), session);
-                if (process.state() != QProcess::NotRunning && process.processId() > 1)
-                    for (const auto &item : all)
-                        if (item.pid == process.processId())
-                            roots.append(item);
-                QJsonArray snapshot;
-                for (const auto &item : selectProcessTree(all, roots)) {
-                    observed.append(item);
-                    eac |= item.eac;
-                    battleye |= item.battleye;
-                    snapshot.append(item.json());
-                }
-                snapshots.write(QJsonDocument(QJsonObject{{"timestamp",
-                                                           QDateTime::currentDateTimeUtc().toString(
-                                                               Qt::ISODateWithMs)},
-                                                          {"processes", snapshot}})
-                                    .toJson(QJsonDocument::Compact) +
-                                '\n');
-                snapshots.flush();
-                if (traceReadable) {
-                    auto data = traceTail + moduleTrace.read(1024 * 1024);
-                    moduleEvidence = antiCheatModuleEvidence(data);
-                    traceTail = data.right(4096);
-                    if (moduleTrace.error() != QFile::NoError)
-                        traceReadable = false;
-                }
-                timedOut = elapsed.elapsed() >= timeoutSeconds * 1000LL;
-                if (eac || battleye || !moduleEvidence.isEmpty() || !traceReadable || timedOut ||
-                    interrupted)
-                    break;
-                if (process.state() == QProcess::NotRunning)
-                    QThread::msleep(100);
-                else
-                    process.waitForFinished(100);
-                if (process.state() == QProcess::NotRunning &&
-                    ownedProcesses(paths.prefix(id), session).isEmpty() && moduleTrace.atEnd())
-                    break;
-            }
-            // pidfds plus start-time checks prevent killing a process that reused an observed PID.
-            for (const auto &item : ownedProcesses(paths.prefix(id), session))
-                observed.append(item);
-            for (const auto &item : observed)
-                signalProcess(item, SIGTERM);
-            if (process.state() != QProcess::NotRunning) {
-                process.terminate();
-                process.waitForFinished(2000);
-            }
-            for (const auto &item : observed)
-                signalProcess(item, SIGKILL);
-            if (process.state() != QProcess::NotRunning) {
-                process.kill();
-                process.waitForFinished(2000);
-            }
-            std::signal(SIGINT, oldInt);
-            std::signal(SIGTERM, oldTerm);
-            result["exit_code"] = started ? process.exitCode() : -1;
-            result["status"] = !started ? "failed-to-start"
-                               : eac    ? "stopped-eac-detected"
-                               : battleye || !moduleEvidence.isEmpty()
+            const auto outcome =
+                superviseRuntime(unshare, args, env, directory, "wine.log", timeoutSeconds * 1000,
+                                 {build.root + "/" + profile.workingDirectory, true});
+            result["exit_code"] = outcome.exitCode;
+            result["owned_processes_remaining"] = outcome.remaining;
+            result["crashed"] = outcome.crashed;
+            result["status"] = !outcome.started ? "failed-to-start"
+                               : outcome.eac    ? "stopped-eac-detected"
+                               : outcome.battleye || !outcome.moduleEvidence.isEmpty()
                                    ? "stopped-anticheat-detected"
-                               : !traceReadable ? "stopped-log-unreadable"
-                               : timedOut       ? "probe-timeout"
-                               : interrupted    ? "stopped"
-                                                : "exited; gameplay-unverified";
+                               : !outcome.traceReadable   ? "stopped-log-unreadable"
+                               : !outcome.error.isEmpty() ? "stopped-monitor-error"
+                               : outcome.remaining        ? "cleanup-incomplete"
+                               : outcome.timedOut         ? "probe-timeout"
+                               : outcome.interrupted      ? "stopped"
+                                                          : "exited; gameplay-unverified";
             result["eac_status"] =
-                eac       ? "detected; launch terminated"
-                : started ? "not observed during sampled monitoring; not proof of absence"
-                          : "not tested";
-            result["battleye_process_observed"] = battleye;
-            if (!moduleEvidence.isEmpty()) {
-                result["anti_cheat_module_evidence"] = moduleEvidence;
-                if (moduleEvidence.contains("EasyAntiCheat", Qt::CaseInsensitive))
-                    result["eac_status"] = "module load observed; launch terminated";
+                outcome.eac       ? "detected; stop requested; inspect cleanup result"
+                : outcome.started ? "not observed during sampled monitoring; not proof of absence"
+                                  : "not tested";
+            result["battleye_process_observed"] = outcome.battleye;
+            if (!outcome.moduleEvidence.isEmpty()) {
+                result["anti_cheat_module_evidence"] = outcome.moduleEvidence;
+                if (outcome.moduleEvidence.contains("EasyAntiCheat", Qt::CaseInsensitive))
+                    result["eac_status"] =
+                        "module load observed; stop requested; inspect cleanup result";
             }
-            if (!traceReadable)
-                result["error"] = "Wine trace unreadable; probe stopped";
+            if (!outcome.error.isEmpty())
+                result["error"] = outcome.error;
+            else if (outcome.remaining)
+                result["error"] = "Owned processes remain after scoped cleanup";
             QFile log(directory + "/wine.log");
             if (log.open(QIODevice::ReadOnly)) {
                 log.seek(qMax(qint64(0), log.size() - 1024 * 1024));
                 result["likely_subsystem"] = classifyFailure(QString::fromUtf8(log.readAll()));
             }
-            if (!started)
-                result["error"] = process.errorString();
         }
     } catch (const std::exception &error) {
         result["error"] = QString::fromUtf8(error.what());

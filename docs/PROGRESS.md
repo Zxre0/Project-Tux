@@ -10,7 +10,7 @@ established. Native CLI, synthetic tests, diagnostics
 and Wine/Proton command execution work within the measured limits below; no game
 startup or gameplay is claimed. Latest pushed code checkpoint: `1e6ba64`.
 Last unrestricted release tests passed 109 assertions; sanitized non-GPU tests
-passed 100. Socket-independent tests currently pass 107 core and 32 manifest
+passed 100. Socket-independent tests currently pass 125 core and 32 manifest
 assertions, including ASan/UBSan with leak detection explicitly disabled. The
 separate network test fails UDP bind; do not report the full suite as passing.
 Graphics-enabled LeakSanitizer remains unresolved, and sandbox leak checks fail.
@@ -483,3 +483,38 @@ has exhausted the supplied installation's ordinary integrity question. Next
 safe work is a focused audit of preflight/process-monitor regressions and parser
 bounds; another identical game launch in this unchanged environment adds no
 startup evidence. Push remains subject to GitHub DNS availability.
+
+### Consolidate game and runtime supervision
+
+Socket diagnostics committed/installed as `4ef0f09`; push retried and again
+failed with `Could not resolve host: github.com`. Local commits are preserved.
+
+Source audit found the separate game monitor lagged behind the shared runtime
+supervisor: unchecked process-log writes, repeated observed-process entries,
+no retained ancestry for environment-stripped/reparented children, and no final
+remaining-process report. Removed that duplicate loop. Game probes now use the
+existing shared identity-scoped supervisor with explicit working directory and
+optional bounded module-load trace inspection. Game launch/profile/isolation
+preflights are unchanged. Unreadable traces and failed process logs stop the
+owned probe; result records remaining members and QProcess crash status. Signal
+handlers use the shared scope guard. EAC wording says stop requested and refers
+to the cleanup result rather than claiming unconditional termination.
+
+Added synthetic native fixtures only (no Fortnite/EAC code) for EAC/BattlEye-like
+module log lines, a 1 MiB read-boundary trace, harmless module-name mentions,
+working-directory preservation, an observed child reparented after removing its
+ownership environment, and process-log write failure via `/dev/full`. The initial
+orphan fixture used Qt's double-fork detached mode, which reparented before it
+could be sampled; that fixture correctly failed the intended ownership assertion.
+Changed the fixture to a normal observed child followed by parent `_exit`, testing
+the stated sampled-ownership guarantee without claiming unseen-child coverage.
+
+125 core assertions now pass, repeated **10 consecutive runs** (18.75 seconds).
+32 manifest assertions remain passing. ASan/UBSan socket-independent suite passes
+with leak checks disabled as previously documented. The actual 12.50 traced launch
+plan still selects ordinary Shipping and includes `--net`; status is explicitly
+`planned; not executed`. No new real-game execution or graphical success is claimed.
+The full network test remains blocked by EPERM. Formatting and diff checks pass.
+
+Next: preserve this checkpoint and review bounded parser/error-path coverage;
+the next real startup experiment still requires accessible GPU devices and sockets.

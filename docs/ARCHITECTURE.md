@@ -25,7 +25,11 @@ separate from Wine prefixes; neither manager silently adopts the other's storage
 Import copies a trusted installed runtime because Proton may update its default
 prefix and SteamPipe files. The CLI never patches Proton or Steam installations.
 `supervisor.cpp` shares bounded execution, ancestry tracking, signal handling and
-cleanup between Wine and Proton runtime tests. It is serialized within a CLI
+cleanup between Wine/Proton runtime tests and the game probe. Game probes opt
+into bounded Wine module-load trace inspection and their profile's working
+directory. Process-log write failures stop the owned launch; reparented children
+retain ownership only through observed PID/start-time identity, and cleanup
+reports remaining members. It is serialized within a CLI
 process; future parallel GUI operations must use worker processes rather than
 competing process-wide signal handlers.
 
