@@ -15,7 +15,8 @@ host, with zero owned processes after completion. Full supervisor tests using a
 native synthetic runtime passed for failure capture and EAC-named test-process
 termination; they do not execute EAC or Fortnite. 32-bit loader presence
 was checked, but 32-bit device execution remains untested. No claim is made for
-DXVK/VKD3D, rendering, performance, monitor changes, DPI, focus or mouse capture.
+DXVK/VKD3D, rendering, performance, monitor changes, DPI, focus or mouse capture
+from those command-only tests. Later 12.50 rendering evidence is separated below.
 
 | CachyOS command-only test | Execution | Cleanup | Scope |
 | --- | --- | --- | --- |
@@ -35,4 +36,20 @@ These tests do not rank runtime performance or prove any Fortnite startup stage.
 | Proton Hotfix 20260828 script, separate Proton prefix | Real Shipping load, launcher exit 1 | No owned processes left; no anti-cheat observed | Host-script probe, not verified rendering/menu/gameplay |
 
 See [runtime evidence](RUNTIME_COMPARISON.md). Observed absence is sampled, not
-absolute attestation. No graphics/audio/input/fullscreen functionality is claimed.
+absolute attestation. The baseline probes above do not establish graphics/audio/
+input/fullscreen functionality.
+
+## Opt-in 12.50 launcher-context experiments
+
+These have different arguments from the baselines, after explicit user authorization.
+They remain isolated and cannot connect to production or a host private backend.
+
+| CachyOS/NVIDIA/Hyprland | Startup/rendering | Remaining limitations |
+| --- | --- | --- |
+| Wine 11.18, session 18-28-07_e5588ee2 | Engine/pak/D3D11 initialization and logged sign-in activation | WineD3D buffer errors; no screenshot, login or gameplay verification |
+| Proton Experimental host script, session 18-31-49_582d3fb7 | Game DXVK logs, NVIDIA selected, 1920x1080 XWayland sign-in window visually verified | No login/lobby/join/hosting; audio/input/monitor behavior untested; no performance benchmark |
+
+Both ended at the supervisor timeout, with no owned processes remaining and no
+EAC/BattlEye process/module observed. Game-internal UAC checks remain present.
+See [12.50 evidence](FORTNITE_12_50.md). All 12.61 and other-desktop claims remain
+unchanged; a 12.50 sign-in screenshot is not private gameplay compatibility.

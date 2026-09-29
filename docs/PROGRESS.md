@@ -982,3 +982,30 @@ Final release retest passes all seven targets (25.13 seconds), including the new
 opt-in anti-cheat cleanup check. Shipping/Aftermath hashes still match. The game
 log supplies actual engine metadata: 4.25.0-13137020, compatible 4.25.0-13136868;
 static build detection still honestly reports unknown where PE metadata lacks it.
+
+### Proton/DXVK visible startup checkpoint (2026-09-29)
+
+Committed and pushed the gated context experiment as `aa761e8`, then performed
+the graphics comparison justified by the actual WineD3D errors. Experimental
+host-script session `2026-09-29_18-31-49_582d3fb7` used the same context argument,
+no OpenSSL mask, baseline SEH/module tracing and a 60-second timeout. It produced
+Fortnite-specific DXVK logs identifying v3.1.1-27-g25ca63f17f34bdc and engine-selected
+NVIDIA RTX 4070 SUPER. No prior WineD3D GL_INVALID_ENUM/err:d3d matches appeared.
+
+Verified a mapped Hyprland XWayland Fortnite window (PID 63403, steam_app_0,
+1920x1080); checked active-window identity/rectangle before capturing only that
+rectangle. Visually inspected local fortnite-window.png: the 12.50 sign-in screen
+renders with empty credentials fields. Copied this run's steamuser FortniteGame.log
+to session fortnite.log. No login attempt, input automation or production network
+access was made. No EAC/BattlEye process/module observed; UAC direct-launch warning
+remains. Logged handled illegal-instruction exceptions do not establish an
+unhandled crash. Audio fallbacks and GfeSDK errors remain unvalidated.
+
+The bounded run ended via supervisor timeout, not spontaneous early exit: 1043
+process samples, max 13, no PID 0/1, cleanup complete. This is real rendering/startup
+progress beyond the previous blocker, not authentication/private-gameplay success.
+Updated README, 12.50 evidence and compatibility matrix to separate baseline,
+logged-only Wine startup, visually verified Proton sign-in, and still-untested
+12.61/gameplay/audio/input behavior. Screenshot and raw logs stay outside Git.
+Next reproducibility work: automatic game-log capture and explicit distinction
+between controlled timeout termination and spontaneous runtime crashes.

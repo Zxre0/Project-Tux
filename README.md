@@ -4,17 +4,18 @@ Native Linux CLI/core for investigating Fortnite **12.61** with legitimately
 obtained files and authorized local/private development infrastructure.
 Canonical repository: <https://github.com/Zxre0/FortniteOnLinux>.
 
-**Current status: experimental foundation; functional Fortnite startup, Project Reboot
-integration and gameplay have not been verified.** No complete 12.61 installation
+**Current status: experimental; 12.50 renders a sign-in screen in isolated Proton
+probes. Project Reboot integration and gameplay have not been verified.** No complete 12.61 installation
 was found on the development machine. A legitimate non-EAC private execution
 path has not been established. This project does not bypass authentication,
 DRM, SSL pinning or anti-cheat, and distributes no Fortnite assets.
 
 A supplied **12.50** build is now registered as a separate diagnostic-only target.
 It does not establish 12.61 compatibility. See [12.50 evidence](docs/FORTNITE_12_50.md).
-An opt-in, network-isolated launcher-context experiment now reaches engine
-initialization and the logged sign-in UI stage. This is not authenticated login,
-private gameplay, visual verification or an anti-cheat bypass.
+An opt-in, network-isolated launcher-context experiment reaches engine
+initialization and a visually verified sign-in screen through Proton/DXVK on
+CachyOS/Hyprland with NVIDIA. This is not authenticated login, private gameplay,
+12.61 compatibility or an anti-cheat bypass.
 
 ## Build
 

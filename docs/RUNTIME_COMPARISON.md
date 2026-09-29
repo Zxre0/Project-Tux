@@ -2,9 +2,9 @@
 
 This is a startup diagnostic, not a performance benchmark or compatibility claim.
 The supplied game remains 12.50, not 12.61. All game commands retain a separate
-user/network namespace, ordinary Shipping, `-log -d3d11`, anti-cheat observation,
-bounded execution (35 seconds for direct Wine, 45 for Proton-script probes) and
-identity-scoped cleanup.
+user/network namespace, ordinary Shipping, anti-cheat observation, bounded
+execution and identity-scoped cleanup. Baselines use `-log -d3d11`; the later
+explicit launcher-context experiments add one argument and are documented separately.
 
 ## System Wine baseline
 

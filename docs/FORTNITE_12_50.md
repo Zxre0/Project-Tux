@@ -232,3 +232,30 @@ game crash. Process capture: 786 samples, at most nine owned processes, no PID 0
 and cleanup complete. The game log was copied into the session as fortnite.log
 before another run could overwrite it. Next justified comparison is Proton/DXVK
 with the same context argument to investigate the observed WineD3D errors.
+
+### Proton/DXVK sign-in screen verified
+
+Session `2026-09-29_18-31-49_582d3fb7` used imported Experimental via its host
+script, the same opt-in context argument, no OpenSSL mask and a 60-second limit.
+Only baseline Wine SEH/module traces were enabled, not verbose registry/process
+tracing. The exact command is preserved in the session. The game now generated
+its own DXVK logs (not just xalia's): DXVK v3.1.1-27-g25ca63f17f34bdc; game engine
+selected NVIDIA RTX 4070 SUPER. No matches for the preceding WineD3D GL_INVALID_ENUM
+or err:d3d messages occurred in this Wine log. This does not establish all graphics
+features or a performance advantage.
+
+A Hyprland XWayland window named Fortnite, class steam_app_0, PID 63403 was mapped
+at 1920x1080. After checking that it was the active window and occupied exactly
+that rectangle, a local screenshot was captured and visually inspected: a rendered
+12.50 (13137020) sign-in screen with empty email/password fields. No credentials,
+input automation or production connection were used. Screenshot fortnite-window.png,
+copied fortnite.log and game-specific DXVK logs remain in the session, not Git.
+
+The game log again reports offline connection/patch-check failure, manual sign-in
+activation and the UAC direct-launch warning. Wine traces include handled
+illegal-instruction exceptions; the continuing rendered screen and handler traces
+do not establish an unhandled CPU crash. Audio fallback/GfeSDK errors also remain;
+audio and interactive input have not been validated. The supervisor stopped the
+run at its limit: 1043 samples, max 13 owned processes, no PID 0/1, no EAC/BattlEye
+process/module observed, and cleanup complete. This verifies rendering to sign-in,
+not successful login, lobby, private-server join, hosting or gameplay.
