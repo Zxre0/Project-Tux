@@ -3,11 +3,15 @@
  * then restore it. The separately compiled FOL_LOCAL_ROUTER variant also uses
  * the validated setter for strict loopback URLs. No instruction/auth/certificate changes. */
 typedef BYTE(WINAPI *request_function)(void *);
+#include "module_window.h"
 static request_function original_request;
 static ULONG_PTR expected_table;
 static DWORD string_offset;
 static LONG observation_lock, observation_enabled;
 static unsigned observed_count, rejected_count;
+#ifdef FOL_LOCAL_ROUTER
+static unsigned routing_attempts;
+#endif
 static const char *observed_origins[8], *observed_routes[8];
 static wchar_t observed_url[4096]; // Only used while holding observation_lock.
 static BOOL fixture_layout;
@@ -89,14 +93,23 @@ static BOOL classify_request(void *object) {
     if (routed_count != before)
         origin = "loopback";
 #endif
-    observed_origins[observed_count] = origin;
-    observed_routes[observed_count++] = route;
+    if (observed_count + rejected_count < 8) {
+        observed_origins[observed_count] = origin;
+        observed_routes[observed_count++] = route;
+    }
     return TRUE;
 }
 static BYTE WINAPI request_observation(void *object) {
+#ifdef FOL_LOCAL_ROUTER
+    while (InterlockedCompareExchange(&observation_lock, 1, 0) != 0)
+        Sleep(0);
+    {
+        if (observation_enabled && routing_attempts++ < 4096) {
+#else
     if (InterlockedCompareExchange(&observation_lock, 1, 0) == 0) {
         if (observation_enabled && observed_count + rejected_count < 8) {
-            if (!classify_request(object))
+#endif
+            if (!classify_request(object) && observed_count + rejected_count < 8)
                 ++rejected_count;
             // Clear transient URL contents even on a rejected descriptor.
             volatile wchar_t *clear = observed_url;
@@ -205,6 +218,9 @@ static DWORD observe_inprocess(const wchar_t *report_path, const wchar_t *sessio
     BOOL installed = FALSE, restored = FALSE;
     DWORD table_protection = 0, code_protection = 0;
     const char *error = "image-rejected";
+    DWORD window = module_window_ms();
+    if (!window)
+        goto finish;
     if (!module_read(base, &dos, sizeof(dos)) || dos.e_magic != IMAGE_DOS_SIGNATURE ||
         dos.e_lfanew < 0 || dos.e_lfanew > 1024 * 1024 ||
         !module_read(base + dos.e_lfanew, &pe, sizeof(pe)) || pe.Signature != IMAGE_NT_SIGNATURE ||
@@ -262,7 +278,7 @@ static DWORD observe_inprocess(const wchar_t *report_path, const wchar_t *sessio
         goto finish;
     }
     if (protection_restored)
-        Sleep(20000);
+        Sleep(window);
     BOOL writable = VirtualProtect((void *)slot, sizeof(void *), writable_protection, &ignored);
     if (writable) {
         restored =

@@ -90,7 +90,7 @@ void Service::revoke(const QString &token) {
 }
 Response Service::handle(const QByteArray &method, const QString &path,
                          const QMap<QByteArray, QByteArray> &headers, const QByteArray &body,
-                         qint64 now) {
+                         qint64 now, const QUrlQuery &query) {
     if (body.size() > 16384 || path.size() > 2048)
         return failure(413, "request_too_large");
     for (auto it = sessions.begin(); it != sessions.end();) {
@@ -154,10 +154,17 @@ Response Service::handle(const QByteArray &method, const QString &path,
     }
     const auto authorization = headers.value("authorization");
     QString token;
-    if (authorization.startsWith("Bearer ") && authorization.size() == 71)
+    if (authorization.left(7).toLower() == "bearer " && authorization.size() == 71)
         token = QString::fromLatin1(authorization.mid(7));
     const auto found = sessions.constFind(token);
     const bool authorized = found != sessions.cend() && found->expires > now;
+    if (method == "GET" && path == "/fortnite/api/cloudstorage/system") {
+        if (!authorized)
+            return failure(401, "invalid_access_token");
+        // This private service has no configured hotfix files. Do not invent
+        // asset hashes or copy upstream security-affecting INI files.
+        return {200, {}, "local-cloud-system-index", QJsonArray{}};
+    }
     if (method == "GET" && path == "/account/api/oauth/verify") {
         if (!authorized)
             return failure(401, "invalid_access_token");
@@ -181,8 +188,31 @@ Response Service::handle(const QByteArray &method, const QString &path,
                                path == "/account/api/oauth/sessions/kill/" + token)) {
         if (!authorized)
             return failure(401, "invalid_access_token");
+        if (query.allQueryItemValues("killType").size() > 1)
+            return failure(400, "duplicate_kill_type");
+        const auto killType = query.queryItemValue("killType");
+        if (killType == "OTHERS_ACCOUNT_CLIENT_SERVICE" &&
+            path == "/account/api/oauth/sessions/kill") {
+            if (!found->player)
+                return failure(401, "player_authentication_required");
+            QStringList others;
+            for (auto it = sessions.cbegin(); it != sessions.cend(); ++it)
+                if (it.key() != token && it->player)
+                    others.append(it.key());
+            for (const auto &other : others)
+                revoke(other);
+            return {204, {}, "other-local-player-sessions-revoked"};
+        }
+        if (!killType.isEmpty())
+            return failure(400, "unsupported_kill_type");
         revoke(token);
         return {204, {}, "local-session-revoked"};
+    }
+    if (method == "GET" &&
+        path == "/account/api/public/account/" + identity.accountId + "/externalAuths") {
+        if (!authorized || !found->player)
+            return failure(401, "player_authentication_required");
+        return {200, {}, "local-external-auth-list", QJsonArray{}};
     }
     if (method == "GET" && path == "/account/api/public/account/" + identity.accountId) {
         if (!authorized || !found->player)

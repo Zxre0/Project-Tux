@@ -4,7 +4,7 @@
 
 namespace fol {
 QJsonObject captureGameLogs(const QString &prefix, const QString &directory,
-                            const QDateTime &notBefore) {
+                            const QDateTime &notBefore, const QByteArray &localSecret) {
     require(notBefore.isValid(), "Game log collection requires a launch timestamp");
     const auto canonicalPrefix = QFileInfo(prefix).canonicalFilePath();
     require(!canonicalPrefix.isEmpty() && canonicalPrefix != "/", "Invalid game log prefix");
@@ -38,7 +38,13 @@ QJsonObject captureGameLogs(const QString &prefix, const QString &directory,
                 copied == 0 ? QString("fortnite.log") : QString("fortnite-%1.log").arg(copied);
             require(!QFileInfo::exists(directory + "/" + name),
                     "Game log destination already exists");
-            const auto data = readFile(source, 64 * 1024 * 1024);
+            auto data = readFile(source, 64 * 1024 * 1024);
+            if (!localSecret.isEmpty()) {
+                entry["local_secret_redacted"] = data.contains(localSecret);
+                data.replace(localSecret, "[redacted-local-secret]");
+                entry["source_log_note"] = "Original owned-prefix game log may contain the local "
+                                           "development password; do not share it";
+            }
             writeFile(directory + "/" + name, data);
             entry["status"] = "captured";
             entry["destination"] = directory + "/" + name;

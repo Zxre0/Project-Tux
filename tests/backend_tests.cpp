@@ -30,6 +30,18 @@ int main(int argc, char **argv) {
               "public client has no player identity");
         QMap<QByteArray, QByteArray> auth{
             {"authorization", "Bearer " + application.json["access_token"].toString().toLatin1()}};
+        auth["authorization"].replace("Bearer ", "bearer ");
+        const auto cloud =
+            service.handle("GET", "/fortnite/api/cloudstorage/system", auth, {}, 1000);
+        check(cloud.status == 200 && cloud.array && cloud.array->isEmpty(),
+              "authenticated empty private hotfix index");
+        check(service.handle("GET", "/fortnite/api/cloudstorage/system", {}, {}, 1000).status ==
+                  401,
+              "cloud index requires issued application token");
+        check(service.handle("DELETE", "/account/api/oauth/sessions/kill", auth, {}, 1000,
+                             QUrlQuery("killType=OTHERS_ACCOUNT_CLIENT_SERVICE"))
+                      .status == 401,
+              "application token cannot revoke player sessions");
         check(service.handle("GET", "/account/api/public/account/" + identity.accountId, auth, {},
                              1000)
                       .status == 401,
@@ -60,6 +72,38 @@ int main(int argc, char **argv) {
                              1000)
                       .status == 200,
               "authorized account read");
+        const auto other =
+            post("grant_type=password&username=player%40localhost&password=" + password);
+        const QMap<QByteArray, QByteArray> otherAuth{
+            {"authorization", "Bearer " + other.json["access_token"].toString().toLatin1()}};
+        check(service.handle("DELETE", "/account/api/oauth/sessions/kill", auth, {}, 1001,
+                             QUrlQuery("killType=OTHERS_ACCOUNT_CLIENT_SERVICE"))
+                      .status == 204,
+              "kill other sessions request accepted");
+        check(service.handle("GET", "/account/api/oauth/verify", auth, {}, 1002).status == 200,
+              "kill others preserves current player session");
+        check(service.handle("GET", "/account/api/oauth/verify", otherAuth, {}, 1002).status == 401,
+              "kill others revokes the other player session");
+        check(post("grant_type=refresh_token&refresh_token=" +
+                       other.json["refresh_token"].toString().toLatin1(),
+                   1002)
+                      .status == 400,
+              "kill others also revokes other refresh token");
+        check(service.handle("DELETE", "/account/api/oauth/sessions/kill", auth, {}, 1002,
+                             QUrlQuery("killType=unknown"))
+                      .status == 400,
+              "unknown session kill mode rejected");
+        check(service.handle("DELETE", "/account/api/oauth/sessions/kill", auth, {}, 1002,
+                             QUrlQuery("killType=OTHERS_ACCOUNT_CLIENT_SERVICE&killType=unknown"))
+                      .status == 400,
+              "ambiguous session kill mode rejected");
+        check(service.handle("GET", "/account/api/oauth/verify", auth, {}, 1002).status == 200,
+              "rejected kill modes preserve caller token");
+        const auto external = service.handle(
+            "GET", "/account/api/public/account/" + identity.accountId + "/externalAuths", auth, {},
+            1002);
+        check(external.status == 200 && external.array && external.array->isEmpty(),
+              "local account has no external auth bindings");
         check(service.handle("GET", "/account/api/oauth/verify", auth, {}, 4600).status == 401,
               "expired access rejected");
         const auto refresh = player.json["refresh_token"].toString().toLatin1();

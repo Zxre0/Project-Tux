@@ -137,7 +137,7 @@ QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlin
                    const QString &protonId = {}, bool launcherContextProbe = false,
                    BackendProbe backendProbe = BackendProbe::None,
                    const QString &httpProbeHelper = {}, const QString &httpModule = {},
-                   bool privateBackend = false);
+                   bool privateBackend = false, bool developmentLogin = false);
 QString classifyFailure(const QString &text);
 QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session);
 QJsonObject analyzeModuleReceipt(const QByteArray &report, const QString &session, qint64 childPid);
@@ -145,5 +145,5 @@ QJsonObject analyzeModuleObservation(const QByteArray &report, const QString &se
                                      qint64 childPid);
 QJsonObject analyzeGameLog(const QByteArray &data);
 QJsonObject captureGameLogs(const QString &prefix, const QString &directory,
-                            const QDateTime &notBefore);
+                            const QDateTime &notBefore, const QByteArray &localSecret = {});
 } // namespace fol

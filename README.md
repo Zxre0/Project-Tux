@@ -18,9 +18,10 @@ CachyOS/Hyprland with NVIDIA. This is not authenticated login, private gameplay,
 12.61 compatibility or an anti-cheat bypass.
 
 An experimental [native private backend](docs/BACKEND.md) now receives the real
-12.50 client's initial application-token request inside an isolated namespace.
-Local password/token behavior passes HTTP tests, but **Fortnite player login to
-the backend is not yet verified**. The backend is not the Project Reboot game server.
+12.50 client's application-token and generated local-password requests inside an
+isolated namespace. The game received a player token, then exposed a session
+revocation bug. Its fix passes service tests but needs a game retest: **successful
+Fortnite login is not yet verified**. The backend is not the Project Reboot game server.
 
 ## Build
 

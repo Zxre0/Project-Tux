@@ -1,5 +1,6 @@
 /* Load one explicitly supplied project DLL into the child created by this helper.
  * No arbitrary PID, debugger attachment, game-code patch or security override. */
+#include "module_window.h"
 static BOOL load_owned_module(PROCESS_INFORMATION *child) {
     static wchar_t path[4096];
     DWORD count = GetEnvironmentVariableW(L"FOL_HTTP_MODULE", path, 4096);
@@ -81,7 +82,12 @@ static BOOL load_owned_module(PROCESS_INFORMATION *child) {
     event("module_loaded", loaded);
     if (!loaded)
         return FALSE;
-    DWORD wait = WaitForSingleObject(child->hProcess, observer ? 25000 : 20000);
+    DWORD window = module_window_ms();
+    if (!window) {
+        event("module_window_rejected", 1);
+        return FALSE;
+    }
+    DWORD wait = WaitForSingleObject(child->hProcess, observer ? window + 5000 : 20000);
     event("module_control_child_live", wait == WAIT_TIMEOUT);
     if (wait != WAIT_TIMEOUT) {
         DWORD exit_code;

@@ -8,10 +8,15 @@ matchmaking, or disable client authentication/certificate checks.
 Verified so far: local password authentication over real HTTP, token verification,
 expiry, refresh rotation, revocation, and rejection of invalid credentials. The
 real 12.50 client also reaches this service and obtains an **application** token.
-That token has no player identity. Player login from Fortnite is not yet verified.
+That token has no player identity. With `--development-login`, the game submitted
+the generated local password and received a **player** token. Its subsequent
+kill-other-sessions request exposed a backend bug: the HTTP query was discarded
+and the current token was revoked. The fix preserves the caller's token and
+revokes other local player sessions, including refresh tokens. It passes service
+tests; the corrected flow still requires an actual game retest.
 Other backend contracts, XMPP, profiles and gameplay remain incomplete.
-The real client accepts the private version-check response; its next observed
-failure is a missing hotfix/cloud-storage service response, not network transport.
+The real client accepts the private version-check and empty cloud-storage index.
+**Successful player login in the game is not yet verified.**
 
 ## Setup and isolated game test
 
@@ -20,9 +25,10 @@ failure is a missing hotfix/cloud-storage service response, not network transpor
 bash helpers/windows/build.sh
 ./build/fortnite-backend init
 ./build/fortnite-linux launch 12.50 --offline-probe --launcher-context-probe \
-  --proton experimental-20260924 --timeout 60 \
+  --proton experimental-20260924 --timeout 120 \
   --http-probe-helper build/windows/fol-module-bootstrap.exe \
-  --http-module build/windows/fol-http-local-router.dll --private-backend
+  --http-module build/windows/fol-http-local-router.dll --private-backend \
+  --development-login
 ```
 
 Use your imported runtime ID. Init creates a random local password and a salted
@@ -31,6 +37,12 @@ normal ~/.config fallback). `identity.json` contains the verifier;
 `local-login.json` contains only the generated `player@localhost` development
 login. Both are owner-read/write files, and init refuses to overwrite them. Do not
 commit or share the login file. No real Epic credentials are needed or requested.
+Run init only once. The optional development-login flag passes ordinary login
+arguments inside the owned-child helper, not in the printed launcher command.
+It rejects verbose startup/argument tracing. Session game-log copies redact the
+known generated password; original logs in the dedicated prefix may still contain
+it and must not be shared. Local process arguments can also expose it to the same
+user. This is a disposable local development account, not an Epic account.
 
 The native launcher starts `fortnite-backend run` and Proton in the same new
 user/network namespace. Before unshare it records its namespace device/inode; the
@@ -45,8 +57,10 @@ selected account/Fortnite/lightswitch/content/launcher API paths on matching
 `.ol.epicgames.com` or `.ol.epicgames.net` hosts, and changes the URL through the
 validated game setter to `http://127.0.0.1:3551`. It verifies the resulting string.
 Unknown services remain unreachable through namespace isolation. This first
-experiment only handles a bounded observation window/first eight calls; it is not
-yet a persistent private launch workflow. Authentication, certificates, security
+experiment handles up to 4096 calls during a bounded observation window, while
+recording only the first eight request categories. The launcher computes the
+window from the timeout (85 seconds with the command above), capped at five
+minutes. It is not yet a persistent private launch workflow. Authentication, certificates, security
 checks, exit behavior and game files are not patched.
 
 ## Service scope
@@ -56,6 +70,8 @@ checks, exit behavior and game files are not patched.
 - Random expiring access/refresh tokens, refresh rotation, verified bearer access
   and session revocation. Unknown/exchange grants are rejected.
 - Private account lookup requires a player token, not an application token.
+- Empty external-auth bindings for the local account; no external credentials.
+- Authenticated empty system-cloud index: no private hotfix files are configured.
 - Health and local version-check policy; no game updates are distributed.
 - Unsupported services fail with explicit errors, never silent success.
 
@@ -65,7 +81,8 @@ responses. Logs contain fixed categories/status/session/PID, not raw requests,
 passwords, tokens or response bodies. This is an experimental local service, not
 a production authentication service or a reviewed Internet-facing server.
 
-Upstream Reboot Launcher auth_backend/structure/user.js and version.js were read
+Upstream Reboot Launcher auth_backend/structure/user.js, version.js and
+cloudstorage.js were read
 for interface shapes. Their hardcoded tokens, permissive password behavior, global
 account state and request-body logging were not copied. All implementation here is
 original; GPL source was not imported.

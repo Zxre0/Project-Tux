@@ -1,8 +1,11 @@
 #pragma once
 #include <QHash>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QMap>
 #include <QString>
+#include <QUrlQuery>
+#include <optional>
 
 namespace fol::backend {
 struct Identity {
@@ -15,6 +18,7 @@ struct Response {
     int status;
     QJsonObject json;
     QString event; // Fixed diagnostic category; never a request body or token.
+    std::optional<QJsonArray> array = std::nullopt;
 };
 class Service {
     struct Session {
@@ -31,7 +35,7 @@ class Service {
   public:
     explicit Service(Identity identity);
     Response handle(const QByteArray &method, const QString &path,
-                    const QMap<QByteArray, QByteArray> &headers, const QByteArray &body,
-                    qint64 now);
+                    const QMap<QByteArray, QByteArray> &headers, const QByteArray &body, qint64 now,
+                    const QUrlQuery &query = {});
 };
 } // namespace fol::backend

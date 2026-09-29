@@ -123,6 +123,7 @@ static ULONG_PTR image_base(DWORD pid, const wchar_t *name) {
     return base;
 }
 #ifdef FOL_MODULE_BOOTSTRAP
+#include "development_login.h"
 #include "module_loader.h"
 #endif
 static BOOL in_range(DWORD offset, SIZE_T size, DWORD image_size) {
@@ -425,12 +426,22 @@ void probe_entry(void) {
         event("job_setup_failed", GetLastError());
         ExitProcess(65);
     }
+    BOOL development_login = FALSE;
+#ifdef FOL_MODULE_BOOTSTRAP
+    wchar_t *command = development_command(target_command, &development_login);
+    if (!command) {
+        event("development_command_rejected", 1);
+        ExitProcess(64);
+    }
+    SIZE_T command_size = (length(command) + 1) * sizeof(wchar_t);
+#else
     SIZE_T command_size = (length(target_command) + 1) * sizeof(wchar_t);
     wchar_t *command = HeapAlloc(GetProcessHeap(), 0, command_size);
     if (!command)
         ExitProcess(65);
     for (SIZE_T i = 0; i < command_size / sizeof(wchar_t); ++i)
         command[i] = target_command[i];
+#endif
     STARTUPINFOW startup = {0};
     PROCESS_INFORMATION child = {0};
     startup.cb = sizeof(startup);
@@ -439,6 +450,7 @@ void probe_entry(void) {
         event("child_start_failed", GetLastError());
         ExitProcess(66);
     }
+    memset(command, 0, command_size);
     HeapFree(GetProcessHeap(), 0, command);
     if (!AssignProcessToJobObject(job, child.hProcess)) {
         event("job_assignment_failed", GetLastError());
@@ -452,6 +464,8 @@ void probe_entry(void) {
     }
     CloseHandle(child.hThread);
     event("owned_child_started", child.dwProcessId);
+    if (development_login)
+        event("development_login_requested", 1);
     BOOL discovered = FALSE;
     ULONG_PTR base = 0;
     for (unsigned attempt = 0; attempt < 10; ++attempt) {

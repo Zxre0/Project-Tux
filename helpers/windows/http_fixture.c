@@ -38,8 +38,25 @@ __declspec(dllexport) __declspec(noinline) void synthetic_set_url(void *object, 
     request.url.count = source->count;
     request.url.capacity = 4096;
 }
+static BOOL fixture_argument(const wchar_t *needle) {
+    const wchar_t *line = GetCommandLineW();
+    for (unsigned i = 0; line[i]; ++i) {
+        unsigned j = 0;
+        while (needle[j] && line[i + j] == needle[j])
+            ++j;
+        if (!needle[j])
+            return TRUE;
+    }
+    return FALSE;
+}
 void fixture_entry(void) {
     wchar_t flag[2];
+    if (GetEnvironmentVariableW(L"FOL_HTTP_FIXTURE_LOGIN", flag, 2) == 1 && flag[0] == L'1') {
+        if (!fixture_argument(L" -AUTH_LOGIN=fixture@localhost") ||
+            !fixture_argument(L" -AUTH_PASSWORD=0123456789abcdef0123456789abcdef") ||
+            !fixture_argument(L" -AUTH_TYPE=epic"))
+            ExitProcess(71);
+    }
     if (GetEnvironmentVariableW(L"FOL_HTTP_FIXTURE_ROUTE", flag, 2) == 1 && flag[0] == L'1') {
         static wchar_t source[] = L"https://account-public-service.ol.epicgames.com/account/api/"
                                   L"oauth/token?fixture-secret=never-log-this";

@@ -17,7 +17,7 @@
 
 namespace fol {
 QString networkNamespaceIdentity() {
-    struct stat self{};
+    struct stat self = {};
     require(::stat("/proc/self/ns/net", &self) == 0, "Cannot identify current network namespace");
     return QString::number(quint64(self.st_dev)) + ":" + QString::number(quint64(self.st_ino));
 }

@@ -1497,3 +1497,65 @@ Final regression11/11 in25.40s:231 core checks,21 backend auth checks,11 HTTP ch
 25 URL-selection checks plus the existing test targets. Namespace-negative tests
 prove same/malformed receipts reject before interface changes. No successful
 private player-login screenshot or gameplay is claimed.
+
+### Local password submission and session-revocation fix (2026-09-29)
+
+Continued milestone: actual 12.50 login to the native private backend. The previous
+turn made progress through code, tests and a real game password-grant attempt;
+the objective remains incomplete. Latest published checkpoint is ab06757.
+
+Added authenticated empty system-cloud index and local-account external-auth
+array responses. Added opt-in `--development-login`, restricted to generated
+@localhost credentials and the isolated backend. The Windows owned-child helper
+passes ordinary AUTH_LOGIN/AUTH_PASSWORD/AUTH_TYPE arguments; the native printed
+command contains the login-file path, not its password. Captured game-log copies
+redact that known local secret. Source prefix logs remain untouched and private.
+No Epic credentials, game/security patches or upstream code are included.
+
+Extended the explicit router's lifetime to a bounded launcher-controlled window
+(85s for --timeout 120), processing at most 4096 calls and recording only eight
+categories. Earlier asset-free fixture sessions verified copied URL routing,
+normal local login arguments and cleanup: router
+http-fixture-7e3bb885-bf50-4900-b6d2-0f8ba972f1ae and login/router
+http-fixture-883cf4e0-d01e-4896-a1ea-127f42085e7b. These are synthetic tests,
+not proof of game login.
+
+Actual session 2026-09-29_21-36-41_e0b84b75 used Proton Experimental
+11.0-20260924, the owned-child bootstrap/router, --private-backend and
+--development-login. Backend events verify application-token200, versioncheck200,
+cloud-index200, then **local-player-token-issued200**. Immediately afterward the
+backend revoked that token and account/verify returned401. The game requested
+`killType=OTHERS_ACCOUNT_CLIENT_SERVICE`; transport had discarded the query.
+Fixed query propagation and kill-other semantics, preserving the current token
+while revoking other player access/refresh pairs. Unknown/duplicate modes reject
+without logging out the caller; application tokens cannot revoke player sessions.
+The game exited before the observation receipt; owned cleanup completed. No
+anti-cheat was observed in sampled processes. A late screenshot captured the
+desktop after exit, was renamed accordingly, and is not game/login evidence.
+
+Current-environment retest 2026-09-29_21-45-56_eba26156 stops before game launch:
+Vulkan physical-device enumeration result=-3, AF_UNIX bind EPERM, UDP socket EPERM.
+The active execution sandbox also prevents the backend HTTP test's loopback bind.
+Do not disable isolation, alter GPU drivers or reset prefixes to work around this.
+No game started; EAC status is untested for this attempt. The corrected real login
+and a genuine login screenshot remain pending execution access.
+
+Validation in this restricted environment: native build and Windows PE helper
+build succeed; 32 backend authentication checks pass; full CTest is **8/11**,
+not green. backend-http fails at bind, network fails at socket creation EPERM,
+ipc fails at bind EPERM. Core reports196 checks on this restricted process view,
+URL selection25, manifest32, PE imports24, game evidence15. Added HTTP regression
+coverage for query preservation/current-token survival, but it cannot execute
+past bind here. Earlier 11/11 test runs predate the session fix and do not prove
+these new transport checks passed. Improved the HTTP bind failure diagnostic.
+
+CI run36633207518 for ab06757 failed older clang-format on `struct stat self{}`;
+changed to `struct stat self = {}`. Next tasks: rerun HTTP/game tests when socket,
+IPC and Vulkan access are available; inspect actual subsequent account/profile
+requests rather than guessing; capture a genuine in-game local-login screenshot.
+
+Push retry in this environment failed before authentication:
+`Could not resolve host: github.com`. Keep local commits and retry when network
+access returns; the already-published ab06757 checkpoint remains available. No
+force push or history rewrite attempted. Formatting and diff whitespace checks
+pass locally; remote CI cannot yet verify the new checkpoint.

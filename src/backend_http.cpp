@@ -39,7 +39,9 @@ void HttpServer::acceptConnections() {
             state->done = true;
             const auto body = response.status == 204
                                   ? QByteArray{}
-                                  : QJsonDocument(response.json).toJson(QJsonDocument::Compact);
+                                  : (response.array ? QJsonDocument(*response.array)
+                                                    : QJsonDocument(response.json))
+                                        .toJson(QJsonDocument::Compact);
             const auto wire =
                 "HTTP/1.1 " + QByteArray::number(response.status) +
                 " Response\r\nContent-Type: application/json\r\nConnection: close\r\n"
@@ -157,7 +159,7 @@ void HttpServer::acceptConnections() {
                 return;
             }
             send(service.handle(start[0], url.path(), headers, state->buffer.mid(end + 4, size),
-                                QDateTime::currentSecsSinceEpoch()));
+                                QDateTime::currentSecsSinceEpoch(), QUrlQuery(url)));
         });
     }
 }

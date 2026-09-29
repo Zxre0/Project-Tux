@@ -37,6 +37,10 @@ QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
                 require(!child && record["value"].toInt() > 0, "Invalid HTTP probe child record");
                 child = true;
                 result["child_windows_pid"] = record["value"];
+            } else if (event == "development_login_requested") {
+                require(child && !candidate && record["value"].toInt(-1) == 1,
+                        "Invalid development login argument receipt");
+                result["development_login_requested"] = true;
             } else if (event == "interface_candidate_observed") {
                 discovered = record["value"].toInt(-1);
                 require(child && !candidate && (discovered == 0 || discovered == 1),
@@ -195,7 +199,7 @@ QJsonObject analyzeModuleObservation(const QByteArray &report, const QString &se
         result["restored"] = object["restored"];
         result["rejected"] = object["rejected"];
         if (object.contains("routed")) {
-            require(object["routed"].toInt(-1) >= 0 && object["routed"].toInt() <= 8,
+            require(object["routed"].toInt(-1) >= 0 && object["routed"].toInt() <= 4096,
                     "Invalid local routing count");
             result["routed"] = object["routed"];
             result["scope"] = "local URL rewrite evidence; not transport or authentication";

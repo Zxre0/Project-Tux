@@ -217,6 +217,15 @@ int main(int argc, char **argv) {
               "current prefix-local game log is preserved in the session");
         rejects([&] { fol::captureGameLogs(logPrefix, temp.path() + "/captured", captureStart); },
                 "game capture never overwrites an existing session log");
+        fol::writeFile(gameLog, "-AUTH_PASSWORD=synthetic-secret\n");
+        const auto redacted = fol::captureGameLogs(logPrefix, temp.path() + "/redacted",
+                                                   captureStart, "synthetic-secret");
+        check(redacted["files"].toArray()[0].toObject()["local_secret_redacted"].toBool() &&
+                  !fol::readFile(temp.path() + "/redacted/fortnite.log")
+                       .contains("synthetic-secret") &&
+                  fol::readFile(gameLog).contains("synthetic-secret"),
+              "session copy redacts local password without overwriting source log");
+        fol::writeFile(gameLog, "synthetic game log\n");
         QFile staleLog(gameLog);
         check(
             staleLog.open(QIODevice::ReadWrite) &&

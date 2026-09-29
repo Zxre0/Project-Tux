@@ -13,8 +13,12 @@
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     try {
-        fol::require(argc == 3 || argc == 4,
-                     "Usage: windows-probe-runner HELPER_EXE FIXTURE_EXE [LIFECYCLE_DLL]");
+        fol::require(
+            argc >= 3 && argc <= 5,
+            "Usage: windows-probe-runner HELPER_EXE FIXTURE_EXE [DLL [--development-login]]");
+        const bool loginTest = argc == 5;
+        fol::require(!loginTest || app.arguments()[4] == "--development-login",
+                     "Unknown fixture option");
         const auto paths = fol::Paths::system();
         const auto status = fol::prefixStatus(paths, "runtime-smoke");
         fol::require(status["owned"].toBool() && status["initialized"].toBool() &&
@@ -28,7 +32,7 @@ int main(int argc, char **argv) {
         const auto helper = QFileInfo(app.arguments()[1]).canonicalFilePath();
         const bool observer = QFileInfo(helper).fileName() == "fol-http-observer.exe";
         const bool moduleBootstrap = QFileInfo(helper).fileName() == "fol-module-bootstrap.exe";
-        fol::require(moduleBootstrap == (argc == 4),
+        fol::require(moduleBootstrap == (argc >= 4),
                      "Module bootstrap requires one diagnostic DLL");
         QString module;
         bool moduleObserver = false, moduleRouter = false;
@@ -79,6 +83,22 @@ int main(int argc, char **argv) {
                                 " FOL_HTTP_MODULE_REPORT=" + fol::quote(moduleReportPath);
         }
         env.insert("WINEDEBUG", "+timestamp,+pid,+seh,+loaddll");
+        if (loginTest) {
+            const auto login = directory + "/local-login.json";
+            fol::writeFile(
+                login, QJsonDocument(QJsonObject{{"username", "fixture@localhost"},
+                                                 {"password", "0123456789abcdef0123456789abcdef"}})
+                           .toJson());
+            QString windowsLogin = "Z:" + login;
+            windowsLogin.replace('/', '\\');
+            env.insert("FOL_DEV_LOGIN_FILE", windowsLogin);
+            env.insert("FOL_HTTP_FIXTURE_LOGIN", "1");
+            moduleAssignments +=
+                " FOL_DEV_LOGIN_FILE=" + fol::quote(windowsLogin) + " FOL_HTTP_FIXTURE_LOGIN=1";
+        } else {
+            env.remove("FOL_DEV_LOGIN_FILE");
+            env.remove("FOL_HTTP_FIXTURE_LOGIN");
+        }
         if (moduleRouter) {
             env.insert("FOL_HTTP_FIXTURE_ROUTE", "1");
             moduleAssignments += " FOL_HTTP_FIXTURE_ROUTE=1";
@@ -149,6 +169,7 @@ int main(int argc, char **argv) {
             !outcome.timedOut && evidence["complete"].toBool() &&
             evidence["candidate_observed"].toBool() && fixtureTable &&
             (!observer || observedRequests) && (!moduleObserver || moduleObservationOkay) &&
+            (!loginTest || evidence["development_login_requested"].toBool()) &&
             (!moduleBootstrap ||
              (moduleReceipt["ready"].toBool() && evidence["module_loaded"].toBool() &&
               evidence["module_control_child_live"].toBool()));

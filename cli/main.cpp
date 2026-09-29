@@ -59,6 +59,7 @@ int main(int argc, char **argv) {
           "dll"},
          {"private-backend",
           "Start the local backend in the isolated game namespace; requires local router DLL"},
+         {"development-login", "Use the generated @localhost identity; requires --private-backend"},
          {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});
     parser.process(app);
     auto args = parser.positionalArguments();
@@ -181,12 +182,12 @@ int main(int argc, char **argv) {
             const auto backendProbe = !parser.isSet("local-backend-probe") ? fol::BackendProbe::None
                                       : method == "service-ini" ? fol::BackendProbe::ServiceIni
                                                                 : fol::BackendProbe::Selector;
-            result = fol::launch(paths, args[1], parser.isSet("print-command"),
-                                 parser.isSet("offline-probe"), timeout,
-                                 parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
-                                 parser.value("proton"), parser.isSet("launcher-context-probe"),
-                                 backendProbe, parser.value("http-probe-helper"),
-                                 parser.value("http-module"), parser.isSet("private-backend"));
+            result = fol::launch(
+                paths, args[1], parser.isSet("print-command"), parser.isSet("offline-probe"),
+                timeout, parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
+                parser.value("proton"), parser.isSet("launcher-context-probe"), backendProbe,
+                parser.value("http-probe-helper"), parser.value("http-module"),
+                parser.isSet("private-backend"), parser.isSet("development-login"));
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||

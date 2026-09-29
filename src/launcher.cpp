@@ -41,7 +41,8 @@ QString classifyFailure(const QString &text) {
 QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup, bool engineStdout,
                    const QString &protonId, bool launcherContextProbe, BackendProbe backendProbe,
-                   const QString &httpProbeHelper, const QString &httpModule, bool privateBackend) {
+                   const QString &httpProbeHelper, const QString &httpModule, bool privateBackend,
+                   bool developmentLogin) {
     const bool localBackendProbe = backendProbe != BackendProbe::None;
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
@@ -67,6 +68,9 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                     : "none"},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(!developmentLogin || (privateBackend && !traceStartup && !engineStdout),
+                "Development login requires the isolated private backend and excludes verbose "
+                "argument tracing");
         require(httpModule.isEmpty() || !httpProbeHelper.isEmpty(),
                 "HTTP module requires the owned-child module bootstrap helper");
         require(
@@ -157,6 +161,10 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                 "Observer layout must come from the checked compatibility profile");
         require(!environment.contains("FOL_HTTP_ROUTER_LAYOUT"),
                 "Router layout must come from the checked compatibility profile");
+        require(!environment.contains("FOL_HTTP_MODULE_MS"),
+                "Module lifetime is managed by the launcher");
+        require(!environment.contains("FOL_DEV_LOGIN_FILE"),
+                "Development login file is managed by the launcher");
         QMap<QString, QString> overrides;
         QStringList unsetArgs;
         if (protonId.isEmpty()) {
@@ -183,6 +191,29 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             result["runtime_mode"] = "Proton script on host; no Steam Linux Runtime container";
         }
         result["prefix"] = prefix;
+        QByteArray localSecret;
+        if (developmentLogin) {
+            const auto loginFile = paths.config + "/backend/local-login.json";
+            const QFileInfo info(loginFile);
+            require(info.isFile() && !info.isSymLink() &&
+                        !(info.permissions() & (QFile::ReadGroup | QFile::WriteGroup |
+                                                QFile::ReadOther | QFile::WriteOther)),
+                    "Generated development login must be an owner-only regular file");
+            const auto login = readJson(loginFile);
+            static const QRegularExpression user("\\A[a-z0-9_-]{1,32}@localhost\\z"),
+                password("\\A[0-9a-f]{32}\\z");
+            require(login.size() == 2 && user.match(login["username"].toString()).hasMatch() &&
+                        password.match(login["password"].toString()).hasMatch(),
+                    "Only generated local development credentials are accepted");
+            localSecret = login["password"].toString().toLatin1();
+            QString windowsLogin = "Z:" + loginFile;
+            windowsLogin.replace('/', '\\');
+            overrides["FOL_DEV_LOGIN_FILE"] = windowsLogin;
+            result["development_login"] = QJsonObject{
+                {"username", login["username"]},
+                {"scope",
+                 "ordinary local password authentication; success requires backend/game evidence"}};
+        }
         if (moduleBootstrap) {
             QString modulePath = "Z:" + checkedModule;
             QString moduleReportPath = "Z:" + directory + "/http-module.json";
@@ -196,6 +227,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         if (moduleRouter) {
             require(!profile.httpRouterLayout.isEmpty(), "No local router layout for this build");
             overrides["FOL_HTTP_ROUTER_LAYOUT"] = profile.httpRouterLayout;
+            overrides["FOL_HTTP_MODULE_MS"] =
+                QString::number(qBound(20000, (timeoutSeconds - 35) * 1000, 300000));
         }
         if (environment.contains("FOL_HTTP_OBSERVER_DELAY_MS")) {
             bool validDelay;
@@ -371,6 +404,9 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                     receipt.open(QIODevice::ReadOnly) ? receipt.read(65537) : QByteArray{},
                     session);
                 result["http_probe_report"] = evidence;
+                if (developmentLogin && !evidence["development_login_requested"].toBool() &&
+                    !result.contains("error"))
+                    result["error"] = "Helper did not confirm local development login arguments";
                 if (moduleBootstrap) {
                     QFile moduleReceipt(directory + "/http-module.json");
                     const auto readiness = analyzeModuleReceipt(
@@ -412,7 +448,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                 result["likely_subsystem"] = classifyFailure(QString::fromUtf8(log.readAll()));
             }
             if (outcome.started && !outcome.remaining) {
-                result["game_logs"] = captureGameLogs(prefixPath, directory, launchStarted);
+                result["game_logs"] =
+                    captureGameLogs(prefixPath, directory, launchStarted, localSecret);
                 const auto files = result["game_logs"].toObject()["files"].toArray();
                 for (const auto &file : files) {
                     const auto observations = file.toObject()["observations"].toObject();
