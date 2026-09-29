@@ -27,6 +27,35 @@ async function main() {
   const data = await keys.json();
   if (keys.status !== 200 || !Array.isArray(data) || !data.every(x => typeof x === 'string'))
     throw new Error('keychain-contract-failed');
+  if (process.argv[3]) {
+    const {config} = require('./config.cjs').deployment(process.argv[3]);
+    const {createRequire} = require('node:module');
+    const WebSocket = createRequire(config.root + '/source/index.js')('ws');
+    const socket = new WebSocket('ws://127.0.0.1:8080', 'xmpp');
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { socket.terminate(); reject(new Error('xmpp-timeout')); }, 5000);
+      let authenticated = false, bound = false;
+      socket.on('error', reject);
+      const open = '<open xmlns="urn:ietf:params:xml:ns:xmpp-framing" to="prod.ol.epicgames.com" version="1.0"/>';
+      socket.on('open', () => socket.send(open));
+      socket.on('message', buffer => {
+        const message = buffer.toString();
+        if (message.includes('<stream:features') && !authenticated)
+          socket.send('<auth xmlns="urn:ietf:params:xml:ns:xmpp-sasl" mechanism="PLAIN">' +
+            Buffer.from(`\0${session.account_id}\0${session.access_token}`).toString('base64') + '</auth>');
+        else if (message.includes('<success')) { authenticated = true; socket.send(open); }
+        else if (message.includes('<stream:features') && authenticated)
+          socket.send('<iq type="set" id="bind"><bind xmlns="urn:ietf:params:xml:ns:xmpp-bind"><resource>fol-smoke</resource></bind></iq>');
+        else if (message.includes('id="bind"') && message.includes('<jid>')) {
+          bound = true;
+          socket.send('<iq type="set" id="session"><session xmlns="urn:ietf:params:xml:ns:xmpp-session"/></iq>');
+        } else if (bound && message.includes('id="session"') && message.includes('type="result"')) {
+          clearTimeout(timer); socket.close(); resolve();
+        }
+      });
+    });
+    console.log(JSON.stringify({test: 'lawin-xmpp', authenticated: true, bound: true, session: true}));
+  }
   console.log(JSON.stringify({test: 'lawin-http', invalid_password: 'rejected',
     password: 'accepted', verify: 'accepted', profile: 'accepted', keychain_entries: data.length}));
 }

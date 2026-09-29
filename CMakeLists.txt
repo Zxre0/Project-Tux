@@ -23,7 +23,8 @@ if(BUILD_TESTING)
     find_program(NODE_EXECUTABLE NAMES node nodejs)
     if(NODE_EXECUTABLE)
         add_test(NAME lawin-config COMMAND ${NODE_EXECUTABLE} --test
-            ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/config.test.cjs)
+            ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/config.test.cjs
+            ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/xmpp.test.cjs)
     endif()
     add_executable(backend-tests tests/backend_tests.cpp)
     target_link_libraries(backend-tests PRIVATE fol_core)

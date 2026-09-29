@@ -74,7 +74,13 @@ does not automatically delete stale locks, databases or user registrations.
 
 The service reuses upstream route modules, **not** its index.js entry point:
 HTTP binds127.0.0.1:3551; MongoDB binds127.0.0.1:27017 in the private namespace.
-Tokens are session-local. XMPP/party-network integration remains deferred.
+Tokens are session-local. An original single-account XMPP adapter now listens on
+127.0.0.1:8080 inside the same namespace. It implements authenticated framing,
+binding, session, roster and ping; it does not pretend unsupported party rooms or
+messages succeeded. SASL requires the exact local access token, a verified JWT
+signature/expiry, and the matching existing unbanned local account. An original
+DefaultEngine.ini cloud file advertises only this loopback transport; its index
+contains hashes of the actual bytes. No TLS certificate validation is disabled.
 Upstream check-disabling cloud hotfixes, fabricated launcher manifests, and
 unimplemented profile-token verification are not enabled. Profile-token requests
 fail explicitly rather than receiving fabricated verification success.
@@ -86,14 +92,24 @@ game’s prefix log may contain the disposable local password.
 
 ## Verification
 
-`node --test integrations/lawin/config.test.cjs` uses synthetic fixtures only.
+`node --test integrations/lawin/*.test.cjs` uses synthetic fixtures only.
 CTest runs it when Node is available; CI provisions Node22. The separate
 `smoke.cjs` requires a running isolated provider and checks wrong-password
 rejection, real password login, token verification, common_core and keychain
 transport. It never prints passwords, tokens or keychain contents.
+Pass the private Lawin configuration as its second argument to also test a real
+WebSocket SASL login, resource binding and XMPP session.
 
 Actual sessions83effcb2 ande4ce3df3 pass QueryKeychain and reach the game's
 `Completed` login stage and HandleLoginRequestComplete Result2. This does **not**
 prove a stable logged-in menu: the startup-error dialog persists, profile-token
 verification returns501, and the game requests exit about50 seconds after launch.
 All owned processes were cleaned up; no EAC was observed during sampled monitoring.
+
+Session `2026-09-29_23-17-45_bc59bd91` additionally verifies the **real game**
+accepts the original cloud configuration and logs XMPP LoggedIn. The backend
+records authenticated/bound/session-ready/presence. Party creation now reaches
+the HTTP CreateParty request, which remains unreachable because the local URL
+selector does not yet include party routes. This is the next integration task.
+The startup error remains: LogAppES closing code1 precedes the profile-token501
+response. Do not assume that fabricating a successful verification would fix it.

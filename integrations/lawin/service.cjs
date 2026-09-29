@@ -66,8 +66,7 @@ async function main() {
   });
   app.get('/fol/health', (req, res) => res.json({backend: 'lawin-v2', ready: true}));
   // Do not adopt upstream platform-check disabling hotfixes or fabricated manifests.
-  app.get('/fortnite/api/cloudstorage/system', (req, res) => res.json([]));
-  app.all('/fortnite/api/cloudstorage/system/*', (req, res) => res.sendStatus(404));
+  require('./cloud.cjs').register(app);
   app.use('/fortnite/api/game/v2/profileToken', (req, res) => {
     const fields = ['token', 'profileToken', 'profile_token', 'accountId', 'signature'];
     const body = req.body && typeof req.body === 'object' ? req.body : {};
@@ -93,8 +92,18 @@ async function main() {
     process.send?.({event: 'route-error', code: 'upstream-handler-failed'});
     res.sendStatus(500);
   });
+  stage = 'start-local-xmpp';
+  await require('./xmpp.cjs').listen({upstream, record: data => process.send?.(data),
+    authenticate: async (accountId, token) => {
+      if (accountId !== user.accountId || !global.accessTokens.some(entry =>
+        entry.accountId === accountId && entry.token === token) || !token.startsWith('eg1~')) return null;
+      try {
+        const claims = upstream('jsonwebtoken').verify(token.slice(4), global.JWT_SECRET,
+          {algorithms: ['HS256']});
+        return claims.sub === accountId && await User.exists({accountId, banned: false}) ? accountId : null;
+      } catch { return null; } // Authentication rejection, never accepted on verifier failure.
+    }});
   app.listen(3551, '127.0.0.1', () => process.send?.({event: 'ready'}));
-  // XMPP is deferred until HTTP login is established; no upstream wildcard/port80 listener.
 }
 main().catch(err => {
   process.send?.({event: 'service-failed', stage,

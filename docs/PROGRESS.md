@@ -1960,3 +1960,35 @@ pass. Third game log again reports keychain complete at2806, Completed at3338,
 and login callback Result2/empty error at3355. No mongod process remains after
 cleanup. This is a verified selectable-backend integration milestone, not stable
 menu/gameplay, resolved profile-token verification, or12.61 compatibility.
+
+### Lawin local XMPP accepted by the actual game (2026-09-29)
+
+Active objective: functional lobby with LawinServer, still unachieved. Previous
+screenshot turn supplied genuine visual evidence of Logging in / Creating party,
+then the startup dialog; it did not prove lobby success. Clean main447642c was
+revalidated before this work. Inspected service/session/smoke/config tests, pinned
+Lawin XMPP/tokenCreation/tokenVerify/cloudstorage and Reboot Launcher party routes.
+
+Added original bounded single-account XMPP framing/SASL/bind/session/roster/ping
+adapter using the pinned deployment's WebSocket/XML dependencies. Local access
+token registry, JWT signature/expiry and existing matching account are all checked.
+No wildcard listener, Discord, fake party membership, authentication shortcuts,
+certificate changes, check-disabling hotfixes or startup patches. The original
+cloud file contains only local XMPP address/port and WebSocket transport settings.
+Synthetic tests cover handshake ordering, wrong identity/password/mechanism,
+binding/session/ping, unsupported IQ, unsupported rooms, and exact cloud hashes.
+
+Real isolated HTTP+WebSocket smoke in lawin-xmpp-smoke-VT3rcN passed password
+rejection/login, account verify, profile/keychain transport, XMPP auth/bind/session.
+Release build and all13 CTest targets passed in25.27s (five Node subtests).
+Actual game session2026-09-29_23-17-45_bc59bd91, Protonexperimental-20260924 Wine11.18,
+same offline/context/helper/private-backend/development-login command as prior
+Lawin runs, timeout120, OPENSSL_ia32cap unset: XMPP authenticates/binds at23:18:11,
+game logs OnXmppLoginChanged LoggedIn. Cloud delivery now works. Party creation
+immediately attempts HTTP instead of timing out on XMPP; party URL remains outside
+the local selector, so CreateParty fails and the client retains disconnected state.
+Game reaches Completed but displays startup error. AppES closing code1 at13.838
+precedes VerifyProfileToken HTTP failure at13.847: response failure is not proven
+to cause that dialog. Owned processes cleaned up; no EAC observed in samples.
+No12.61 test or stable lobby is claimed. Next: authenticated stateful local party
+HTTP integration, then compare the real game's state and independent startup error.
