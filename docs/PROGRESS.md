@@ -123,3 +123,40 @@ Current blockers remain unchanged: no complete 12.61 installation, no validated
 private non-EAC gameplay path, no reviewed compatible module/backend. Next task:
 inspect prefix components and actionable package evidence, then finalize the
 current reproducible diagnostic baseline before actual 12.61 runtime testing.
+
+### Fourth iteration: content hashes and dependency evidence
+
+Third checkpoint `dfdf895` pushed; Ubuntu CI run 36525509616 passed. Added optional
+streaming SHA-256 integrity verification from user-supplied TOML manifests. Tests
+cover matching content, corruption, path traversal and symlink escape rejection.
+No content download or mutation is performed. Prefix status now inspects five
+graphics/VC++ DLLs without conflating their presence with native component setup.
+Actual 12.61 prefix has five valid x64 PE DLLs; providers remain unverified.
+
+`diagnose` now reports installed Arch-family package evidence for Wine, Vulkan,
+Mesa and detected GPU vendors, and suggests missing package names. Compared local
+package versions with official Arch package pages. Both 64/32-bit vendor packages
+are installed here, but only 64-bit Vulkan enumeration has been functionally tested.
+Latest report saved outside Git as `logs/latest-system.json` in XDG state.
+
+Local build and CTest pass: 51 assertions including full synthetic supervisor
+checks. Running a separate AddressSanitizer/UndefinedBehaviorSanitizer build to
+check the binary parser and process/CLI tests before the next push.
+
+Sanitizer result: all 51 functional assertions completed, but full CTest failed
+LeakSanitizer with 6,397 bytes in 48 allocations. Reproduced via standalone
+`diagnose`; extended stacks include vkCreateInstance, unloaded graphics modules
+and libdbus. `build-sanitized/core-tests --skip-gpu` passes 46 assertions with
+ASan/UBSan/leak checking enabled. Controlled per-process driver-selection runs
+using `VK_DRIVER_FILES` retain 5,641 bytes for NVIDIA and 768 bytes for Radeon
+after 51 assertions pass. These results localize the observation to Vulkan
+driver/layer initialization, but do not prove which library owns each allocation.
+No sanitizer suppression, driver change or gaming environment override was added
+to normal launch behavior. Full report remains in
+`build-sanitized/Testing/Temporary/LastTest.log`; unresolved graphics-stack leak
+is documented in TROUBLESHOOTING.md. Full sanitizer suite is **not** reported green.
+
+Next game-runtime work requires a complete legitimately supplied 12.61 build.
+Filesystem discovery and upstream inspection cannot supply those assets or prove
+a legitimate non-EAC private gameplay path. No game startup/menu/join/hosting
+success, native VC++ deployment, DXVK/VKD3D setup, or GUI completion is claimed.

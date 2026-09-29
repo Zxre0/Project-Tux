@@ -1,9 +1,12 @@
 #include "fol/core.h"
+#include <QCryptographicHash>
+#include <QDateTime>
 #include <QDirIterator>
 #include <QFile>
 #include <QRegularExpression>
 #include <QSet>
 #include <QtEndian>
+#include <toml++/toml.hpp>
 
 namespace fol {
 PeInfo inspectPe(const QString &path) {
@@ -184,5 +187,50 @@ QStringList discoverBuilds(const QStringList &roots, int maxDepth) {
     }
     found.sort();
     return found;
+}
+QJsonObject verifyIntegrity(const QString &root, const QString &manifest) {
+    auto canonicalRoot = QFileInfo(root).canonicalFilePath();
+    require(!canonicalRoot.isEmpty() && QFileInfo(canonicalRoot).isDir(),
+            "Invalid installation root");
+    auto table = toml::parse(readFile(manifest).toStdString());
+    auto files = table["files"].as_table();
+    require(files && !files->empty(), "Integrity manifest requires a nonempty [files] table");
+    require(files->size() <= 10000, "Integrity manifest exceeds 10000 entries");
+    QJsonArray results;
+    bool valid = true;
+    for (auto &&[key, value] : *files) {
+        auto relative = QString::fromStdString(std::string(key.str()));
+        auto expected = QString::fromStdString(value.value_or(""));
+        require(QRegularExpression("^[0-9a-fA-F]{64}$").match(expected).hasMatch(),
+                "Invalid SHA-256 for " + relative);
+        require(!relative.isEmpty() && !QDir::isAbsolutePath(relative) &&
+                    !relative.split('/').contains("..") && !relative.contains('\\'),
+                "Integrity manifest must use safe relative paths: " + relative);
+        auto path = canonicalRoot + "/" + relative;
+        auto canonical = QFileInfo(path).canonicalFilePath();
+        require(canonical.isEmpty() || canonical.startsWith(canonicalRoot + "/"),
+                "Manifest file resolves outside installation: " + relative);
+        QJsonObject result{{"file", relative}, {"status", "missing-or-unreadable"}};
+        QFile file(path);
+        if (QFileInfo(path).isFile() && file.open(QIODevice::ReadOnly)) {
+            auto before = QFileInfo(file);
+            auto beforeSize = before.size();
+            auto beforeTime = before.lastModified();
+            QCryptographicHash hash(QCryptographicHash::Sha256);
+            require(hash.addData(&file), "Read failed during integrity check: " + relative);
+            auto actual = QString::fromLatin1(hash.result().toHex());
+            auto after = QFileInfo(path);
+            bool stable = beforeSize == after.size() && beforeTime == after.lastModified();
+            result["status"] = !stable                        ? "changed-during-check"
+                               : actual == expected.toLower() ? "match"
+                                                              : "mismatch";
+            result["sha256"] = actual;
+        }
+        valid &= result["status"] == "match";
+        results.append(result);
+    }
+    return {{"valid", valid},
+            {"files", results},
+            {"scope", "listed files only; manifest provenance is not authenticated"}};
 }
 } // namespace fol

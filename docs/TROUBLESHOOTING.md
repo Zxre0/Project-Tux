@@ -22,3 +22,14 @@ Every launch request has `result.json` and `launcher.log`; planned commands also
 have `launch-command.txt`. Executed probes add `system.json`, `wine.log` and
 `processes.log`; graphics components may emit additional logs if active.
 No empty placeholder logs are created to imply that components ran.
+
+## Known sanitizer observation
+
+The full graphics-enabled sanitizer suite reports retained allocations after
+Vulkan enumeration on this CachyOS graphics stack (NVIDIA and Radeon, with Mesa
+device-selection/anti-lag layers installed). Stacks include Vulkan initialization,
+unloaded driver modules and libdbus. The 46 checks run with
+`build-sanitized/core-tests --skip-gpu` pass with ASan/UBSan and leak checking
+enabled. All 51 functional checks pass in the normal build. This is **not** a
+clean full sanitizer result; ownership of the graphics-related allocations is
+still unresolved. No suppression or global driver modification is used.

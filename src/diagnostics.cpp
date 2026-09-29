@@ -4,6 +4,7 @@
 #include <QHostAddress>
 #include <QLibrary>
 #include <QNetworkInterface>
+#include <QStandardPaths>
 #include <QSysInfo>
 #include <QUdpSocket>
 #include <vector>
@@ -112,6 +113,37 @@ QJsonObject systemReport() {
     for (const auto &process : processes())
         if (process.eac)
             eac.append(process.json());
+    QJsonArray packages;
+    if (QFileInfo::exists("/etc/arch-release")) {
+        auto pacman = QStandardPaths::findExecutable("pacman");
+        QStringList names{"wine", "vulkan-icd-loader", "lib32-vulkan-icd-loader", "mesa",
+                          "lib32-mesa"};
+        for (const auto &item : gpu) {
+            auto vendor = item.toObject()["vendor"].toString();
+            if (vendor == "0x10de")
+                names.append({"nvidia-utils", "lib32-nvidia-utils"});
+            if (vendor == "0x1002")
+                names.append({"vulkan-radeon", "lib32-vulkan-radeon"});
+        }
+        names.removeDuplicates();
+        if (!pacman.isEmpty()) {
+            for (const auto &name : names) {
+                auto query = run(pacman, {"-Q", name}, 3000);
+                bool installed = query.exitCode == 0 && !query.timedOut;
+                QJsonObject entry{
+                    {"package", name},
+                    {"installed", installed},
+                    {"evidence", query.output.trimmed()},
+                    {"scope",
+                     name.startsWith("lib32-")
+                         ? "runtimes requiring 32-bit libraries; not a universal requirement"
+                         : "package presence; functionality checked separately"}};
+                if (!installed)
+                    entry["suggestion"] = "Review distribution package: " + name;
+                packages.append(entry);
+            }
+        }
+    }
     return {
         {"os", QSysInfo::prettyProductName()},
         {"distribution", QSysInfo::productType()},
@@ -121,6 +153,7 @@ QJsonObject systemReport() {
         {"gpus", gpu},
         {"vulkan", vulkanReport()},
         {"runtimes", runtimes()},
+        {"package_evidence", packages},
         {"eac_processes", eac},
         {"eac_status", eac.isEmpty() ? "not observed in readable process snapshot" : "detected"},
         {"launch_profile", "Private Development"},

@@ -58,6 +58,25 @@ int main(int argc, char **argv) {
               "ASCII version metadata");
         check(fol::discoverBuilds({temp.path()}).contains(root),
               "discovery finds structural build");
+        auto integrityManifest = temp.path() + "/integrity.toml";
+        auto pakHash =
+            QCryptographicHash::hash(QByteArray(128, 'x'), QCryptographicHash::Sha256).toHex();
+        fol::writeFile(integrityManifest,
+                       "[files]\n\"FortniteGame/Content/Paks/synthetic.pak\" = \"" + pakHash +
+                           "\"\n");
+        check(fol::verifyIntegrity(root, integrityManifest)["valid"].toBool(),
+              "content hash verification");
+        fol::writeFile(root + "/FortniteGame/Content/Paks/synthetic.pak", QByteArray(128, 'y'));
+        check(!fol::verifyIntegrity(root, integrityManifest)["valid"].toBool(),
+              "content corruption detected");
+        fol::writeFile(integrityManifest, "[files]\n\"../outside\" = \"" + pakHash + "\"\n");
+        rejects([&] { fol::verifyIntegrity(root, integrityManifest); },
+                "integrity traversal rejected");
+        fol::writeFile(temp.path() + "/outside", "test");
+        QFile::link(temp.path() + "/outside", root + "/linked-file");
+        fol::writeFile(integrityManifest, "[files]\n\"linked-file\" = \"" + pakHash + "\"\n");
+        rejects([&] { fol::verifyIntegrity(root, integrityManifest); },
+                "integrity symlink escape rejected");
         auto pe = syntheticPe();
         pe.truncate(700);
         fol::writeFile(exe, pe);
@@ -188,7 +207,8 @@ int main(int argc, char **argv) {
         // and has a Vulkan device. CI without those facilities still runs all
         // parser, registry, CLI, module and process-identity tests above.
         auto namespaceProbe = fol::run("unshare", {"--user", "--map-root-user", "--net", "true"});
-        if (namespaceProbe.exitCode == 0 && fol::vulkanReport()["functional"].toBool()) {
+        if (!app.arguments().contains("--skip-gpu") && namespaceProbe.exitCode == 0 &&
+            fol::vulkanReport()["functional"].toBool()) {
             QFile::remove(malformed);
             registry.add("12.61", root);
             auto prefix = paths.prefix("12.61");
@@ -224,7 +244,7 @@ int main(int argc, char **argv) {
                   "supervisor leaves no owned processes");
         } else {
             QTextStream(stdout)
-                << "SKIP full offline supervisor: namespaces or Vulkan unavailable\n";
+                << "SKIP full offline supervisor: --skip-gpu, namespaces or Vulkan unavailable\n";
         }
         QTextStream(stdout) << checks << " checks passed\n";
         return 0;

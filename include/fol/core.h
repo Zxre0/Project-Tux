@@ -47,6 +47,7 @@ struct Build {
     QJsonObject json() const;
 };
 Build inspectBuild(const QString &path);
+QJsonObject verifyIntegrity(const QString &root, const QString &manifest);
 QStringList discoverBuilds(const QStringList &roots, int maxDepth = 7);
 class Registry {
     Paths paths;

@@ -16,17 +16,19 @@ int main(int argc, char **argv) {
     parser.setApplicationDescription(
         "Native Linux Fortnite development diagnostics. Gameplay and private-server integration "
         "remain unverified.\nCommands: builds, add PATH, remove ID, verify ID|PATH, discover "
-        "[ROOT...], diagnose, runtime list, prefix create|status ID, launch ID, module PATH, "
+        "[ROOT...], diagnose, runtime list|test ID, prefix create|status|stop ID, launch ID, "
+        "module PATH, "
         "network ADDRESS PORT, logs, processes, version");
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addPositionalArgument("command", "Command and arguments", "command [arguments...]");
-    parser.addOptions({{"id", "Registration ID (defaults to detected version)", "id"},
-                       {"output", "Also save JSON to this file", "path"},
-                       {"manifest", "Module compatibility TOML manifest", "path"},
-                       {"print-command", "Plan only; never execute"},
-                       {"offline-probe", "Network-isolated, unmodified direct startup diagnostic"},
-                       {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});
+    parser.addOptions(
+        {{"id", "Registration ID (defaults to detected version)", "id"},
+         {"output", "Also save JSON to this file", "path"},
+         {"manifest", "Module compatibility or build-integrity TOML manifest", "path"},
+         {"print-command", "Plan only; never execute"},
+         {"offline-probe", "Network-isolated, unmodified direct startup diagnostic"},
+         {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});
     parser.process(app);
     auto args = parser.positionalArguments();
     if (args.isEmpty())
@@ -71,6 +73,13 @@ int main(int argc, char **argv) {
                 fol::inspectBuild(QFileInfo(args[1]).isDir() ? args[1] : registry.resolve(args[1]))
                     .json();
             exitCode = result["valid"].toBool() ? 0 : 2;
+            if (parser.isSet("manifest")) {
+                auto integrity =
+                    fol::verifyIntegrity(result["path"].toString(), parser.value("manifest"));
+                result["integrity"] = integrity;
+                if (!integrity["valid"].toBool())
+                    exitCode = 2;
+            }
         } else if (command == "discover") {
             auto roots = args.mid(1);
             if (roots.isEmpty())

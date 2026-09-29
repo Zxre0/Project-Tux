@@ -79,11 +79,25 @@ QJsonObject prefixStatus(const Paths &paths, const QString &id) {
         owned = marker["owner"] == "fortnite-on-linux" && marker["id"] == id &&
                 marker["path"] == prefix;
     }
+    QJsonArray components;
+    if (owned) {
+        for (const QString name :
+             {"dxgi.dll", "d3d11.dll", "d3d12.dll", "vcruntime140.dll", "msvcp140.dll"}) {
+            auto path = prefix + "/drive_c/windows/system32/" + name;
+            auto pe = inspectPe(path);
+            components.append(QJsonObject{
+                {"name", name},
+                {"present", QFileInfo::exists(path)},
+                {"valid_x64_pe", pe.valid && pe.x64 && pe.dll},
+                {"provider", "unverified; presence does not establish native VC++/DXVK/VKD3D"}});
+        }
+    }
     return {{"path", prefix},
             {"owned", owned},
             {"initialized", owned && QFile::exists(prefix + "/system.reg") &&
                                 QDir(prefix + "/drive_c/windows").exists()},
             {"active_processes", ownedProcesses(prefix, {}).size()},
+            {"components", components},
             {"dxvk", "unverified"},
             {"vkd3d", "unverified"},
             {"vcruntime", "unverified"}};

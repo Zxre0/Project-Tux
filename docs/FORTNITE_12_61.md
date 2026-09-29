@@ -20,3 +20,29 @@ found; neither establishes a 12.61 installation and neither was launched or chan
 Current blockers: missing legitimate 12.61 files; no verified unmodified private
 execution path; no reviewed compatible module/backend environment. Client startup,
 private join, hosting, gameplay, fullscreen, input and audio are all unverified.
+
+## Optional content-integrity checks
+
+`verify ID --manifest /path/to/integrity.toml` checks supplied SHA-256 values:
+
+```toml
+[files]
+"FortniteGame/Content/Paks/example.pak" = "<64 hex characters from a trusted local manifest>"
+```
+
+The placeholder is intentionally invalid until replaced. Files are streamed into
+the hash function; empty manifests, malformed hashes, traversal and symlinks
+resolving outside the installation are rejected. Missing, unreadable, changed
+during check and mismatched files produce failure. A matching user-supplied
+manifest does not establish authenticity or cover files absent from the manifest.
+The launcher never rewrites game files as a response to corruption.
+
+Module compatibility manifests use a separate schema:
+
+```toml
+fortnite_version = "12.61"
+sha256 = "<64 hex characters for the supplied module>"
+```
+
+Even a matching manifest reports runtime compatibility as unverified. No module
+loading is performed.

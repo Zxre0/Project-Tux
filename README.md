@@ -34,6 +34,7 @@ fortnite-linux discover /mnt/games
 fortnite-linux add /path/to/Fortnite
 fortnite-linux builds
 fortnite-linux verify 12.61
+fortnite-linux verify 12.61 --manifest /path/to/integrity.toml
 fortnite-linux remove 12.61              # registration only; preserves files
 fortnite-linux runtime list
 fortnite-linux runtime test 12.61        # after creating the prefix; no Fortnite execution
@@ -53,6 +54,12 @@ Registration supports multiple IDs (`add PATH --id custom-name`). Detection read
 ASCII/UTF-16 release metadata and checks PE architecture, section bounds, content
 folders and readable nonempty paks. It does **not** prove asset authenticity or
 full integrity. Conflicting/unknown metadata is rejected. No unofficial downloads.
+
+Optional integrity manifests contain a `[files]` table mapping quoted relative
+file paths to SHA-256 strings. Only listed files are checked; manifest provenance
+is not authenticated. Paths escaping the installation, including symlink escapes,
+are rejected. The same `--manifest` option on `module` expects `fortnite_version`
+and `sha256` fields instead. See [12.61 validation](docs/FORTNITE_12_61.md).
 
 Normal `launch` and `host` currently report a blocker. `--offline-probe` is only a
 network-isolated direct startup experiment using installed Wine, not working

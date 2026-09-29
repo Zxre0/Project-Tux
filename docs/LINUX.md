@@ -44,3 +44,15 @@ depends on effective UID, so a host-side wait can incorrectly report completion.
 Log session: `runtime-fcfb4677-b274-4b7c-a8cc-af24990951e1`. Wine logged a winebth
 service-start error in the earlier run; the built-in command still executed.
 This is not a graphics or Fortnite test.
+
+Diagnostics now report installed Arch-family package versions and vendor-specific
+package suggestions. Names were cross-checked against local pacman evidence and
+the official [Vulkan loader](https://archlinux.org/packages/extra/x86_64/vulkan-icd-loader/),
+[32-bit NVIDIA](https://archlinux.org/packages/multilib/x86_64/lib32-nvidia-utils/),
+and [32-bit Radeon](https://archlinux.org/packages/multilib/x86_64/lib32-vulkan-radeon/)
+package records. Suggestions do not install or upgrade drivers. 32-bit libraries
+are labelled runtime-dependent; their necessity is not inferred from a 64-bit game.
+
+Prefix status inspects dxgi, d3d11, d3d12, vcruntime140 and msvcp140 for readable
+x64 DLL structure. All five were present in the Wine-created 12.61 prefix. This
+does not prove DXVK/VKD3D or Microsoft VC++ is installed: Wine supplies its own DLLs.
