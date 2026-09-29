@@ -1583,3 +1583,26 @@ the actual 21-36-41 session: it reports login_aborted_logged=true, LoggingIn/13,
 source line2475. This is historical failure evidence, not a corrected-login test.
 Next meaningful end-to-end step remains the corrected private login retest with
 socket/IPC/Vulkan access, followed by actual next-request diagnosis and screenshot.
+
+### Execution blocker audit (2026-09-29)
+
+Third consecutive goal turn with the same execution restriction confirmed by
+fresh checks: backend HTTP cannot bind loopback; AF_UNIX bind and UDP socket
+creation return EPERM; Vulkan has no visible GPU device nodes and enumeration
+returns -3. GitHub push still fails DNS resolution. There is no live game/test job
+being awaited. The worktree was clean at 49d86b1 before this audit entry.
+
+The preceding two turns made concrete progress (session fix and login-failure
+diagnostics). The evidence-driven next step now requires running the corrected
+game/backend exchange; additional guessed backend endpoints cannot establish
+that the game accepts login. Mark the goal blocked, not complete. Resume in an
+execution environment that permits local TCP/UDP and Unix sockets, GPU device
+access and desktop IPC; DNS/HTTPS access is also needed to publish local commits.
+Do not weaken the launcher's private network isolation or alter host drivers.
+
+On resume: run the full test suite, repeat the documented 120-second isolated
+development-login command in docs/BACKEND.md, correlate backend events with game
+login evidence, and capture the actual game window during the run. Preserve
+generated local credentials and keep them out of output/Git. Push the accumulated
+local commits without force when GitHub connectivity returns. No successful
+login, gameplay or screenshot is claimed by this checkpoint.
