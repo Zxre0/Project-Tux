@@ -889,3 +889,30 @@ authorized private-development execution contract/build. No game was relaunched.
 The profile resource rebuilt successfully and all seven release CTest targets
 passed (14.79 seconds); Git diff checking passed. These asset-free regressions
 do not establish game startup or a valid private execution path.
+
+### Blocked audit: development startup remains unresolved (2026-09-29)
+
+Third consecutive prerequisite audit reached the same condition. Previous turn's
+profile correction and passing regression tests were verified maintenance, not
+advancement past the startup failure. Rechecked local/remote main at `ebfc5f5`,
+the current unverified profile, test completion, both terminal Proton result
+files and live process/prefix state. Both Proton results still report exit 1,
+no Unix crash, no observed anti-cheat and no owned processes remaining. Current
+baseline prefix status reports zero active processes; the readable process-name
+scan found only this diagnostic CLI among Wine/Fortnite/Proton/Reboot names.
+There is no live game probe to wait for or restart based on an expired tool handle.
+
+The objective is not complete. The retail 12.50 install is validated and isolated
+startup is reproducible, but the exit's cause and an accepted private-development
+execution path remain unverified. Existing evidence does not justify another
+runtime change, launcher identity spoof, authentication replacement or protection
+patch. Other launcher features cannot substitute for that missing startup result.
+
+Mark the active goal blocked after this audit. Resume startup work when supplied
+with a verifiable authorized 12.50 development build/launch specification (including
+supported arguments and private backend interface without protection bypass), or
+new logs/source evidence supporting a distinct in-scope compatibility experiment.
+Additional filesystem permissions and GitHub authentication are not prerequisites;
+both are working. No new game test or source change was made in this audit. This
+status records an evidence/input impasse, not proof that private operation is
+fundamentally impossible or that EAC caused the observed exit.
