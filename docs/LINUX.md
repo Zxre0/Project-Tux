@@ -100,6 +100,12 @@ command test with zero remaining owned processes. Game files were not involved.
 
 ## Proton command baseline
 
+The native game launcher also supports opt-in imported-Proton host-script probes;
+see [runtime comparison](RUNTIME_COMPARISON.md). Experimental and Hotfix both
+started 12.50 Shipping in isolated namespaces but returned exit 1. No game
+rendering, private connection or gameplay was verified. No Steam Linux Runtime
+container support is implied by those tests.
+
 The installed Experimental and Hotfix scripts use `STEAM_COMPAT_DATA_PATH/pfx`,
 append a slash to WINEPREFIX, update prefix files during `run`, and invoke a Steam
 shim before the requested Windows program. `waitforexitandrun` waits before the

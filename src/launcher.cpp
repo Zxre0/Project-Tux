@@ -38,7 +38,8 @@ QString classifyFailure(const QString &text) {
     return "unknown; inspect logs";
 }
 QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool offlineProbe,
-                   int timeoutSeconds, bool traceStartup, bool engineStdout) {
+                   int timeoutSeconds, bool traceStartup, bool engineStdout,
+                   const QString &protonId) {
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
                    QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
@@ -63,16 +64,46 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         require(offlineProbe || profile.privatePathVerified,
                 "Private-development execution path is unverified. Only --offline-probe is "
                 "available; it has no network access or authentication modifications.");
-        auto prefix = prefixStatus(paths, id);
+        std::optional<ProtonSession> proton;
+        QJsonObject prefix;
+        QString runtime, prefixPath;
+        auto environment = QProcessEnvironment::systemEnvironment();
+        QMap<QString, QString> overrides;
+        QStringList unsetArgs;
+        if (protonId.isEmpty()) {
+            prefix = prefixStatus(paths, id);
+            prefixPath = paths.prefix(id);
+            runtime = wineExecutable();
+        } else {
+            proton.emplace(prepareProtonSession(paths, id, protonId, session, directory, false));
+            prefixPath = proton->prefix;
+            runtime = proton->runtime + "/proton";
+            environment = proton->environment;
+            overrides = proton->managed;
+            // Proton otherwise redirects Wine into steam-0.log, out of the
+            // module monitor's view. Explicit WINEDEBUG still enables traces;
+            // PROTON_LOG=0 retains stdout/stderr in the supervised wine.log.
+            overrides["PROTON_LOG"] = "0";
+            overrides["DXVK_LOG_LEVEL"] = "info";
+            overrides["VKD3D_DEBUG"] = "warn";
+            for (const auto &key : proton->unsetKeys)
+                unsetArgs.append("-u " + quote(key));
+            prefix = {{"path", prefixPath}, {"runtime_id", protonId}, {"type", "proton"}};
+            result["runtime_version"] = proton->version;
+            result["exit_code_scope"] = "Proton launcher; not independently verified game exit";
+            result["runtime_mode"] = "Proton script on host; no Steam Linux Runtime container";
+        }
         result["prefix"] = prefix;
-        auto wine = wineExecutable();
         auto unshare = QStandardPaths::findExecutable("unshare");
         require(!unshare.isEmpty(), "util-linux unshare is required for isolated startup probes");
         auto probe = run(unshare, {"--user", "--map-root-user", "--net", "true"});
         require(probe.exitCode == 0 && !probe.timedOut,
                 "Network isolation unavailable: " + probe.output);
         auto executable = build.root + "/" + profile.executable;
-        QStringList args{"--user", "--map-root-user", "--net", "--", wine, executable};
+        QStringList args{"--user", "--map-root-user", "--net", "--", runtime};
+        if (proton)
+            args.append("run");
+        args.append(executable);
         args.append(profile.arguments);
         // Logging-only experiment, kept separate from the unchanged baseline.
         // A shipping build may ignore these; requesting output does not prove it
@@ -82,12 +113,14 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         QStringList shellArgs;
         for (const auto &arg : args)
             shellArgs.append(quote(arg));
-        QMap<QString, QString> overrides{{"WINEPREFIX", paths.prefix(id)},
-                                         {"FOL_SESSION_ID", session},
-                                         {"WINEDEBUG", "+timestamp,+pid,+tid,+seh,+loaddll"},
-                                         {"DXVK_LOG_PATH", directory},
-                                         {"VKD3D_LOG_FILE", directory + "/vkd3d.log"},
-                                         {"WINEDLLOVERRIDES", "winemenubuilder.exe=d"}};
+        const QMap<QString, QString> common{{"WINEPREFIX", prefixPath},
+                                            {"FOL_SESSION_ID", session},
+                                            {"WINEDEBUG", "+timestamp,+pid,+tid,+seh,+loaddll"},
+                                            {"DXVK_LOG_PATH", directory},
+                                            {"VKD3D_LOG_FILE", directory + "/vkd3d.log"},
+                                            {"WINEDLLOVERRIDES", "winemenubuilder.exe=d"}};
+        for (auto it = common.begin(); it != common.end(); ++it)
+            overrides[it.key()] = it.value();
         if (traceStartup)
             overrides["WINEDEBUG"] += ",+msgbox,+debugstr,+process,+exec,+reg";
         // A bundled Wine may require its own DLL/library search directories.
@@ -96,7 +129,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         QJsonObject inheritedRuntime;
         const auto inherited = QProcessEnvironment::systemEnvironment();
         for (const QString key : {"WINEDLLPATH", "LD_LIBRARY_PATH", "WINEARCH"}) {
-            if (inherited.contains(key)) {
+            if (inherited.contains(key) && (!proton || key == "LD_LIBRARY_PATH")) {
                 overrides[key] = inherited.value(key);
                 inheritedRuntime[key] = inherited.value(key);
             }
@@ -106,26 +139,32 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         for (auto it = overrides.begin(); it != overrides.end(); ++it)
             assignments.append(it.key() + "=" + quote(it.value()));
         QString command = "cd -- " + quote(build.root + "/" + profile.workingDirectory) +
-                          " && env " + assignments.join(' ') + " " + quote(unshare) + " " +
-                          shellArgs.join(' ') + " >" + quote(directory + "/wine.log") + " 2>&1";
+                          " && env " + unsetArgs.join(' ') + " " + assignments.join(' ') + " " +
+                          quote(unshare) + " " + shellArgs.join(' ') + " >" +
+                          quote(directory + "/wine.log") + " 2>&1";
         result["command"] = command;
-        result["runtime"] = wine;
+        result["runtime"] = runtime;
         result["process"] = executable;
         writeFile(directory + "/launch-command.txt", command.toUtf8() + '\n');
         if (printOnly) {
             result["status"] = "planned; not executed";
         } else {
-            require(prefix["initialized"].toBool(),
-                    "Dedicated prefix is not initialized; use prefix create " + id);
-            QLockFile lock(paths.prefix(id) + ".lock");
-            require(lock.tryLock(), "Prefix is in use by another launcher operation");
-            require(ownedProcesses(paths.prefix(id), {}).isEmpty(),
-                    "Dedicated prefix has active Wine processes");
+            std::unique_ptr<QLockFile> wineLock;
+            if (!proton) {
+                require(prefix["initialized"].toBool(),
+                        "Dedicated prefix is not initialized; use prefix create " + id);
+                wineLock = std::make_unique<QLockFile>(prefixPath + ".lock");
+                require(wineLock->tryLock(), "Prefix is in use by another launcher operation");
+                require(ownedProcesses(prefixPath, {}).isEmpty(),
+                        "Dedicated prefix has active Wine processes");
+            }
             auto report = systemReport();
             writeFile(directory + "/system.json", QJsonDocument(report).toJson());
             require(report["vulkan"].toObject()["functional"].toBool(),
                     "Vulkan device enumeration failed; see system.json");
-            auto env = QProcessEnvironment::systemEnvironment();
+            if (proton)
+                proton.emplace(prepareProtonSession(paths, id, protonId, session, directory, true));
+            auto env = environment;
             for (auto it = overrides.begin(); it != overrides.end(); ++it)
                 env.insert(it.key(), it.value());
             const auto outcome =

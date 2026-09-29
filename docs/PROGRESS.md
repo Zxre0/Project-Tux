@@ -7,13 +7,15 @@ its metadata, structure and all 398 local-manifest file hashes are verified, and
 progress. GPU/socket restrictions were removed by the user; Wine command execution
 and the full seven-target release suite pass again. Isolated system-Wine runs
 still exit 1; the cause is unresolved. A separate bundled-Wine test fixed missing
-VKD3D imports, then reached exit 1 as well; full Proton launch remains unimplemented.
+VKD3D imports, then reached exit 1 as well. Native-managed Proton-script host
+probes now start Shipping through both Experimental and Hotfix, also exiting 1;
+Steam Linux Runtime container integration is not implemented.
 No legitimate non-EAC private execution path is
 established. Native CLI, synthetic tests, diagnostics
-and Wine/Proton command execution work within the measured limits below; no game
-startup or gameplay is claimed. All ten previously pending commits through
+and Wine/Proton command execution work within the measured limits below; no
+functional game startup or gameplay is claimed. All ten previously pending commits through
 `f142446` were pushed to main after access was restored, followed by tracing
-checkpoint `0477429`. Current release core tests pass 140 checks; release and
+checkpoints through `3bea573`. Current release core tests pass 153 checks; release and
 ASan/UBSan CTest pass 7/7 (sanitizer leak detection disabled). Earlier restricted-run
 results below remain historical evidence, not the current environment status.
 Graphics-enabled LeakSanitizer findings remain unresolved.
@@ -38,7 +40,8 @@ It may contain the missing game files; their presence/version is unknown.
 Latest startup lead: an unsuccessful Epic launcher-registration lookup immediately
 before exit in a registry trace. Causality and any protection requirement remain
 unproven. Next: inspect authorized development-launch requirements and complete
-runtime preparation without changing game authorization requirements. Do not blindly repeat
+evaluate evidence beyond the reproduced launcher-discovery failure without changing
+game authorization requirements. Do not blindly repeat
 the same exit-1 configuration. Do not start authentication modules,
 paused EAC stand-ins, protected services, or security-bypass experiments. Remaining
 graphics-stack LeakSanitizer findings are documented below, not suppressed.
@@ -754,3 +757,69 @@ and the original 12.50 prefix again reports zero active processes. Ordinary
 Shipping SHA-256 still matches the previously recorded value. Next experiment
 must distinguish a supported development launch requirement from runtime behavior;
 do not interpret a missing launcher key as permission to spoof it.
+
+### Native-managed Proton-script startup comparison
+
+Rechecked clean canonical main at `3bea573`. The previous turn was progress:
+verified runtime dependency repair, a captured registry lookup, passing tests and
+published commits. Remaining comparison gap was direct bundled Wine versus the
+Proton script's complete prefix setup. Inspected installed/imported Proton
+init_wine, init_session, setup_prefix and run_proc/run before implementing it.
+
+Added `launch ID --offline-probe --proton IMPORTED_ID`. Extracted shared
+`prepareProtonSession` from the tested command runner so both paths validate
+runtime/script-version identity, private ownership markers, separate compatibility
+data, runtime binding and lifetime-held prefix/runtime locks. Dry planning does
+not create compatibility data. The same game validation, profile, unshare,
+Vulkan gate, process monitoring, anti-cheat trace check and cleanup remain in use.
+No wrapper-only zero exit is presented as gameplay success.
+
+Proton's `PROTON_LOG=1` redirects Wine output to a separate file. For game probes,
+`PROTON_LOG=0` plus explicit WINEDEBUG instead keeps real traces in monitored
+wine.log; actual runs confirmed module and registry lines are present. DXVK info
+and VKD3D warnings are explicitly requested. Inherited Steam/Proton/Wine/media
+settings are cleared, a private empty Steam-client directory is used, and no real
+account metadata is read. The normal Proton steam.exe compatibility helper was
+observed; no Epic/EAC stand-in was created. Host mode rejects the external Steam
+runtime-launcher service interface to avoid silently handing execution outside
+the managed network namespace. This does not claim Steam Linux Runtime support.
+
+Real command receipts passed in new Proton prefixes:
+
+- Experimental `proton-4a8b7dff-d07f-47f2-ac51-e1c347f8f515`, prefix ID `12.50`.
+- Hotfix `proton-0cc0a1ed-f9bc-4550-a538-5281133d4b53`, ID `12.50-proton-hotfix`
+  (separate registry alias pointing to the same supplied installation).
+
+Game probes both used `--offline-probe --trace-startup --timeout 45` and ordinary
+Shipping's unchanged `-log -d3d11` arguments:
+
+- Experimental session `2026-09-29_18-03-19_8c56af6f`: launcher exit 1, real game
+  module load, null Epic launcher-key lookup, game Wine PID 0134 subsequently calls
+  NtTerminateProcess with exit 1. 241 process samples, maximum 13 owned processes.
+- Hotfix session `2026-09-29_18-05-13_60a3ba6d`: same observed lookup/exit sequence
+  on game Wine PID 0138; 242 samples, maximum 13 processes.
+
+Both have no timeout/Unix crash, no invalid PID 0/1 selection, no anti-cheat
+process/module observed and no owned processes left. Experimental's DXVK log
+explicitly names xalia.exe; it is helper Vulkan evidence, not Fortnite rendering.
+Steam-connect warnings from the empty client configuration are not an established
+cause. No change made to game assets, launcher registration or authorization.
+
+Added synthetic coverage for non-mutating planning, prefix/runtime lock retention,
+cross-prefix lock exclusion, changed-runtime rejection, service-handoff rejection,
+sanitized launch environment and anti-cheat-module cleanup. An initial test reused
+the intentionally corrupted fixture; corrected it to use the untouched second
+import and explicitly test the corrupted import's rejection. Review caught an
+ordering regression on namespace-restricted CI: import validation now runs before
+the namespace probe, without creating storage. Added a denied-namespace fixture
+to preserve that behavior. Release core now passes 153 checks; full seven-target
+release tests pass. ASan/UBSan validation is performed with leak detection
+explicitly disabled, not as resolution of earlier graphics leak findings.
+Final rebuilt ASan/UBSan suite also passes all seven targets with that explicit
+setting; formatting and diff checks pass. Both real Proton probes were terminal
+with cleanup complete before documentation/commit, not left running in background.
+
+Next: the runtime comparison has not moved past the early launcher-discovery
+sequence. Investigate an authorized development-launch contract or obtain stronger
+non-mutating causal evidence; do not add identity flags, fake registrations,
+authentication replacement modules or repeated identical retries.

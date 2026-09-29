@@ -84,6 +84,7 @@ QJsonArray importedProtonRuntimes(const Paths &paths) {
         QJsonObject info{{"id", entry.fileName()},
                          {"path", entry.absoluteFilePath()},
                          {"type", "proton"},
+                         {"offline_probe_supported", false},
                          {"game_launch_supported", false}};
         try {
             validateId(entry.fileName());
@@ -97,7 +98,8 @@ QJsonArray importedProtonRuntimes(const Paths &paths) {
                             QString::fromLatin1(runtimeDigest(entry.absoluteFilePath())),
                     "Runtime ownership or script/version digest changed");
             info["version"] = metadata["version"];
-            info["status"] = "imported; smoke test available";
+            info["status"] = "imported; smoke test and isolated launch probe available";
+            info["offline_probe_supported"] = true;
         } catch (const std::exception &error) {
             info["status"] = "invalid or incomplete";
             info["error"] = QString::fromUtf8(error.what());
@@ -105,6 +107,82 @@ QJsonArray importedProtonRuntimes(const Paths &paths) {
         entries.append(info);
     }
     return entries;
+}
+ProtonSession prepareProtonSession(const Paths &paths, const QString &id, const QString &runtimeId,
+                                   const QString &session, const QString &logs, bool prepare) {
+    validateId(id);
+    validateId(runtimeId);
+    ProtonSession context;
+    context.runtime = paths.data + "/runtimes/" + runtimeId;
+    context.compat = paths.data + "/proton-prefixes/" + id;
+    context.prefix = context.compat + "/pfx";
+    const auto &runtime = context.runtime;
+    const auto &compat = context.compat;
+    const auto &prefix = context.prefix;
+    checkStorage(paths, runtime);
+    checkStorage(paths, prefix);
+    checkRuntime(runtime);
+    require(QStandardPaths::findExecutable("steam-runtime-launcher-interface-0").isEmpty(),
+            "Proton host probe cannot hand off to a Steam runtime service; remove its launcher "
+            "interface from the probe PATH or use a separately validated container path");
+    require(!QFileInfo(runtime + "/.fol-runtime.json").isSymLink(), "Symlinked runtime marker");
+    auto marker = readJson(runtime + "/.fol-runtime.json");
+    require(marker["owner"] == "fortnite-on-linux" && marker["id"] == runtimeId &&
+                marker["path"] == runtime &&
+                marker["script_version_sha256"] == QString::fromLatin1(runtimeDigest(runtime)),
+            "Runtime import ownership or script/version digest changed; import a fresh ID");
+    context.version = marker["version"].toString();
+    if (prepare) {
+        require(QDir().mkpath(paths.data + "/proton-prefixes"), "Cannot create Proton storage");
+        context.prefixLock = std::make_unique<QLockFile>(compat + ".lock");
+        context.runtimeLock = std::make_unique<QLockFile>(runtime + ".lock");
+        require(context.prefixLock->tryLock() && context.runtimeLock->tryLock(),
+                "Proton prefix or runtime is in use");
+        require(ownedProcesses(prefix, {}).isEmpty(), "Proton prefix has active processes");
+    }
+    if (QFileInfo::exists(compat)) {
+        require(!QFileInfo(compat + "/.fol-proton.json").isSymLink(), "Symlinked Proton marker");
+        auto owner = readJson(compat + "/.fol-proton.json");
+        require(owner["owner"] == "fortnite-on-linux" && owner["id"] == id &&
+                    owner["path"] == compat && owner["runtime"] == runtimeId,
+                "Refusing unowned or different-runtime Proton prefix");
+    } else if (prepare) {
+        writeFile(compat + "/.fol-proton.json",
+                  QJsonDocument(QJsonObject{{"owner", "fortnite-on-linux"},
+                                            {"id", id},
+                                            {"path", compat},
+                                            {"runtime", runtimeId}})
+                      .toJson());
+        require(
+            QFile::setPermissions(compat, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner),
+            "Cannot restrict Proton prefix permissions");
+    }
+    if (prepare)
+        require(QDir().mkpath(logs) && QDir().mkpath(compat + "/empty-steam-client"),
+                "Cannot create Proton log/client directories");
+    context.managed = {{"STEAM_COMPAT_DATA_PATH", compat},
+                       {"STEAM_COMPAT_CLIENT_INSTALL_PATH", compat + "/empty-steam-client"},
+                       {"WINEPREFIX", prefix},
+                       {"FOL_SESSION_ID", session},
+                       {"SteamAppId", "0"},
+                       {"SteamGameId", "0"},
+                       {"PROTON_LOG", "1"},
+                       {"PROTON_LOG_DIR", logs},
+                       {"WINEDEBUG", "+timestamp,+pid,+seh,+loaddll"},
+                       {"WINEDLLOVERRIDES", "winemenubuilder.exe=d"}};
+    context.environment = QProcessEnvironment::systemEnvironment();
+    // Media paths can trigger migration/removal. Do not inherit another game's
+    // Steam identity, injection settings or Wine/Proton overrides.
+    for (const auto &key : context.environment.keys()) {
+        if (key.startsWith("STEAM_") || key.startsWith("Steam") || key.startsWith("PROTON_") ||
+            key.startsWith("WINE") || key.startsWith("MEDIACONV_")) {
+            context.environment.remove(key);
+            context.unsetKeys.append(key);
+        }
+    }
+    for (auto it = context.managed.begin(); it != context.managed.end(); ++it)
+        context.environment.insert(it.key(), it.value());
+    return context;
 }
 QJsonObject testProton(const Paths &paths, const QString &id, const QString &runtimeId) {
     validateId(id);
@@ -117,74 +195,24 @@ QJsonObject testProton(const Paths &paths, const QString &id, const QString &run
                        {"passed", false},
                        {"fortnite_tested", false}};
     try {
-        auto runtime = paths.data + "/runtimes/" + runtimeId;
-        auto compat = paths.data + "/proton-prefixes/" + id;
-        auto prefix = compat + "/pfx";
-        checkStorage(paths, runtime);
-        checkStorage(paths, prefix);
-        checkRuntime(runtime);
-        require(!QFileInfo(runtime + "/.fol-runtime.json").isSymLink(), "Symlinked runtime marker");
-        auto marker = readJson(runtime + "/.fol-runtime.json");
-        require(marker["owner"] == "fortnite-on-linux" && marker["id"] == runtimeId &&
-                    marker["path"] == runtime &&
-                    marker["script_version_sha256"] == QString::fromLatin1(runtimeDigest(runtime)),
-                "Runtime import ownership or script/version digest changed; import a fresh ID");
+        // Validate imports before probing host namespace support, including on
+        // CI hosts that cannot unshare. Do not create storage until isolation
+        // has been checked.
+        auto context = prepareProtonSession(paths, id, runtimeId, session, logs, false);
         auto unshare = QStandardPaths::findExecutable("unshare");
         require(!unshare.isEmpty(), "util-linux unshare required for offline Proton tests");
         auto probe = run(unshare, {"--user", "--map-root-user", "--net", "true"});
         require(!probe.timedOut && probe.exitCode == 0,
                 "Network isolation unavailable: " + probe.output);
-        require(QDir().mkpath(paths.data + "/proton-prefixes"), "Cannot create Proton storage");
-        QLockFile prefixLock(compat + ".lock"), runtimeLock(runtime + ".lock");
-        require(prefixLock.tryLock() && runtimeLock.tryLock(),
-                "Proton prefix or runtime is in use");
-        require(ownedProcesses(prefix, {}).isEmpty(), "Proton prefix has active processes");
-        if (QFileInfo::exists(compat)) {
-            require(!QFileInfo(compat + "/.fol-proton.json").isSymLink(),
-                    "Symlinked Proton marker");
-            auto owner = readJson(compat + "/.fol-proton.json");
-            require(owner["owner"] == "fortnite-on-linux" && owner["id"] == id &&
-                        owner["path"] == compat && owner["runtime"] == runtimeId,
-                    "Refusing unowned or different-runtime Proton prefix");
-        } else {
-            writeFile(compat + "/.fol-proton.json",
-                      QJsonDocument(QJsonObject{{"owner", "fortnite-on-linux"},
-                                                {"id", id},
-                                                {"path", compat},
-                                                {"runtime", runtimeId}})
-                          .toJson());
-            require(QFile::setPermissions(compat,
-                                          QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner),
-                    "Cannot restrict Proton prefix permissions");
-        }
-        require(QDir().mkpath(logs) && QDir().mkpath(compat + "/empty-steam-client"),
-                "Cannot create Proton log/client directories");
-        // Do not read the user's Steam identity/configuration for a built-in cmd test.
-        QMap<QString, QString> managed{
-            {"STEAM_COMPAT_DATA_PATH", compat},
-            {"STEAM_COMPAT_CLIENT_INSTALL_PATH", compat + "/empty-steam-client"},
-            {"WINEPREFIX", prefix},
-            {"FOL_SESSION_ID", session},
-            {"SteamAppId", "0"},
-            {"SteamGameId", "0"},
-            {"PROTON_LOG", "1"},
-            {"PROTON_LOG_DIR", logs},
-            {"WINEDEBUG", "+timestamp,+pid,+seh,+loaddll"},
-            {"WINEDLLOVERRIDES", "winemenubuilder.exe=d"}};
-        auto env = QProcessEnvironment::systemEnvironment();
+        context = prepareProtonSession(paths, id, runtimeId, session, logs, true);
+        const auto &runtime = context.runtime;
+        const auto &prefix = context.prefix;
+        const auto &env = context.environment;
         QStringList unsetArgs;
-        // Steam's media paths may trigger file migration/removal in Proton.
-        // Do not inherit other games' runtime, media, injection or debug settings.
-        for (const auto &key : env.keys()) {
-            if (key.startsWith("STEAM_") || key.startsWith("Steam") || key.startsWith("PROTON_") ||
-                key.startsWith("WINE") || key.startsWith("MEDIACONV_")) {
-                env.remove(key);
-                unsetArgs.append("-u " + quote(key));
-            }
-        }
+        for (const auto &key : context.unsetKeys)
+            unsetArgs.append("-u " + quote(key));
         QStringList assignments;
-        for (auto it = managed.begin(); it != managed.end(); ++it) {
-            env.insert(it.key(), it.value());
+        for (auto it = context.managed.begin(); it != context.managed.end(); ++it) {
             assignments.append(it.key() + "=" + quote(it.value()));
         }
         // A fresh receipt verifies execution even when Proton's Steam shim does
@@ -221,7 +249,7 @@ QJsonObject testProton(const Paths &paths, const QString &id, const QString &run
                       !outcome.timedOut && !outcome.interrupted && outcome.error.isEmpty();
         result["passed"] = passed;
         result["runtime"] = runtime;
-        result["version"] = marker["version"];
+        result["version"] = context.version;
         result["prefix"] = prefix;
         result["exit_code"] = outcome.exitCode;
         result["timed_out"] = outcome.timedOut;

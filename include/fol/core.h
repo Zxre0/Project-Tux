@@ -1,8 +1,10 @@
 #pragma once
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLockFile>
 #include <QProcessEnvironment>
 #include <QStringList>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 
@@ -76,6 +78,17 @@ QJsonObject testRuntime(const Paths &, const QString &id);
 QJsonObject importProton(const Paths &, const QString &id, const QString &source);
 QJsonArray importedProtonRuntimes(const Paths &);
 QJsonObject testProton(const Paths &, const QString &id, const QString &runtimeId);
+struct ProtonSession {
+    QString runtime, compat, prefix, version;
+    QProcessEnvironment environment;
+    QMap<QString, QString> managed;
+    QStringList unsetKeys;
+    std::unique_ptr<QLockFile> prefixLock, runtimeLock;
+};
+// Dry planning validates ownership without creating storage or acquiring locks.
+// Execution callers must retain the returned locks throughout supervision.
+ProtonSession prepareProtonSession(const Paths &, const QString &id, const QString &runtimeId,
+                                   const QString &session, const QString &logs, bool prepare);
 QJsonObject systemReport();
 QJsonObject vulkanReport();
 QJsonObject portReport(const QString &address, quint16 port);
@@ -113,6 +126,7 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
                                    const QString &outputName, int timeoutMs,
                                    const SupervisionOptions &options = {});
 QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlineProbe,
-                   int timeoutSeconds, bool traceStartup = false, bool engineStdout = false);
+                   int timeoutSeconds, bool traceStartup = false, bool engineStdout = false,
+                   const QString &protonId = {});
 QString classifyFailure(const QString &text);
 } // namespace fol

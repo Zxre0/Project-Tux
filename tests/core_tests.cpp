@@ -297,6 +297,28 @@ int main(int argc, char **argv) {
         check(imported["version"] == "synthetic-proton-not-real" &&
                   QFile::exists(protonSource + "/proton"),
               "runtime import preserves source");
+        {
+            auto dry = fol::prepareProtonSession(paths, "dry-probe", "synthetic", "plan-only",
+                                                 paths.state + "/plan-logs", false);
+            check(!QDir(dry.compat).exists() && !dry.prefixLock && !dry.runtimeLock,
+                  "Proton plan does not create compatibility data or acquire execution locks");
+            auto held = fol::prepareProtonSession(paths, "locked-probe", "synthetic", "locked",
+                                                  paths.state + "/lock-logs", true);
+            rejects(
+                [&] {
+                    fol::prepareProtonSession(paths, "locked-probe", "synthetic", "second",
+                                              paths.state + "/lock-logs", true);
+                },
+                "Proton session retains prefix and runtime locks through execution scope");
+            rejects(
+                [&] {
+                    fol::prepareProtonSession(paths, "another-probe", "synthetic", "second",
+                                              paths.state + "/lock-logs", true);
+                },
+                "Proton runtime lock also excludes another prefix during setup and execution");
+            check(!QDir(paths.data + "/proton-prefixes/another-probe").exists(),
+                  "failed Proton runtime lock does not create a new prefix");
+        }
         rejects([&] { fol::importProton(paths, "synthetic", protonSource); },
                 "runtime import refuses overwrite");
         check(!fol::testProton(paths, "probe", "missing")["passed"].toBool(),
@@ -394,6 +416,16 @@ int main(int argc, char **argv) {
         fol::writeFile(paths.data + "/runtimes/synthetic/version", "changed\n");
         check(fol::testProton(paths, "probe", "synthetic")["error"].toString().contains("digest"),
               "changed Proton script/version is rejected");
+        const auto originalNamespacePath = qgetenv("PATH");
+        auto deniedNamespaceBin = temp.path() + "/denied-namespace-bin";
+        QDir().mkpath(deniedNamespaceBin);
+        check(QFile::link(QCoreApplication::applicationDirPath() + "/runtime-fixture",
+                          deniedNamespaceBin + "/unshare"),
+              "namespace-denial fixture link");
+        qputenv("PATH", deniedNamespaceBin.toLocal8Bit() + ":" + originalNamespacePath);
+        check(fol::testProton(paths, "probe", "synthetic")["error"].toString().contains("digest"),
+              "Proton runtime validation remains available when namespace execution is denied");
+        qputenv("PATH", originalNamespacePath);
         fol::writeFile(protonSource + "/user_settings.py", "# custom settings, must not execute\n");
         rejects([&] { fol::importProton(paths, "custom-settings", protonSource); },
                 "Proton custom executable settings rejected");
@@ -520,6 +552,43 @@ int main(int argc, char **argv) {
             check(planned["status"] == "planned; not executed" &&
                       planned["command"].toString().contains("WINEDEBUG="),
                   "offline plan includes managed environment");
+            check(fol::launch(paths, "12.61", true, true, 5, true, false, "synthetic")["error"]
+                      .toString()
+                      .contains("digest"),
+                  "Proton game launch rejects the previously corrupted runtime fixture");
+            auto protonPlan =
+                fol::launch(paths, "12.61", true, true, 5, true, false, "synthetic-second");
+            check(protonPlan["status"] == "planned; not executed" &&
+                      protonPlan["command"].toString().contains("PROTON_LOG='0'") &&
+                      protonPlan["command"].toString().contains("/proton' 'run'") &&
+                      !QDir(paths.data + "/proton-prefixes/12.61").exists(),
+                  "Proton game plan uses script and visible Wine trace without creating prefix");
+            auto interface = bin + "/steam-runtime-launcher-interface-0";
+            check(QFile::link(fixture, interface), "synthetic Steam handoff interface link");
+            auto handoff =
+                fol::launch(paths, "12.61", true, true, 5, true, false, "synthetic-second");
+            check(handoff["error"].toString().contains("cannot hand off"),
+                  "Proton probe rejects a service handoff outside its managed namespace");
+            check(QFile::remove(interface), "remove owned synthetic handoff link");
+            qputenv("STEAM_COMPAT_MEDIA_PATH", "/must-not-use-other-game-media");
+            qputenv("PROTON_REMOTE_DEBUG_CMD", "must-not-execute");
+            qputenv("FOL_FIXTURE_MODE", "proton-game");
+            auto protonGame =
+                fol::launch(paths, "12.61", false, true, 5, true, false, "synthetic-second");
+            qunsetenv("STEAM_COMPAT_MEDIA_PATH");
+            qunsetenv("PROTON_REMOTE_DEBUG_CMD");
+            qunsetenv("FOL_FIXTURE_MODE");
+            check(protonGame["exit_code"] == 53 &&
+                      protonGame["likely_subsystem"] == "missing-library" &&
+                      !protonGame["owned_processes_remaining"].toBool(),
+                  "Proton game probe scrubs foreign settings and supervises captured output");
+            qputenv("FOL_FIXTURE_MODE", "trace-eac");
+            auto protonModule =
+                fol::launch(paths, "12.61", false, true, 5, true, false, "synthetic-second");
+            qunsetenv("FOL_FIXTURE_MODE");
+            check(protonModule["status"] == "stopped-anticheat-detected" &&
+                      !protonModule["owned_processes_remaining"].toBool(),
+                  "Proton game probe retains anti-cheat module trace monitoring and cleanup");
             auto traced = fol::launch(paths, "12.61", true, true, 5, true);
             check(traced["startup_trace"].toBool() &&
                       traced["command"].toString().contains(

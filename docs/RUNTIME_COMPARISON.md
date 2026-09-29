@@ -3,7 +3,8 @@
 This is a startup diagnostic, not a performance benchmark or compatibility claim.
 The supplied game remains 12.50, not 12.61. All game commands retain a separate
 user/network namespace, ordinary Shipping, `-log -d3d11`, anti-cheat observation,
-35-second bound and identity-scoped cleanup.
+bounded execution (35 seconds for direct Wine, 45 for Proton-script probes) and
+identity-scoped cleanup.
 
 ## System Wine baseline
 
@@ -67,3 +68,52 @@ The launcher now records inherited `WINEDLLPATH`, `LD_LIBRARY_PATH` and `WINEARC
 explicitly in its command and JSON. Other inherited environment remains outside
 that receipt; it is not a hermetic environment snapshot. Never publish full
 environment dumps, prefixes, game assets or unreviewed logs as source artifacts.
+
+## Proton-script host probes
+
+The launcher now supports `launch ID --offline-probe --proton IMPORTED_ID`.
+Unlike the direct bundled-Wine experiment, this invokes Proton's `run` verb and
+uses its prefix template/setup and DLL configuration. Compatibility data lives
+in `proton-prefixes/ID/pfx`, not `prefixes/ID`. A runtime-ID ownership marker and
+locks prevent accidental cross-runtime reuse and concurrent prefix mutation.
+These are **host-script tests, not Steam Linux Runtime container tests**.
+
+```sh
+fortnite-linux runtime test-proton 12.50 --proton experimental-20260924
+fortnite-linux launch 12.50 --offline-probe --proton experimental-20260924 --trace-startup --timeout 45
+fortnite-linux launch 12.50-proton-hotfix --offline-probe --proton hotfix-20260828 --trace-startup --timeout 45
+```
+
+The last command uses a separately registered alias for the same game directory.
+No files are imported/copied from the game into the repository. Both new prefixes
+passed isolated cmd.exe receipt tests first:
+`proton-4a8b7dff-d07f-47f2-ac51-e1c347f8f515` (Experimental) and
+`proton-0cc0a1ed-f9bc-4550-a538-5281133d4b53` (Hotfix).
+
+| Runtime | Session, UTC 2026-09-29 | Findings |
+| --- | --- | --- |
+| Experimental 20260924 | `18-03-19_8c56af6f` | Shipping load observed, unsuccessful Epic launcher-key lookup, launcher exit 1, 241 process samples, maximum 13 processes |
+| Hotfix 20260828 | `18-05-13_60a3ba6d` | Shipping load, unsuccessful Epic launcher-key lookup and exit 1, 242 process samples, maximum 13 processes |
+
+Both completed before timeout, with no Unix crash, no observed anti-cheat
+process/module and no owned processes left. The Experimental Wine trace also
+records the game's Wine PID `0134` calling `NtTerminateProcess` with exit code 1
+after the null launcher-key handle; wrapper status alone was not used as proof.
+Hotfix records the same sequence on game Wine PID `0138`.
+No causal claim about that registry lookup is made.
+
+Proton's Wine/Steam compatibility helper and xalia accessibility helper were
+observed. `xalia_dxgi.log` identifies **xalia.exe**, not Fortnite, so its successful
+Vulkan enumeration is not game-rendering evidence. A Steam-connect warning is
+expected with an empty project-owned Steam client directory; it is not established
+as the Fortnite exit cause. No real Steam identity or Epic credentials were used.
+
+The launcher sets `PROTON_LOG=0` and explicit `WINEDEBUG`: inspected Proton
+`init_session`/`run_proc` source shows this keeps stdout/stderr in the supervisor's
+`wine.log` while preserving Wine traces. Separate-file redirection would hide
+module loads from that monitor. Tests exercise this environment and module-stop
+path. External `steam-runtime-launcher-interface-0` handoff is rejected so the
+script cannot silently delegate execution outside the probe's network namespace.
+
+No runtime tested so far has progressed to verified menu or gameplay. This rules
+out claiming a working Proton solution and does not prove a protection blocker.

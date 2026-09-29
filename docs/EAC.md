@@ -48,3 +48,12 @@ Session `2026-09-29_17-54-32_619a143a` observed an unsuccessful
 startup investigation to include launcher discovery; it does not prove an EAC or
 authentication failure. No fake launcher registration, Epic-launched flag, paused
 process stand-in or security patch was used to get past the lookup.
+
+Proton-script host probes on Experimental and Hotfix (sessions
+`2026-09-29_18-03-19_8c56af6f` and `2026-09-29_18-05-13_60a3ba6d`) started real
+Shipping and reproduced the failed lookup/exit 1. The same anti-cheat process and
+module-trace monitor was active: no matches observed, no owned processes left.
+Explicit Wine tracing stayed in the supervised log instead of Proton's separate
+log redirection. An external Steam runtime service handoff is rejected in this
+mode to preserve the namespace boundary. These remain offline startup probes,
+not verified private gameplay or an unconditional EAC-absence attestation.

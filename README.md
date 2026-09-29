@@ -4,7 +4,7 @@ Native Linux CLI/core for investigating Fortnite **12.61** with legitimately
 obtained files and authorized local/private development infrastructure.
 Canonical repository: <https://github.com/Zxre0/FortniteOnLinux>.
 
-**Current status: experimental foundation; Fortnite startup, Project Reboot
+**Current status: experimental foundation; functional Fortnite startup, Project Reboot
 integration and gameplay have not been verified.** No complete 12.61 installation
 was found on the development machine. A legitimate non-EAC private execution
 path has not been established. This project does not bypass authentication,
@@ -61,6 +61,7 @@ fortnite-linux launch 12.61 --offline-probe --print-command
 fortnite-linux launch 12.61 --offline-probe --timeout 60
 fortnite-linux launch 12.50 --offline-probe --trace-startup --timeout 35
 fortnite-linux launch 12.50 --offline-probe --trace-startup --engine-stdout --timeout 35
+fortnite-linux launch 12.50 --offline-probe --proton experimental --trace-startup --timeout 45
 fortnite-linux module /path/to/module.dll --manifest /path/to/module.toml
 fortnite-linux network 127.0.0.1 7777
 fortnite-linux processes
@@ -91,9 +92,10 @@ DLLs, change Wine search paths, or equate missing optional imports with failure.
 See [dependency diagnostics](docs/DEPENDENCIES.md).
 
 Normal `launch` and `host` currently report a blocker. `--offline-probe` is only a
-network-isolated direct startup experiment using installed Wine, not working
+network-isolated startup experiment using installed Wine or an imported Proton script, not working
 offline gameplay. It requires unprivileged Linux user/network namespaces and an
-initialized dedicated prefix. It never starts the EAC bootstrap intentionally.
+initialized dedicated Wine prefix, or imported Proton with separate managed
+compatibility data. It never starts the EAC bootstrap intentionally.
 Process-name monitoring is sampled; absence from snapshots is not proof that EAC
 never loaded. See [EAC findings](docs/EAC.md).
 
@@ -109,8 +111,10 @@ experiment and its verified dependency fix, which did not resolve exit 1.
 The latest registry trace shows a failed Epic launcher-registration lookup before
 shutdown; this is a lead, not proof of an authentication or anti-cheat requirement.
 
-The core detects Steam-local Proton installations and tests imported runtime copies;
-Fortnite launch through Proton is not implemented. DXVK/VKD3D rendering validation,
+The core detects Steam-local Proton installations and tests imported runtime copies.
+`launch --proton ID --offline-probe` runs an imported Proton script on the host;
+it is not a Steam Linux Runtime/UMU container launch. Experimental and Hotfix
+both started supplied 12.50 Shipping and reproduced exit 1. DXVK/VKD3D game rendering validation,
 runtime downloads, complete prefix lifecycle,
 private backend/server integration, server browser, dev-loop and GUI remain
 unimplemented. WineD3D is the unchanged Wine baseline. Gamescope is optional and
@@ -138,6 +142,18 @@ for success; exit zero alone is insufficient. Custom `user_settings.py` is rejec
 and inherited Steam/Proton/Wine overrides are removed from this baseline test.
 This supports the tested `files/bin/wine` layout, not every Proton/UMU release.
 Wine prefix backup commands do not currently manage Proton compatibility data.
+Proton game probes use the same ownership checks and hold prefix/runtime locks
+through execution. A prefix cannot silently switch Proton IDs. Existing Steam,
+Proton, Wine and media override variables are cleared and recorded as unsets in
+the command; no real Steam installation or account configuration is used.
+`--print-command` does not create Proton compatibility data. A discovered
+`steam-runtime-launcher-interface-0` is rejected for these host probes because
+handing execution to an external service would invalidate the namespace assumption.
+The script's `PROTON_LOG=0` keeps its separate log redirection off, while explicit
+`WINEDEBUG` enables module/registry traces in supervised `wine.log`. Thus this
+setting does **not** disable Wine diagnostics. Runtime-test logging is unchanged.
+The reported exit code is the Proton launcher status; logs must establish the
+game's own execution/exit. A zero wrapper exit is not gameplay success.
 Both runtime tests handle SIGINT/SIGTERM and bounded timeout with session-scoped
 cleanup and process-tree logs. EAC-name observation fails the test and stops its
 processes. SIGKILL or machine power loss cannot be handled by userspace cleanup.

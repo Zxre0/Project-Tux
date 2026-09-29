@@ -22,10 +22,18 @@ downloads files or treats a local manifest as authenticated provenance.
 `pe_imports.cpp` reads bounded x64 import descriptors and inventories explicit DLL
 directories; it does not load libraries or emulate the Windows loader.
 `prefix_backup.cpp` owns recoverable Wine-prefix snapshots and restoration.
-`proton.cpp` owns runtime import and isolated command smoke tests. Proton data is
+`proton.cpp` owns runtime import, shared session preparation and isolated command
+smoke tests. `prepareProtonSession` validates runtime/compatibility-data ownership,
+clears inherited overrides and retains prefix/runtime locks during execution.
+Dry planning is non-mutating. `launcher.cpp` reuses this context for opt-in
+network-isolated Proton-script game probes, retaining the same build/profile,
+Vulkan, anti-cheat observation and process-safety gates as Wine. Proton data is
 separate from Wine prefixes; neither manager silently adopts the other's storage.
 Import copies a trusted installed runtime because Proton may update its default
 prefix and SteamPipe files. The CLI never patches Proton or Steam installations.
+The host mode deliberately rejects external Steam runtime service handoff; no
+Steam Linux Runtime container integration is claimed. Wine traces stay in the
+shared supervisor's output file instead of being redirected behind its monitor.
 `supervisor.cpp` shares bounded execution, ancestry tracking, signal handling and
 cleanup between Wine/Proton runtime tests and the game probe. Game probes opt
 into bounded Wine module-load trace inspection and their profile's working

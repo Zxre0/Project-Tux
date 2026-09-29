@@ -14,6 +14,18 @@ int main(int argc, char **argv) {
     if (executable == "wineserver")
         return 0;
     const auto mode = qEnvironmentVariable("FOL_FIXTURE_MODE");
+    if (mode == "proton-game") {
+        if (executable != "proton" || app.arguments().value(1) != "run" ||
+            !app.arguments().value(2).endsWith("FortniteClient-Win64-Shipping.exe") ||
+            qEnvironmentVariable("PROTON_LOG") != "0" ||
+            !qEnvironmentVariable("WINEDEBUG").contains("+loaddll") ||
+            !qEnvironmentVariable("STEAM_COMPAT_MEDIA_PATH").isEmpty() ||
+            !qEnvironmentVariable("PROTON_REMOTE_DEBUG_CMD").isEmpty())
+            return 88;
+        QTextStream(stderr) << "Synthetic Proton import failure: err:module:import_dll c0000135\n";
+        QThread::msleep(150);
+        return 53;
+    }
     if (mode == "orphan-stripped") {
         QProcess child;
         auto environment = QProcessEnvironment::systemEnvironment();

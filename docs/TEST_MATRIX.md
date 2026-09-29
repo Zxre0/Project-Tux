@@ -31,6 +31,8 @@ These tests do not rank runtime performance or prove any Fortnite startup stage.
 | --- | --- | --- | --- |
 | System Wine 11.18, owned 12.50 prefix | Engine shutdown, exit 1, cause unknown | No owned processes left; no anti-cheat observed | Repeated isolated traces, no verified rendering/menu/gameplay |
 | Experimental 20260924 bundled Wine 11.0, separate plain-Wine prefix | Missing template VKD3D DLLs fixed; engine shutdown, exit 1 | No owned processes left; no anti-cheat observed | Direct bundled Wine only, not full Proton/Steam Runtime integration |
+| Proton Experimental 20260924 script, separate Proton prefix | Real Shipping load, launcher exit 1; game exit 1 also traced | No owned processes left; no anti-cheat observed | Host-script probe, not Steam Linux Runtime container; xalia DXVK output is not game rendering |
+| Proton Hotfix 20260828 script, separate Proton prefix | Real Shipping load, launcher exit 1 | No owned processes left; no anti-cheat observed | Host-script probe, not verified rendering/menu/gameplay |
 
 See [runtime evidence](RUNTIME_COMPARISON.md). Observed absence is sampled, not
 absolute attestation. No graphics/audio/input/fullscreen functionality is claimed.
