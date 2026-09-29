@@ -4,14 +4,19 @@
 
 Milestone 1 remains blocked on accessible Fortnite 12.61 files and an established
 legitimate non-EAC private execution path. Native CLI, synthetic tests, diagnostics
-and Wine command execution work within the measured limits below; no game startup
-or gameplay is claimed. Four code checkpoints have been pushed to canonical main
-and all four GitHub Actions runs passed. Latest code checkpoint: `e37c201`.
+and Wine/Proton command execution work within the measured limits below; no game
+startup or gameplay is claimed. Latest code checkpoint: `9501795`, pushed to
+canonical main. Local release tests pass 91 assertions; sanitized non-GPU tests
+pass 86. Complete graphics-enabled LeakSanitizer results remain unresolved.
 
 Installed native CLI: `/home/atlas/.local/bin/fortnite-linux`. Source checkout:
 `/home/atlas/Projects/FortniteOnLinux`. Dedicated prefixes `12.61` and
 `runtime-smoke` are initialized, with no owned processes remaining. Game files,
 unrelated prefixes, GPU drivers and boot configuration have not been modified.
+Recoverable Wine-prefix backup/reset/restore has been tested on real prefixes.
+Project-owned Experimental and Hotfix copies passed isolated command execution
+and clean-shutdown tests using separate Proton compatibility data. Cancellation,
+timeout, missing-receipt and EAC-name handling have synthetic regression coverage.
 
 Next required external input: an accessible complete 12.61 installation path.
 The 930.5 GiB NTFS Windows partition `/dev/nvme1n1p3` is unmounted. A read-only,
