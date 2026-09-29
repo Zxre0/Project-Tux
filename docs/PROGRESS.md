@@ -4,16 +4,21 @@
 
 Fortnite 12.61 files remain unavailable. The user supplied a separate 12.50 build;
 its metadata and structure are verified, and isolated startup diagnostics are in
-progress. No legitimate non-EAC private execution path is established. Native CLI, synthetic tests, diagnostics
+progress, now blocked by sandbox GPU/socket restrictions. The corrected Wine run
+exited 1; its cause is unresolved. No legitimate non-EAC private execution path is
+established. Native CLI, synthetic tests, diagnostics
 and Wine/Proton command execution work within the measured limits below; no game
-startup or gameplay is claimed. Latest code checkpoint: `9501795`, pushed to
-canonical main. Local release tests pass 91 assertions; sanitized non-GPU tests
-pass 86. Complete graphics-enabled LeakSanitizer results remain unresolved.
+startup or gameplay is claimed. Latest pushed code checkpoint: `1e6ba64`.
+Last unrestricted release tests passed 109 assertions; sanitized non-GPU tests
+passed 100. The current restricted environment fails the UDP-bind test; do not
+report its full suite as passing. Graphics-enabled LeakSanitizer remains unresolved.
 
 Installed native CLI: `/home/atlas/.local/bin/fortnite-linux`. Source checkout:
 `/home/atlas/Projects/FortniteOnLinux`. Dedicated prefixes `12.61` and
-`runtime-smoke` are initialized, with no owned processes remaining. Game files,
-unrelated prefixes, GPU drivers and boot configuration have not been modified.
+`runtime-smoke`, and `12.50` are initialized. The corrected run left no owned
+12.50 processes. Game binaries, GPU drivers and boot configuration have not been
+modified. The earlier process-scope defect may have affected unrelated user
+applications; see its explicit incident record below.
 Recoverable Wine-prefix backup/reset/restore has been tested on real prefixes.
 Project-owned Experimental and Hotfix copies passed isolated command execution
 and clean-shutdown tests using separate Proton compatibility data. Cancellation,
@@ -350,3 +355,34 @@ before a detached Wine-style child, an unrelated live child that must survive,
 stale root identity, and zero/init roots. Release build/CTest 3/3 and 109 assertions
 pass. Next: sanitizer regression, commit this safety correction, then capture a
 correctly supervised 12.50 startup and its exact visible failure.
+
+### Corrected baseline and restricted-environment blocker
+
+Checkpoint `1e6ba64` was committed/pushed and installed before the corrected game
+attempt. Its full release suite passed 109 assertions and non-GPU sanitizer suite
+100. Session `2026-09-29_13-35-35_66361806` now contains a completed result: game
+exit code 1, no EAC/BattlEye observed, unknown failing subsystem. Process scope is
+bounded to at most nine processes across 165 samples, with no system roots. No
+active prefix processes remained. Log shows LauncherCheck/LauncherPlatform teardown
+and Wine/EGL warnings; neither is sufficient evidence of the exit's root cause.
+
+Added explicit `--trace-startup` to collect Wine msgbox/debugstr diagnostics without
+changing game arguments, credentials, modules or networking. Both traced and default
+`--print-command` plans were validated against the actual registered 12.50 build.
+The Shipping SHA-256 still matches the initial inventory exactly.
+
+The execution permissions changed to a managed restricted sandbox. Current launch
+session `2026-09-29_13-37-40_7e950a34` fails Vulkan preflight: instance result 0,
+enumeration result -3, zero devices. PCI/sysfs still lists both GPUs, but DRM/NVIDIA
+device nodes are absent. Direct AF_INET/UDP socket creation independently returns
+EPERM. Build compiles, but CTest core fails at `test UDP bind`; CLI help/version
+pass. This is an environment restriction, not evidence of a 12.50 regression.
+No gate was disabled and no privileged/sandbox-escaping execution was attempted.
+Vulkan diagnostics now report visible device nodes and an explicit access hint
+when none are visible, rather than suggesting host driver changes blindly.
+
+GitHub API access also currently fails. Continue keeping local commits and record
+push results. Next real experiment remains the unchanged isolated game command
+with targeted startup tracing in an environment with GPU/display/socket access.
+The no-bypass boundary remains in force if that trace reveals an authorization
+or anti-cheat requirement. No game menu, private join, hosting or 12.61 success.

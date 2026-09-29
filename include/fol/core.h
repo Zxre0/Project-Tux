@@ -102,6 +102,6 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
                                    const QProcessEnvironment &env, const QString &logs,
                                    const QString &outputName, int timeoutMs);
 QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlineProbe,
-                   int timeoutSeconds);
+                   int timeoutSeconds, bool traceStartup = false);
 QString classifyFailure(const QString &text);
 } // namespace fol

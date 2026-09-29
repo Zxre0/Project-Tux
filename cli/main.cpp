@@ -32,6 +32,7 @@ int main(int argc, char **argv) {
          {"proton", "Project-imported Proton runtime ID (runtime test-proton only)", "id"},
          {"print-command", "Plan only; never execute"},
          {"offline-probe", "Network-isolated, unmodified direct startup diagnostic"},
+         {"trace-startup", "Capture Wine message-box and Windows debug-string diagnostics"},
          {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});
     parser.process(app);
     auto args = parser.positionalArguments();
@@ -145,8 +146,9 @@ int main(int argc, char **argv) {
             bool ok;
             int timeout = parser.value("timeout").toInt(&ok);
             fol::require(ok, "Invalid timeout");
-            result = fol::launch(paths, args[1], parser.isSet("print-command"),
-                                 parser.isSet("offline-probe"), timeout);
+            result =
+                fol::launch(paths, args[1], parser.isSet("print-command"),
+                            parser.isSet("offline-probe"), timeout, parser.isSet("trace-startup"));
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||

@@ -57,6 +57,7 @@ fortnite-linux prefix reset 12.61        # archive old prefix, then initialize n
 fortnite-linux diagnose --output system.json
 fortnite-linux launch 12.61 --offline-probe --print-command
 fortnite-linux launch 12.61 --offline-probe --timeout 60
+fortnite-linux launch 12.50 --offline-probe --trace-startup --timeout 35
 fortnite-linux module /path/to/module.dll --manifest /path/to/module.toml
 fortnite-linux network 127.0.0.1 7777
 fortnite-linux processes

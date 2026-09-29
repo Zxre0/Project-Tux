@@ -13,7 +13,16 @@
 namespace fol {
 QJsonObject vulkanReport() {
     QLibrary loader("libvulkan.so.1");
+    QJsonArray deviceNodes;
+    auto nodes = QDir("/dev/dri").entryInfoList({"renderD*"}, QDir::System | QDir::Files);
+    nodes.append(
+        QDir("/dev").entryInfoList({"nvidia[0-9]*", "nvidiactl"}, QDir::System | QDir::Files));
+    for (const auto &node : nodes)
+        deviceNodes.append(QJsonObject{{"path", node.absoluteFilePath()},
+                                       {"readable", node.isReadable()},
+                                       {"writable", node.isWritable()}});
     QJsonObject result{{"loader_64", loader.load()},
+                       {"device_nodes", deviceNodes},
                        {"devices", QJsonArray{}},
                        {"functional", false},
                        {"loader_32", "unverified"}};
@@ -61,6 +70,13 @@ QJsonObject vulkanReport() {
     result["enumeration_result"] = int(status);
     result["devices"] = devices;
     result["functional"] = !devices.isEmpty();
+    if (devices.isEmpty()) {
+        result["error"] = "No Vulkan physical device enumerated; result=" + QString::number(status);
+        if (deviceNodes.isEmpty())
+            result["environment_hint"] =
+                "No DRM render or NVIDIA device nodes visible. Check the execution "
+                "container/sandbox device access before changing host GPU drivers.";
+    }
     for (const QString path :
          {"/usr/lib32/libvulkan.so.1", "/usr/lib/i386-linux-gnu/libvulkan.so.1"}) {
         QFile file(path);

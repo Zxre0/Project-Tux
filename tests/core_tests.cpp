@@ -463,6 +463,11 @@ int main(int argc, char **argv) {
             check(planned["status"] == "planned; not executed" &&
                       planned["command"].toString().contains("WINEDEBUG="),
                   "offline plan includes managed environment");
+            auto traced = fol::launch(paths, "12.61", true, true, 5, true);
+            check(traced["startup_trace"].toBool() &&
+                      traced["command"].toString().contains("+msgbox,+debugstr") &&
+                      !planned["command"].toString().contains("+msgbox"),
+                  "startup trace is explicit and preserves baseline command");
             auto failed = fol::launch(paths, "12.61", false, true, 5);
             check(failed["exit_code"] == 53 && failed["likely_subsystem"] == "missing-library",
                   "supervisor captures synthetic crash evidence");

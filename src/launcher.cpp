@@ -34,7 +34,7 @@ QString classifyFailure(const QString &text) {
     return "unknown; inspect logs";
 }
 QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool offlineProbe,
-                   int timeoutSeconds) {
+                   int timeoutSeconds, bool traceStartup) {
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
                    QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
@@ -46,6 +46,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                        {"launch_profile", "Private Development"},
                        {"eac_status", "not tested; no game started"},
                        {"status", "blocked"},
+                       {"startup_trace", traceStartup},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
         auto build = inspectBuild(Registry(paths).resolve(id));
@@ -77,6 +78,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                          {"DXVK_LOG_PATH", directory},
                                          {"VKD3D_LOG_FILE", directory + "/vkd3d.log"},
                                          {"WINEDLLOVERRIDES", "winemenubuilder.exe=d"}};
+        if (traceStartup)
+            overrides["WINEDEBUG"] += ",+msgbox,+debugstr";
         QStringList assignments;
         for (auto it = overrides.begin(); it != overrides.end(); ++it)
             assignments.append(it.key() + "=" + quote(it.value()));
