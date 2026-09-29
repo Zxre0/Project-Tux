@@ -31,13 +31,28 @@ have `launch-command.txt`. Executed probes add `system.json`, `wine.log` and
 `processes.log`; graphics components may emit additional logs if active.
 No empty placeholder logs are created to imply that components ran.
 
-## Known sanitizer observation
+## Restricted test environments
+
+The `network` CTest target requires loopback UDP socket creation and is labelled
+`requires-network-sockets`. A sandbox that denies sockets should fail this test;
+it is not converted to a success or skip. `ctest --test-dir build -E network`
+runs the remaining targets, but is explicitly a partial suite, not a green full
+build. The core target separately prints skips for namespace/GPU-dependent paths.
+The full `./build.sh` and CI still run every target.
+
+## Known sanitizer observations
 
 The full graphics-enabled sanitizer suite reports retained allocations after
 Vulkan enumeration on this CachyOS graphics stack (NVIDIA and Radeon, with Mesa
 device-selection/anti-lag layers installed). Stacks include Vulkan initialization,
-unloaded driver modules and libdbus. The current 86 checks run with
-`build-sanitized/core-tests --skip-gpu` pass with ASan/UBSan and leak checking
-enabled. All 91 functional checks pass in the normal build. This is **not** a
+unloaded driver modules and libdbus. Before the execution restrictions changed,
+100 non-GPU checks passed with leak checking enabled and 109 functional checks
+passed in the normal build. This was **not** a
 clean full sanitizer result; ownership of the graphics-related allocations is
 still unresolved. No suppression or global driver modification is used.
+
+In the current managed sandbox, LeakSanitizer itself reports a fatal error
+(`does not work under ptrace`). ASan/UBSan still pass the socket-independent
+suite with `ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1` (98 core
+and 32 manifest assertions). Leak detection was explicitly disabled for that
+run; it makes no claim about leaks, graphics or socket-dependent functionality.

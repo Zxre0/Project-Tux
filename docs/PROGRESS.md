@@ -10,8 +10,10 @@ established. Native CLI, synthetic tests, diagnostics
 and Wine/Proton command execution work within the measured limits below; no game
 startup or gameplay is claimed. Latest pushed code checkpoint: `1e6ba64`.
 Last unrestricted release tests passed 109 assertions; sanitized non-GPU tests
-passed 100. The current restricted environment fails the UDP-bind test; do not
-report its full suite as passing. Graphics-enabled LeakSanitizer remains unresolved.
+passed 100. Socket-independent tests currently pass 98 core and 32 manifest
+assertions, including ASan/UBSan with leak detection explicitly disabled. The
+separate network test fails UDP bind; do not report the full suite as passing.
+Graphics-enabled LeakSanitizer remains unresolved, and sandbox leak checks fail.
 
 Installed native CLI: `/home/atlas/.local/bin/fortnite-linux`. Source checkout:
 `/home/atlas/Projects/FortniteOnLinux`. Dedicated prefixes `12.61` and
@@ -420,3 +422,22 @@ fails its UDP-bind assertion. Formatting/diff checks pass.
 Next: separate network-dependent tests from portable core regressions, retaining
 the network failure explicitly. Real traced startup still needs GPU/socket access;
 the file-integrity result does not explain the Wine exit or prove gameplay.
+
+### Separate network preconditions from portable regressions
+
+Manifest work committed as `966527c`, installed user-locally. Push retried and
+failed again (`Could not resolve host: github.com`); both new commits remain local.
+Moved UDP fixture/occupied-port assertions out of the monolithic core target
+into a dedicated network target, adding ephemeral-bind and no-router-change
+assertions. No existing failure was weakened or automatically skipped. CI and
+build.sh still run all tests. Core now reaches 98 passing assertions in this
+environment; manifest passes 32. Full CTest is 4/5 with network failing, while
+explicit `-E network` subset passes in release and ASan/UBSan builds. GPU-dependent
+core paths print their existing skip rather than claiming runtime coverage.
+Leak detection is disabled only for the recorded sandbox sanitizer run because
+LeakSanitizer itself fails; no suppressions were added to project configuration.
+
+Reviewed corrected Wine log again: RPC exception is handled and engine teardown
+still supplies no decisive cause. Next useful offline task: tighten failure
+classification so unrelated Wine errors cannot falsely blame DXVK/VKD3D merely
+because their names occur elsewhere in the log. Real startup remains blocked.

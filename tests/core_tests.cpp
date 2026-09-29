@@ -4,14 +4,12 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
-#include <QHostAddress>
 #include <QJsonDocument>
 #include <QLockFile>
 #include <QProcess>
 #include <QTemporaryDir>
 #include <QTextStream>
 #include <QThread>
-#include <QUdpSocket>
 #include <QtEndian>
 
 static int checks = 0;
@@ -186,11 +184,6 @@ int main(int argc, char **argv) {
         fol::writeFile(temp.path() + "/module.dll", changed);
         check(fol::moduleReport(temp.path() + "/module.dll", manifest)["status"] == "invalid",
               "corrupted module hash rejected");
-
-        QUdpSocket port;
-        check(port.bind(QHostAddress::LocalHost, 0, QUdpSocket::DontShareAddress), "test UDP bind");
-        check(!fol::portReport("127.0.0.1", port.localPort())["bind_available"].toBool(),
-              "occupied UDP port detected");
 
         auto cliEnvironment = QProcessEnvironment::systemEnvironment();
         cliEnvironment.insert("XDG_CONFIG_HOME", temp.path() + "/cli/config");
