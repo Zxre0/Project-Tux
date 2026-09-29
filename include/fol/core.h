@@ -33,7 +33,7 @@ CommandResult run(const QString &program, const QStringList &args, int timeout =
                   const QProcessEnvironment &env = QProcessEnvironment::systemEnvironment());
 struct Profile {
     QString version, executable, workingDirectory, rebootStatus;
-    QStringList arguments;
+    QStringList arguments, launcherContextArguments;
     bool privatePathVerified;
     static Profile load();
     static std::optional<Profile> forVersion(const QString &version);
@@ -127,6 +127,6 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
                                    const SupervisionOptions &options = {});
 QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup = false, bool engineStdout = false,
-                   const QString &protonId = {});
+                   const QString &protonId = {}, bool launcherContextProbe = false);
 QString classifyFailure(const QString &text);
 } // namespace fol

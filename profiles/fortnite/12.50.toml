@@ -3,10 +3,12 @@ engine_expectation = "Not yet detected from supplied metadata; never infer from 
 executable = "FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe"
 working_directory = "FortniteGame/Binaries/Win64"
 arguments = ["-log", "-d3d11"]
+# Opt-in isolated diagnostic only; never part of the baseline or authorization evidence.
+launcher_context_arguments = ["-epicportal"]
 launch_profile = "private-development"
 eac_policy = "must-not-start"
 linux_status = "diagnostic-only-unverified"
 reboot_status = "unverified; 12.61-specific behavior must not be applied"
 private_path_verified = false
-runtime_recommendation = "Wine 11.18 and Proton Experimental/Hotfix host-script probes exit early; no working game runtime established. See docs/RUNTIME_COMPARISON.md"
+runtime_recommendation = "Baseline exits early; opt-in Wine 11.18 launcher-context probe reaches logged sign-in stage with WineD3D errors. See docs/FORTNITE_12_50.md"
 graphics = "D3D11 diagnostic baseline; no component modifications"

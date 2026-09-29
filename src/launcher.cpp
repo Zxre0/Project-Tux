@@ -39,7 +39,7 @@ QString classifyFailure(const QString &text) {
 }
 QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup, bool engineStdout,
-                   const QString &protonId) {
+                   const QString &protonId, bool launcherContextProbe) {
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
                    QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
@@ -53,14 +53,19 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                        {"status", "blocked"},
                        {"startup_trace", traceStartup},
                        {"engine_stdout_requested", engineStdout},
+                       {"launcher_context_probe", launcherContextProbe},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(!launcherContextProbe || offlineProbe,
+                "Launcher-context experiment requires --offline-probe network isolation");
         auto build = inspectBuild(Registry(paths).resolve(id));
         result["build"] = build.json();
         require(build.valid(), "Installation validation failed: " + build.errors.join("; "));
         auto selectedProfile = Profile::forVersion(build.version);
         require(selectedProfile.has_value(), "Unsupported build: " + build.version);
         auto profile = *selectedProfile;
+        require(!launcherContextProbe || !profile.launcherContextArguments.isEmpty(),
+                "No launcher-context experiment is defined for this build");
         require(offlineProbe || profile.privatePathVerified,
                 "Private-development execution path is unverified. Only --offline-probe is "
                 "available; it has no network access or authentication modifications.");
@@ -105,6 +110,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             args.append("run");
         args.append(executable);
         args.append(profile.arguments);
+        if (launcherContextProbe)
+            args.append(profile.launcherContextArguments);
         // Logging-only experiment, kept separate from the unchanged baseline.
         // A shipping build may ignore these; requesting output does not prove it
         // was enabled or that startup reached engine logging initialization.

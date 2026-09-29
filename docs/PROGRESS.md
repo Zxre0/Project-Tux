@@ -951,3 +951,34 @@ Full command/environment, Wine trace, process samples and result persist in the
 session directory. No private startup, root cause or 12.61 compatibility is
 claimed. Do not promote the ineffective setting into the profile or repeat it
 unchanged. The no-bypass development-launch prerequisite remains unresolved.
+
+### Authorized local launcher-context experiment (2026-09-29)
+
+The user explicitly broadened local test authorization. Kept real accounts,
+production connectivity, anti-cheat process execution and authentication modules
+out of the experiment. Implemented an opt-in, 12.50-profile-specific launcher
+context argument, gated on explicit --offline-probe and the existing functioning
+network namespace. No default arguments or 12.61 behavior were changed.
+
+System Wine 11.18 session `2026-09-29_18-28-07_e5588ee2` ran Shipping with
+`-log -d3d11 -epicportal`, OpenSSL mask unset, --trace-startup and a 45-second limit.
+This changed the measured outcome: engine/D3D11 initialization, NVIDIA RTX 4070
+SUPER selection, game-feature loading and logged manual sign-in UI activation,
+instead of the previous early exit 1. Captured newly generated FortniteGame.log
+in the session as fortnite.log. No visual/login/gameplay success is inferred.
+
+Observed WineD3D GL_INVALID_ENUM buffer errors, offline patch-check/autologin
+failure and a game-internal UAC direct-launch warning. Aftermath loaded without
+deleting it. No EAC/BattlEye process/module observed; 786 process samples, max nine
+owned processes, no PID 0/1. Supervisor ended the still-running process at timeout
+and cleaned up. Raw QProcess crash-exit/exit15 represents that controlled stop;
+do not diagnose it as a spontaneous crash.
+
+Five initial experiment-gating/planning tests passed with all seven release CTest
+targets (14.82 seconds). Added a further anti-cheat-stop/cleanup regression for
+the opt-in path before final retest. Next: same argument via Proton/DXVK to compare
+the observed graphics failures. Private login/server compatibility remains open.
+Final release retest passes all seven targets (25.13 seconds), including the new
+opt-in anti-cheat cleanup check. Shipping/Aftermath hashes still match. The game
+log supplies actual engine metadata: 4.25.0-13137020, compatible 4.25.0-13136868;
+static build detection still honestly reports unknown where PE metadata lacks it.

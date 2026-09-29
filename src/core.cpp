@@ -91,9 +91,13 @@ std::optional<Profile> Profile::forVersion(const QString &version) {
               str("working_directory"),
               str("reboot_status"),
               {},
+              {},
               table["private_path_verified"].value_or(false)};
     for (auto &arg : *table["arguments"].as_array())
         p.arguments.append(QString::fromStdString(arg.value_or("")));
+    if (auto arguments = table["launcher_context_arguments"].as_array())
+        for (auto &arg : *arguments)
+            p.launcherContextArguments.append(QString::fromStdString(arg.value_or("")));
     require(p.version == version, "Embedded compatibility profile version mismatch");
     return p;
 }

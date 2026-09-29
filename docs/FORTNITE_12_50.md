@@ -6,8 +6,9 @@ Reboot module compatibility or non-EAC authorization path is established for 12.
 
 Supplied root: `/home/atlas/Documents/Fortnite/++Fortnite+Release-12`.
 Ordinary Shipping and CrashReportClient both contain `++Fortnite+Release-12.50`;
-Shipping also contains `++Fortnite+Release-12.50-CL-13137020`. The engine version
-has not been inferred from Season 12. Structural validation passes for x64 PE,
+Shipping also contains `++Fortnite+Release-12.50-CL-13137020`. Static inspection
+does not identify the engine version; the later runtime log below reports 4.25.0.
+Neither result is inferred from Season 12. Structural validation passes for x64 PE,
 Engine/FortniteGame folders and readable nonempty pak content. All 398 files
 listed in the supplied local Epic manifest also match their sizes and SHA-1
 hashes (90,166,901,135 bytes checked). The manifest is not authenticated; this is
@@ -179,6 +180,9 @@ between this experiment and the excluded upstream launch/authentication sequence
 
 ## Local manifest verification
 
+See the later launcher-context experiment below: baseline exit findings above
+remain valid for their original arguments, not for every possible local command.
+
 The supplied `.egstore/EA2F274841C3E0693C3E06BFD2CBA2DE.manifest` reports
 `++Fortnite+Release-12.50-CL-13137020-Windows`, agreeing with embedded PE metadata.
 It is an unencrypted zlib-compressed container v18 with metadata feature level 13.
@@ -192,3 +196,39 @@ manifest payload hash valid. The full machine-local report is
 No game files, manifest contents or anti-cheat files were changed. This reduces
 ordinary corruption as a hypothesis for the observed exit but does not identify
 the cause or validate a legitimate offline execution path.
+
+## Explicitly authorized launcher-context experiment
+
+On 2026-09-29 the user broadened authorization for local startup experiments.
+Added opt-in `--launcher-context-probe`, defined only by the 12.50 compatibility
+profile and requiring `--offline-probe`. It adds the single `-epicportal` context
+argument observed in upstream, without authentication fields/tokens, modules,
+launcher/EAC processes, registry fabrication or binary changes. This intentionally
+changes the launcher-context assertion, unlike the earlier baseline. It is not
+proof that an official launcher initiated this process or that private gameplay
+is authorized/supported. The baseline and 12.61 profile are unchanged.
+
+System Wine 11.18 session `2026-09-29_18-28-07_e5588ee2` with the OpenSSL mask
+unset progressed beyond the prior exit-1 stage. A new FortniteGame.log records
+engine/D3D11 initialization, selection of NVIDIA RTX 4070 SUPER, game-feature
+loading, transition to manual login and SignIn_Credentials focus. The engine
+loaded the unchanged Aftermath DLL. These are engine-log observations, not visual
+confirmation of a usable menu. WineD3D logged repeated GL_INVALID_ENUM invalid
+buffer format errors; graphical correctness remains unverified.
+The same engine log reports `4.25.0-13137020+++Fortnite+Release-12.50` and
+compatible engine `4.25.0-13136868+++Fortnite+Release-12.50`. This is observed runtime
+metadata, not a new hardcoded static-detection result.
+
+The engine reported UpdateFailure_PatchCheck and inability to autologin while
+production endpoints were unreachable in the isolated namespace. No credentials
+were provided. The game also logged a UAC direct-launch warning; no claim of
+disabled game-internal checking is made. No EAC/BattlEye process/module was
+observed by the existing monitor.
+
+The game remained active until the 45-second supervisor timeout. Result status
+is probe-timeout, exit 15; the current raw `crashed: true` reflects QProcess's
+signal-exit classification after controlled SIGTERM, not evidence of a spontaneous
+game crash. Process capture: 786 samples, at most nine owned processes, no PID 0/1,
+and cleanup complete. The game log was copied into the session as fortnite.log
+before another run could overwrite it. Next justified comparison is Proton/DXVK
+with the same context argument to investigate the observed WineD3D errors.

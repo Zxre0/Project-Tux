@@ -43,6 +43,8 @@ int main(int argc, char **argv) {
           "Capture Wine message-box, debug-string, process, shell and registry traces"},
          {"engine-stdout",
           "Request engine stdout logging and flushing; support is build-dependent"},
+         {"launcher-context-probe",
+          "Opt-in 12.50 launcher-context experiment; requires --offline-probe; no authentication"},
          {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});
     parser.process(app);
     auto args = parser.positionalArguments();
@@ -156,10 +158,10 @@ int main(int argc, char **argv) {
             bool ok;
             int timeout = parser.value("timeout").toInt(&ok);
             fol::require(ok, "Invalid timeout");
-            result =
-                fol::launch(paths, args[1], parser.isSet("print-command"),
-                            parser.isSet("offline-probe"), timeout, parser.isSet("trace-startup"),
-                            parser.isSet("engine-stdout"), parser.value("proton"));
+            result = fol::launch(paths, args[1], parser.isSet("print-command"),
+                                 parser.isSet("offline-probe"), timeout,
+                                 parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
+                                 parser.value("proton"), parser.isSet("launcher-context-probe"));
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||

@@ -57,3 +57,17 @@ Explicit Wine tracing stayed in the supervised log instead of Proton's separate
 log redirection. An external Steam runtime service handoff is rejected in this
 mode to preserve the namespace boundary. These remain offline startup probes,
 not verified private gameplay or an unconditional EAC-absence attestation.
+
+After the user explicitly broadened local experiment authorization, session
+`2026-09-29_18-28-07_e5588ee2` tested only an opt-in launcher-context argument in
+the isolated 12.50 Shipping process. Unlike the earlier baseline, this changes
+the declared launcher context; no upstream authentication module, token, paused
+helper process or registry stand-in was used. The normal launch profile remains
+unverified and this experiment is rejected without explicit network isolation.
+
+The engine reached a logged sign-in stage. No EAC/BattlEye process or matching
+module trace was observed. The game log does contain `LogUAC` reporting a direct
+launch and possible false-positive kicks: game-internal checking is present,
+and this run must not be described as disabling all anti-cheat logic. No such
+check was patched. Production endpoints named by the game remained unreachable
+through the isolated network namespace. No credentials were supplied.

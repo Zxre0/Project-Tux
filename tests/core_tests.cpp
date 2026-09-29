@@ -196,6 +196,12 @@ int main(int argc, char **argv) {
               "failed launch persists session evidence");
         auto blocked = fol::launch(paths, "12.61", false, false, 1);
         check(blocked["status"] == "blocked", "unverified private path blocked");
+        auto contextOnline = fol::launch(paths, "12.61", true, false, 1, false, false, {}, true);
+        check(contextOnline["error"].toString().contains("requires --offline-probe"),
+              "launcher-context experiment cannot run without explicit network isolation");
+        auto contextUnknown = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true);
+        check(contextUnknown["error"].toString().contains("No launcher-context experiment"),
+              "12.50 launcher-context experiment does not silently apply to 12.61");
         fol::writeFile(temp.path() + "/module.dll", syntheticPe(true));
         check(fol::moduleReport(temp.path() + "/module.dll", {})["status"] == "unverified",
               "architecture is not module compatibility");
@@ -552,6 +558,27 @@ int main(int argc, char **argv) {
             check(planned["status"] == "planned; not executed" &&
                       planned["command"].toString().contains("WINEDEBUG="),
                   "offline plan includes managed environment");
+            fol::writeFile(exe, older);
+            for (const QString runtimeId : {QString{}, QString{"synthetic-second"}}) {
+                auto contextPlan =
+                    fol::launch(paths, "12.61", true, true, 5, false, false, runtimeId, true);
+                check(contextPlan["status"] == "planned; not executed" &&
+                          contextPlan["launcher_context_probe"].toBool() &&
+                          contextPlan["command"].toString().contains("'-d3d11' '-epicportal'") &&
+                          contextPlan["command"].toString().contains("'--net'"),
+                      "12.50 opt-in context experiment retains isolation in Wine and Proton");
+            }
+            auto contextBaseline = fol::launch(paths, "12.61", true, true, 5);
+            check(!contextBaseline["command"].toString().contains("epicportal") &&
+                      !contextBaseline["launcher_context_probe"].toBool(),
+                  "12.50 baseline does not acquire experimental launcher context");
+            qputenv("FOL_FIXTURE_MODE", "trace-eac");
+            auto contextEac = fol::launch(paths, "12.61", false, true, 5, true, false, {}, true);
+            qunsetenv("FOL_FIXTURE_MODE");
+            check(contextEac["status"] == "stopped-anticheat-detected" &&
+                      !contextEac["owned_processes_remaining"].toBool(),
+                  "context experiment retains anti-cheat trace stop and scoped cleanup");
+            fol::writeFile(exe, syntheticPe());
             check(fol::launch(paths, "12.61", true, true, 5, true, false, "synthetic")["error"]
                       .toString()
                       .contains("digest"),

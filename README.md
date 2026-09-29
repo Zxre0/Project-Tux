@@ -12,6 +12,9 @@ DRM, SSL pinning or anti-cheat, and distributes no Fortnite assets.
 
 A supplied **12.50** build is now registered as a separate diagnostic-only target.
 It does not establish 12.61 compatibility. See [12.50 evidence](docs/FORTNITE_12_50.md).
+An opt-in, network-isolated launcher-context experiment now reaches engine
+initialization and the logged sign-in UI stage. This is not authenticated login,
+private gameplay, visual verification or an anti-cheat bypass.
 
 ## Build
 
@@ -62,6 +65,7 @@ fortnite-linux launch 12.61 --offline-probe --timeout 60
 fortnite-linux launch 12.50 --offline-probe --trace-startup --timeout 35
 fortnite-linux launch 12.50 --offline-probe --trace-startup --engine-stdout --timeout 35
 fortnite-linux launch 12.50 --offline-probe --proton experimental --trace-startup --timeout 45
+fortnite-linux launch 12.50 --offline-probe --launcher-context-probe --trace-startup --timeout 45
 fortnite-linux module /path/to/module.dll --manifest /path/to/module.toml
 fortnite-linux network 127.0.0.1 7777
 fortnite-linux processes
