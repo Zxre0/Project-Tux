@@ -113,6 +113,13 @@ does not establish a supported private/offline path. Further integration needs
 evidence of an authorized development launch contract, not a fake launcher entry.
 The trace option remains opt-in; raw registry logs stay outside Git.
 
+Epic's current [ILauncherCheckModule API reference](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/LauncherCheck/ILauncherCheckModule)
+identifies responsibilities for checking whether an app came from the launcher
+and requesting launcher execution. This corroborates the module's architectural
+role, not the implementation or supported command line of Fortnite 12.50. The
+current API page does not establish a version-specific private/offline contract;
+no launch-origin flags are inferred or added from it.
+
 ## Local manifest verification
 
 The supplied `.egstore/EA2F274841C3E0693C3E06BFD2CBA2DE.manifest` reports

@@ -823,3 +823,18 @@ Next: the runtime comparison has not moved past the early launcher-discovery
 sequence. Investigate an authorized development-launch contract or obtain stronger
 non-mutating causal evidence; do not add identity flags, fake registrations,
 authentication replacement modules or repeated identical retries.
+
+Proton host-probe implementation committed/pushed/installed as `2cd2b62`.
+[GitHub Linux CI run 36610184260](https://github.com/Zxre0/FortniteOnLinux/actions/runs/36610184260)
+completed successfully: dependencies, formatting, compilation and asset-free tests.
+The workflow emitted a checkout@v4/Node20 deprecation warning; it did not fail.
+No gameplay or asset-based test is included in that CI result.
+
+Successfully located Epic's current Runtime/LauncherCheck API documentation after
+the earlier unsuccessful Developer-path queries. It describes launcher-origin
+checking and launcher execution responsibilities, but is not Fortnite 12.50 source
+or an authorized offline-launch specification. Linked the authoritative reference
+in FORTNITE_12_50.md without inferring launch flags, causality or a protection bypass.
+The implementation goal remains active and incomplete: real startup stops early
+across the measured runtimes, and a legitimate private execution contract has not
+been established. UI work or another identical retry would not resolve this gap.
