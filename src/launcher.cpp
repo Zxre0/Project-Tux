@@ -124,12 +124,16 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         if (traceStartup)
             overrides["WINEDEBUG"] += ",+msgbox,+debugstr,+process,+exec,+reg";
         // A bundled Wine may require its own DLL/library search directories.
+        // Record an explicitly supplied OpenSSL CPU-code-path diagnostic too;
+        // do not enable any capability mask by default.
         // Preserve and record these specific inherited settings in the command;
         // do not dump the entire environment, which may contain credentials.
         QJsonObject inheritedRuntime;
         const auto inherited = QProcessEnvironment::systemEnvironment();
-        for (const QString key : {"WINEDLLPATH", "LD_LIBRARY_PATH", "WINEARCH"}) {
-            if (inherited.contains(key) && (!proton || key == "LD_LIBRARY_PATH")) {
+        for (const QString key :
+             {"WINEDLLPATH", "LD_LIBRARY_PATH", "WINEARCH", "OPENSSL_ia32cap"}) {
+            if (inherited.contains(key) &&
+                (!proton || key == "LD_LIBRARY_PATH" || key == "OPENSSL_ia32cap")) {
                 overrides[key] = inherited.value(key);
                 inheritedRuntime[key] = inherited.value(key);
             }

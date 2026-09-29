@@ -150,6 +150,33 @@ invent registry entries or launcher-origin assertions to make this prerequisite
 appear satisfied. Until new evidence provides an in-scope experiment, retain the
 captured exit-1 result rather than retrying unchanged runtimes or changing drivers.
 
+## Upstream OpenSSL-only comparison
+
+User-requested renewed source inspection identified a separate upstream environment
+setting that can be tested without its authentication/anti-cheat chain. Session
+`2026-09-29_18-23-55_26904814` used system Wine 11.18, the same baseline prefix,
+network isolation and unchanged `-log -d3d11` arguments, adding only the upstream
+`OPENSSL_ia32cap=~0x20000000` value:
+
+```sh
+env OPENSSL_ia32cap='~0x20000000' fortnite-linux launch 12.50 --offline-probe --trace-startup --timeout 35
+```
+
+Result: exit 1, no Unix crash/timeout, same null launcher-key lookup on Wine
+PID 0020/thread 0024 followed by LauncherPlatform/LauncherCheck teardown. No
+anti-cheat process/module evidence was observed, cleanup completed, and prefix
+status afterwards reported zero active processes. The CLI itself returned 2 to
+report unsuccessful gameplay-unverified execution; the game/runtime exit was 1.
+Shipping and Aftermath SHA-256 values matched before/after; neither was modified.
+
+This exact upstream environment setting alone did not advance startup. That does
+not prove OpenSSL consumed it or rule out every possible CPU/library problem.
+No capability mask is enabled by default. The launcher now explicitly includes
+an inherited OPENSSL_ia32cap value in its command/result receipt for reproducible
+diagnostics; it previously inherited it without recording that detail.
+See [upstream stage analysis](REBOOT_LAUNCHER_ANALYSIS.md) for the distinction
+between this experiment and the excluded upstream launch/authentication sequence.
+
 ## Local manifest verification
 
 The supplied `.egstore/EA2F274841C3E0693C3E06BFD2CBA2DE.manifest` reports

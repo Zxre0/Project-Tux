@@ -916,3 +916,38 @@ Additional filesystem permissions and GitHub authentication are not prerequisite
 both are working. No new game test or source change was made in this audit. This
 status records an evidence/input impasse, not proof that private operation is
 fundamentally impossible or that EAC caused the observed exit.
+
+### User-requested Reboot startup comparison (2026-09-29)
+
+Resumed investigation at the user's request to check how Reboot handles the early
+exit. Re-read pinned Reboot Launcher argument generation, game process creation,
+helper suspension, authentication-module request and post-login host callback;
+also inspected Reboot 3.0 DLL entry/init and build-linux.sh. The server module is
+requested after login in this launcher, not as a standalone initial-launch fix.
+The helper routine starts processes before calling suspend, so its name alone
+does not establish that EAC code never runs. No excluded chain was implemented.
+Added source-linked stage analysis without copying tokens or upstream code.
+
+Found an independently testable upstream OPENSSL_ia32cap setting. Read official
+OpenSSL 1.1.1 capability documentation and found the 1.1.1 version string in
+Shipping. These are a bounded experiment rationale, not proof of a crypto fault
+or of environment-variable consumption. In particular, the upstream value lacks
+the colon that the documentation uses for extended capability-word control; no
+claim that it is a SHA-extension fix was made. Aftermath deletion was rejected
+as unsupported by the captured failure evidence, and the file remains intact.
+
+Implemented explicit recording of this already-inherited variable in Wine and
+Proton launch receipts, with no default mask. Three additional synthetic checks
+verify both plans record the explicit value and default planning does not enable
+it. Release rebuild and all seven CTest targets pass (14.91 seconds).
+
+One real isolated Wine 11.18 probe, session `2026-09-29_18-23-55_26904814`, tested
+only that upstream environment difference. It still exits 1, records the same
+null launcher-key lookup/engine teardown, has no observed anti-cheat evidence,
+and leaves zero owned processes. Shipping and Aftermath hashes are unchanged.
+The process log contains 305 samples, at most nine owned processes per sample,
+and no selected PID 0/1. Release core coverage now reports 156 checks passed.
+Full command/environment, Wine trace, process samples and result persist in the
+session directory. No private startup, root cause or 12.61 compatibility is
+claimed. Do not promote the ineffective setting into the profile or repeat it
+unchanged. The no-bypass development-launch prerequisite remains unresolved.

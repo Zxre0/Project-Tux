@@ -615,6 +615,23 @@ int main(int argc, char **argv) {
                 qputenv("WINEDLLPATH", originalDllPath);
             else
                 qunsetenv("WINEDLLPATH");
+            const auto originalCpuMask = qgetenv("OPENSSL_ia32cap");
+            const bool hadCpuMask = qEnvironmentVariableIsSet("OPENSSL_ia32cap");
+            qputenv("OPENSSL_ia32cap", "~0x20000000");
+            for (const QString runtimeId : {QString{}, QString{"synthetic-second"}}) {
+                auto maskPlan = fol::launch(paths, "12.61", true, true, 5, false, false, runtimeId);
+                check(maskPlan["status"] == "planned; not executed" &&
+                          maskPlan["inherited_runtime_environment"].toObject()["OPENSSL_ia32cap"] ==
+                              "~0x20000000" &&
+                          maskPlan["command"].toString().contains("OPENSSL_ia32cap='~0x20000000'"),
+                      "explicit OpenSSL diagnostic environment is recorded for Wine and Proton");
+            }
+            qunsetenv("OPENSSL_ia32cap");
+            auto noMaskPlan = fol::launch(paths, "12.61", true, true, 5);
+            check(!noMaskPlan["command"].toString().contains("OPENSSL_ia32cap"),
+                  "launcher does not enable an OpenSSL capability mask by default");
+            if (hadCpuMask)
+                qputenv("OPENSSL_ia32cap", originalCpuMask);
             auto failed = fol::launch(paths, "12.61", false, true, 5);
             check(failed["exit_code"] == 53 && failed["likely_subsystem"] == "missing-library",
                   "supervisor captures synthetic crash evidence");
