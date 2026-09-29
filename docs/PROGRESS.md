@@ -5,12 +5,16 @@
 Fortnite 12.61 files remain unavailable. The user supplied a separate 12.50 build;
 its metadata, structure and all 398 local-manifest file hashes are verified, and isolated startup diagnostics are in
 progress. GPU/socket restrictions were removed by the user; Wine command execution
-and the full seven-target release suite pass again. Three new isolated game runs
-still exited 1; the cause is unresolved. No legitimate non-EAC private execution path is
+and the full seven-target release suite pass again. Isolated system-Wine runs
+still exit 1; the cause is unresolved. A separate bundled-Wine test fixed missing
+VKD3D imports, then reached exit 1 as well; full Proton launch remains unimplemented.
+No legitimate non-EAC private execution path is
 established. Native CLI, synthetic tests, diagnostics
 and Wine/Proton command execution work within the measured limits below; no game
 startup or gameplay is claimed. All ten previously pending commits through
-`f142446` were pushed to main after access was restored. Earlier restricted-run
+`f142446` were pushed to main after access was restored, followed by tracing
+checkpoint `0477429`. Current release core tests pass 140 checks; release and
+ASan/UBSan CTest pass 7/7 (sanitizer leak detection disabled). Earlier restricted-run
 results below remain historical evidence, not the current environment status.
 Graphics-enabled LeakSanitizer findings remain unresolved.
 
@@ -667,3 +671,58 @@ After interruption, rechecked the worktree and dedicated prefix: zero active
 processes, no test/game handles still pending from the completed runs. Next:
 read-only startup file-access evidence before another compatibility hypothesis;
 do not repeat the identical exit-1 configuration or claim 12.61 compatibility.
+
+### Read-only syscall trace and bundled-Wine comparison
+
+Committed/pushed/installed tracing checkpoint `0477429`. All earlier commands
+were terminal before the next experiments, and the 12.50 prefix was inactive.
+
+Provisioned strace 7.2 into project cache only. Download matched the local Arch
+sync database SHA-256 and its detached signature verified against the installed
+Arch public keyring after dearmoring a copy. No system package or keyring changed.
+Initial gpgv calls used an absent key and then an armored file; both failed
+verification, and the downloaded binary was not executed until verification passed.
+
+Read-only file/process syscall trace of the managed offline launcher produced
+session `2026-09-29_17-46-42_285f972a`: exit 1, no timeout/Unix crash, no observed
+anti-cheat, no remaining owned processes. The game's PID 30085 reached successful
+Engine/Binaries and ProgramData metadata queries followed by exit_group(1).
+No final EACCES/EPERM or pak access was captured for that PID. DLL search ENOENTs
+alone do not prove missing dependencies; Wine subsequently loaded the built-ins.
+Trace is local `logs/12.50-startup-files-20260929.log` (about 205 MiB, includes
+launcher /proc polling). Ptrace changes timing/debugger visibility; matching exit
+codes are not proof of an identical internal code path. No assets were changed.
+
+Registered the same installation separately as `12.50-wine-experimental` and
+created a dedicated prefix using the **direct Wine 11.0 executable bundled in the
+already imported Proton Experimental 20260924**. This is not a Proton-script or
+Steam Runtime game-launch test. Prefix log `prefix-d5b212cf-f4a2-4694-9d70-a1421e735654.log`
+and runtime session `runtime-682d2576-0c7a-4b6f-ae05-c485fd94d6cf` verify creation,
+Windows execution receipt, exit 0 and clean shutdown.
+
+Game session `2026-09-29_17-48-45_40a1ff46` failed with exit 53/c0000135. Unlike
+the unknown baseline exit, this has concrete import errors: wined3d needs
+libvkd3d-1.dll, libvkd3d-shader-1.dll and libvkd3d-utils-1.dll. Inspected the imported
+Proton script's init_wine and default-prefix copying. Setting its WINEDLLPATH alone
+in `2026-09-29_17-49-36_76babe40` still failed the same imports. Those DLLs were
+absent from the new plain-Wine prefix but present as x64 PE files in Proton's
+default prefix template.
+
+Backed up the experimental prefix as
+`20260929T175055078-c4e9b257-0a3e-4843-9b27-e559e719e663`, then copied only the
+three missing x64 runtime DLLs from that imported template to experimental
+prefix system32 with no-overwrite copying. No game-directory or baseline-prefix
+DLL was changed. Session `2026-09-29_17-51-10_d18ecc81` now logs successful loads
+of all three DLLs, eliminates c0000135, reaches engine shutdown and exits 1.
+No anti-cheat observed or owned processes left. This fixes that runtime setup
+failure, not the original unknown startup exit; no graphics rendering is verified.
+
+Found and fixed a reproducibility defect exposed by this experiment: copied launch
+commands omitted inherited WINEDLLPATH. Commands and JSON now explicitly record
+WINEDLLPATH, LD_LIBRARY_PATH and WINEARCH when inherited. No full environment dump
+or credential capture. Added quoting regression coverage; release and ASan/UBSan
+CTest each pass 7/7 (sanitizer leak detection explicitly disabled). See
+[runtime comparison](RUNTIME_COMPARISON.md) for commands, file hashes and limits.
+Next: investigate early initialization further or validate the complete Proton
+path before making any comparative runtime-support claim. Do not fabricate an
+authorization failure or relax the no-bypass boundary to force progress.

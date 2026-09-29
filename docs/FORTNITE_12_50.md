@@ -85,6 +85,10 @@ the session's `wine.log`; the launcher reports only that logging was requested.
 Neither this experiment nor the observed LauncherCheck teardown proves an
 authentication requirement. The exact exit cause is still unknown.
 
+A subsequent direct bundled-Wine comparison fixed an experimental-prefix missing
+VKD3D dependency, then reached the same exit-1 engine shutdown. It is not a full
+Proton integration test; see [runtime comparison](RUNTIME_COMPARISON.md).
+
 ## Local manifest verification
 
 The supplied `.egstore/EA2F274841C3E0693C3E06BFD2CBA2DE.manifest` reports

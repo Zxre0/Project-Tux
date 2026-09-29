@@ -532,6 +532,19 @@ int main(int argc, char **argv) {
                       !traced["command"].toString().contains("'-stdout'") &&
                       !planned["engine_stdout_requested"].toBool(),
                   "engine stdout is a separate opt-in logging-only argument change");
+            const auto originalDllPath = qgetenv("WINEDLLPATH");
+            const bool hadDllPath = qEnvironmentVariableIsSet("WINEDLLPATH");
+            qputenv("WINEDLLPATH", "/runtime with spaces/it's-vkd3d:/runtime/wine");
+            auto dllPlan = fol::launch(paths, "12.61", true, true, 5);
+            check(dllPlan["inherited_runtime_environment"].toObject()["WINEDLLPATH"] ==
+                          QString::fromUtf8(qgetenv("WINEDLLPATH")) &&
+                      dllPlan["command"].toString().contains(
+                          "WINEDLLPATH=" + fol::quote(QString::fromUtf8(qgetenv("WINEDLLPATH")))),
+                  "runtime DLL search path is explicitly recorded and shell quoted");
+            if (hadDllPath)
+                qputenv("WINEDLLPATH", originalDllPath);
+            else
+                qunsetenv("WINEDLLPATH");
             auto failed = fol::launch(paths, "12.61", false, true, 5);
             check(failed["exit_code"] == 53 && failed["likely_subsystem"] == "missing-library",
                   "supervisor captures synthetic crash evidence");

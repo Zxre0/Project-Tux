@@ -24,3 +24,13 @@ DXVK/VKD3D, rendering, performance, monitor changes, DPI, focus or mouse capture
 | Proton Hotfix 20260828-ptr | Passed with Windows-written receipt | No owned processes remain | Separate imported copy and compatdata, offline namespace |
 
 These tests do not rank runtime performance or prove any Fortnite startup stage.
+
+## Supplied 12.50 startup diagnostics (not 12.61 compatibility)
+
+| Runtime experiment, CachyOS/Hyprland host | Startup result | Cleanup/anti-cheat observation | Scope |
+| --- | --- | --- | --- |
+| System Wine 11.18, owned 12.50 prefix | Engine shutdown, exit 1, cause unknown | No owned processes left; no anti-cheat observed | Repeated isolated traces, no verified rendering/menu/gameplay |
+| Experimental 20260924 bundled Wine 11.0, separate plain-Wine prefix | Missing template VKD3D DLLs fixed; engine shutdown, exit 1 | No owned processes left; no anti-cheat observed | Direct bundled Wine only, not full Proton/Steam Runtime integration |
+
+See [runtime evidence](RUNTIME_COMPARISON.md). Observed absence is sampled, not
+absolute attestation. No graphics/audio/input/fullscreen functionality is claimed.

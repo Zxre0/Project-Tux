@@ -90,6 +90,18 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                          {"WINEDLLOVERRIDES", "winemenubuilder.exe=d"}};
         if (traceStartup)
             overrides["WINEDEBUG"] += ",+msgbox,+debugstr,+process,+exec";
+        // A bundled Wine may require its own DLL/library search directories.
+        // Preserve and record these specific inherited settings in the command;
+        // do not dump the entire environment, which may contain credentials.
+        QJsonObject inheritedRuntime;
+        const auto inherited = QProcessEnvironment::systemEnvironment();
+        for (const QString key : {"WINEDLLPATH", "LD_LIBRARY_PATH", "WINEARCH"}) {
+            if (inherited.contains(key)) {
+                overrides[key] = inherited.value(key);
+                inheritedRuntime[key] = inherited.value(key);
+            }
+        }
+        result["inherited_runtime_environment"] = inheritedRuntime;
         QStringList assignments;
         for (auto it = overrides.begin(); it != overrides.end(); ++it)
             assignments.append(it.key() + "=" + quote(it.value()));

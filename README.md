@@ -101,6 +101,10 @@ never loaded. See [EAC findings](docs/EAC.md).
 `--engine-stdout` separately requests engine stdout logging and line flushing;
 Shipping builds may ignore these arguments. They did not explain the tested
 12.50 exit 1. Neither option changes authentication or anti-cheat requirements.
+Commands explicitly record inherited WINEDLLPATH, LD_LIBRARY_PATH and WINEARCH
+when set, without dumping the entire environment. See the
+[12.50 runtime comparison](docs/RUNTIME_COMPARISON.md) for the separate bundled-Wine
+experiment and its verified dependency fix, which did not resolve exit 1.
 
 The core detects Steam-local Proton installations and tests imported runtime copies;
 Fortnite launch through Proton is not implemented. DXVK/VKD3D rendering validation,
