@@ -38,5 +38,31 @@ missing Fortnite MCPConfig for service fortnite and host `<unconfigured>`, then
 rejects the backend. A listener alone cannot fix an absent game-side service
 configuration. No working HTTP route, authentication or private join is implied.
 
+## Service-address configuration experiment
+
+`--local-backend-probe --backend-probe-method service-ini` separately tests only
+Protocol=http and Domain=127.0.0.1:3551 under OnlineSubsystemMcp.BaseServiceMcp.
+It does not add epicapp=Localhost, edit game files, disable certificate checking
+or provide credentials. It retains the context/isolation/12.50 gates. The default
+method remains `selector`, preserving the prior experiment for reproducibility.
+
+Evidence for this hypothesis is the matching section name in the supplied binary,
+the author's [UEFN configuration example](https://gist.github.com/AntogamerYT/c540ddb72f9e819c626d7487c8b9fcdf),
+and Epic's [configuration-override documentation](https://dev.epicgames.com/documentation/en-us/unreal-engine/configuration-files-in-unreal-engine).
+UEFN/newer-engine examples are not proof of support in 12.50's 4.25 shipping build;
+the address must be observed in actual runtime behavior before any listener or
+login workflow is considered usable. No unrelated example settings are adopted.
+
+Actual command-line probe `2026-09-29_19-13-02_9401e23d` recorded the requested
+INI argument but retained the production backend host; no loopback URL appeared
+outside the command line. A separate prefix-file probe
+`2026-09-29_19-14-23_242fb8aa` placed only the two address keys in the exact
+WindowsClient/Engine.ini location identified by the game's plugin log. That also
+retained the production host. Both remained isolated, logged manual sign-in and
+kept bVerifyPeer=true. Neither establishes private routing or login. The temporary
+prefix file was moved into the second session as tested-Engine.ini afterward;
+no pre-existing Engine.ini was overwritten. The experiment's source template is
+profiles/experiments/service-address.ini, not an enabled default.
+
 Future saved server records and browser adapters should support hostnames, IPv4,
 IPv6 and user-managed tunnels. They must remain optional for local development.

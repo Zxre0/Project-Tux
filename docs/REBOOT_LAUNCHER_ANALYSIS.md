@@ -104,3 +104,31 @@ address override. A static reference scan did not resolve a usable configuration
 call site. No game instructions, registry, certificate handling or configuration
 files were changed, and no protected services were contacted. Do not present a
 guessed INI schema as a verified private backend contract.
+
+## Routing dependency source review
+
+Reboot Launcher's GameDll.auth default is named sinum.dll. Independently located
+the public [projectnovafn/Sinum source](https://github.com/projectnovafn/Sinum/tree/19fbed919824d1cfba8228158feec28f2fa12403)
+and inspected that pinned revision as a reference, not as proof of provenance of
+the launcher-bundled DLL. No DLL from either repository was executed.
+
+Windows/README.md and Sinum/Sinum.cpp describe a Windows in-process HTTP request
+adapter: it changes the request URL before calling the original ProcessRequest.
+Core/Unreal/CurlHttp.cpp contains the URL transformation separately from Core.cpp
+and EOS.cpp. Thus the upstream architecture does not rely on the tested INI
+overrides. The complete module also includes exit/security-related changes and
+an EOS hook, which are not adopted. Any narrow project adapter must omit those
+features, preserve certificate checks and normal termination, constrain destinations
+to the isolated local service, and never copy real credentials into diagnostic logs.
+
+Source comments verify some nearby signatures on 12.41, not the supplied 12.50;
+there is no validated 12.50 address/ABI map yet. Hard-coded Unreal vtable methods,
+allocator dependence, pointer discovery and unbounded startup waiting must not be
+blindly reused. Native Linux's ABI is not the Windows x64 C++ ABI. The upstream
+project uses MSVC v143/Windows SDK, not a Linux ELF target. Local clang-cl/lld-link
+and winegcc are present, but a MinGW/Windows SDK header-library set was not found
+in the checked standard paths. No module build or injection has been attempted.
+
+The license is MIT-like **with an additional Project Era usage restriction**, not
+unmodified MIT. No source was copied. Preserve the complete notice and restriction
+if any reuse is subsequently chosen; do not label it unrestricted MIT.

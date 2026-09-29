@@ -34,7 +34,7 @@ CommandResult run(const QString &program, const QStringList &args, int timeout =
                   const QProcessEnvironment &env = QProcessEnvironment::systemEnvironment());
 struct Profile {
     QString version, executable, workingDirectory, rebootStatus;
-    QStringList arguments, launcherContextArguments, localBackendArguments;
+    QStringList arguments, launcherContextArguments, localBackendArguments, serviceIniArguments;
     bool privatePathVerified;
     static Profile load();
     static std::optional<Profile> forVersion(const QString &version);
@@ -127,10 +127,11 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
                                    const QProcessEnvironment &env, const QString &logs,
                                    const QString &outputName, int timeoutMs,
                                    const SupervisionOptions &options = {});
+enum class BackendProbe { None, Selector, ServiceIni };
 QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup = false, bool engineStdout = false,
                    const QString &protonId = {}, bool launcherContextProbe = false,
-                   bool localBackendProbe = false);
+                   BackendProbe backendProbe = BackendProbe::None);
 QString classifyFailure(const QString &text);
 QJsonObject analyzeGameLog(const QByteArray &data);
 QJsonObject captureGameLogs(const QString &prefix, const QString &directory,

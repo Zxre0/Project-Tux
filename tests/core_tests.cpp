@@ -240,18 +240,26 @@ int main(int argc, char **argv) {
         auto contextUnknown = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true);
         check(contextUnknown["error"].toString().contains("No launcher-context experiment"),
               "12.50 launcher-context experiment does not silently apply to 12.61");
-        auto backendNoContext =
-            fol::launch(paths, "12.61", true, true, 1, false, false, {}, false, true);
+        auto backendNoContext = fol::launch(paths, "12.61", true, true, 1, false, false, {}, false,
+                                            fol::BackendProbe::Selector);
         check(backendNoContext["error"].toString().contains("requires --offline-probe and"),
               "local backend experiment requires explicit context and isolation");
-        auto backendNoIsolation =
-            fol::launch(paths, "12.61", true, false, 1, false, false, {}, true, true);
+        auto backendNoIsolation = fol::launch(paths, "12.61", true, false, 1, false, false, {},
+                                              true, fol::BackendProbe::Selector);
         check(backendNoIsolation["error"].toString().contains("requires --offline-probe and"),
               "local backend experiment rejects non-isolated use");
-        auto backendWrongBuild =
-            fol::launch(paths, "12.61", true, true, 1, false, false, {}, true, true);
+        auto backendWrongBuild = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true,
+                                             fol::BackendProbe::Selector);
         check(backendWrongBuild["error"].toString().contains("No local-backend experiment"),
               "12.50 backend discovery does not silently apply to 12.61");
+        auto iniWrongBuild = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true,
+                                         fol::BackendProbe::ServiceIni);
+        check(iniWrongBuild["error"].toString().contains("No local-backend experiment"),
+              "service INI experiment remains version scoped");
+        auto iniNoIsolation = fol::launch(paths, "12.61", true, false, 1, false, false, {}, true,
+                                          fol::BackendProbe::ServiceIni);
+        check(iniNoIsolation["error"].toString().contains("requires --offline-probe and"),
+              "service INI experiment requires network isolation");
         fol::writeFile(temp.path() + "/module.dll", syntheticPe(true));
         check(fol::moduleReport(temp.path() + "/module.dll", {})["status"] == "unverified",
               "architecture is not module compatibility");
@@ -283,6 +291,12 @@ int main(int argc, char **argv) {
         check(invoke({"builds"}).output.contains("test-build"), "CLI list persists registration");
         check(invoke({"launch", "test-build"}).exitCode == 2,
               "CLI fails closed for unverified private path");
+        check(invoke({"launch", "test-build", "--backend-probe-method", "unknown"})
+                  .output.contains("Unknown backend probe method"),
+              "CLI rejects unknown backend probe methods");
+        check(invoke({"launch", "test-build", "--backend-probe-method", "service-ini"})
+                  .output.contains("requires --local-backend-probe"),
+              "CLI requires explicit local backend probe opt-in");
         check(invoke({"host", "test-build"}).exitCode == 2, "CLI host reports integration blocker");
         check(invoke({"network", "127.0.0.1", "65536"}).exitCode == 2, "CLI invalid port rejected");
         check(invoke({"remove", "test-build"}).exitCode == 0 && QFile::exists(exe),
@@ -617,14 +631,23 @@ int main(int argc, char **argv) {
                           contextPlan["command"].toString().contains("'-d3d11' '-epicportal'") &&
                           contextPlan["command"].toString().contains("'--net'"),
                       "12.50 opt-in context experiment retains isolation in Wine and Proton");
-                auto backendPlan =
-                    fol::launch(paths, "12.61", true, true, 5, false, false, runtimeId, true, true);
+                auto backendPlan = fol::launch(paths, "12.61", true, true, 5, false, false,
+                                               runtimeId, true, fol::BackendProbe::Selector);
                 check(backendPlan["status"] == "planned; not executed" &&
                           backendPlan["local_backend_probe"].toBool() &&
                           backendPlan["command"].toString().contains(
                               "'-epicportal' '-epicapp=Localhost'") &&
                           backendPlan["command"].toString().contains("'--net'"),
                       "local backend selection is explicit and retains network isolation");
+                auto iniPlan = fol::launch(paths, "12.61", true, true, 5, false, false, runtimeId,
+                                           true, fol::BackendProbe::ServiceIni);
+                check(iniPlan["status"] == "planned; not executed" &&
+                          iniPlan["backend_probe_method"] == "service-ini" &&
+                          iniPlan["command"].toString().contains("Domain=127.0.0.1:3551") &&
+                          iniPlan["command"].toString().contains("Protocol=http") &&
+                          iniPlan["command"].toString().contains("'--net'") &&
+                          !iniPlan["command"].toString().contains("epicapp=Localhost"),
+                      "service INI routing is a separate isolated experiment on both runtimes");
             }
             auto contextBaseline = fol::launch(paths, "12.61", true, true, 5);
             check(!contextBaseline["command"].toString().contains("epicportal") &&

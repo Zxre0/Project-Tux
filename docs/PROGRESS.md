@@ -1140,3 +1140,51 @@ prerequisite, not proof that every private configuration path is impossible.
 Do not retest identical missing-config arguments without new evidence. The native
 diagnostics implementation and its tests are complete for this checkpoint; the
 original private-gameplay milestone is not complete.
+
+### Active goal: verified private-backend login (2026-09-29)
+
+The preceding screenshot request confirmed only the known sign-in rendering, not
+a login. The new goal remains login to the private backend, with completion
+requiring actual game/backend interaction and authenticated private session
+evidence. Worktree was clean at 8e4b66f; no project backend implementation or local
+listener was present. Rechecked upstream's separate backend/auth-module interface.
+
+Found new external evidence beyond the earlier string-only lead: an author-published
+UEFN INI example uses Protocol and Domain under the matching BaseServiceMcp section,
+and current Epic documentation describes command-line INI overrides. This does not
+establish 4.25 shipping support, but supplies a specific isolated experiment. Added
+a typed BackendProbe selection and a separate service-ini method, limited to the
+12.50 profile and loopback address. No authentication, certificate, game-file or
+production-network changes. Added version/isolation and Wine/Proton planning tests.
+Source links and scope are recorded in NETWORKING.md. All eight release CTest
+targets pass (25.18 seconds); the actual routing experiment follows the build.
+
+Command-line service-ini run 2026-09-29_19-13-02_9401e23d retained the production
+host and manual sign-in markers; the only loopback address mention was its
+recorded argument. 35-second timeout, 614 samples/max13/no PID0/1, no observed
+EAC/BattlEye, cleanup complete; captured game log 287114 bytes. bVerifyPeer remains
+true. Added two CLI option-rejection checks; final release suite passes 8/8 in
+25.23 seconds (183 core checks). No backend was started or credentials supplied.
+
+Tested file delivery separately rather than repeating the same command. The game
+log identifies its prefix-local WindowsClient/Engine.ini path. Confirmed it was
+absent and its parent canonicalized within the owned Proton prefix; created only
+the two settings from profiles/experiments/service-address.ini. Isolated context
+run 2026-09-29_19-14-23_242fb8aa again retained the production host/manual sign-in,
+with 286900-byte game log, 607 samples/max13/no PID0/1, no observed anti-cheat and
+completed cleanup. Compared the unchanged test INI against the source template
+and moved it into that session as tested-Engine.ini, restoring the original
+absence of Engine.ini. Both copies hash to
+ed288c8c602b3546d92e5647545f67add81144e722d50ae5b5018d28a49c8add.
+No game installation files or user configuration were overwritten.
+
+New source lead changes the next action: independently found public Sinum source
+19fbed919824d1cfba8228158feec28f2fa12403. Read the license, initialization, routing,
+Unreal string/allocator boundary and build target. URL routing is structurally
+separate from the complete module's exit/security patches. The latter are not
+adopted, and no upstream binary is run. Notes record the custom license restriction,
+unverified 12.50 ABI/addresses and missing checked Windows development headers.
+Next work toward the actual login goal: review a strictly local, routing-only
+adapter and its required ABI/toolchain, then prove requests reach an isolated
+backend before testing a development account. Do not claim the login goal achieved
+from these negative configuration experiments or the existing sign-in screenshot.

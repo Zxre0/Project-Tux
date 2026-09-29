@@ -7,6 +7,8 @@ arguments = ["-log", "-d3d11"]
 launcher_context_arguments = ["-epicportal"]
 # Discovery probe, not a validated backend interface or authentication implementation.
 local_backend_arguments = ["-epicapp=Localhost"]
+# Separate routing experiment; no certificate/authentication settings are changed.
+service_ini_arguments = ["-ini:Engine:[OnlineSubsystemMcp.BaseServiceMcp]:Protocol=http,[OnlineSubsystemMcp.BaseServiceMcp]:Domain=127.0.0.1:3551"]
 launch_profile = "private-development"
 eac_policy = "must-not-start"
 linux_status = "diagnostic-only-unverified"

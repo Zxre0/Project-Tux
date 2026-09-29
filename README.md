@@ -188,6 +188,9 @@ redirect. The initial MCPCONFIG option did not change the selected backend; the
 current experiment tests the separate built-in epicapp Localhost selector. It
 requires both `--offline-probe` and `--launcher-context-probe`. No backend service
 is automatically started. See [networking evidence](docs/NETWORKING.md).
+The separate `--backend-probe-method service-ini` experiment tests built-in
+loopback service-address configuration instead of the Localhost selector. It
+requires the same opt-ins and does not imply successful routing or login.
 The CLI prints JSON and returns nonzero on validation or launch failure.
 
 See [progress](docs/PROGRESS.md), [architecture](docs/ARCHITECTURE.md),

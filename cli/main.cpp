@@ -47,6 +47,8 @@ int main(int argc, char **argv) {
           "Opt-in 12.50 launcher-context experiment; requires --offline-probe; no authentication"},
          {"local-backend-probe", "Probe built-in localhost backend selection; requires offline and "
                                  "launcher-context probes"},
+         {"backend-probe-method", "Local backend experiment: selector or service-ini", "method",
+          "selector"},
          {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});
     parser.process(app);
     auto args = parser.positionalArguments();
@@ -160,11 +162,19 @@ int main(int argc, char **argv) {
             bool ok;
             int timeout = parser.value("timeout").toInt(&ok);
             fol::require(ok, "Invalid timeout");
-            result = fol::launch(paths, args[1], parser.isSet("print-command"),
-                                 parser.isSet("offline-probe"), timeout,
-                                 parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
-                                 parser.value("proton"), parser.isSet("launcher-context-probe"),
-                                 parser.isSet("local-backend-probe"));
+            const auto method = parser.value("backend-probe-method");
+            fol::require(method == "selector" || method == "service-ini",
+                         "Unknown backend probe method");
+            fol::require(!parser.isSet("backend-probe-method") ||
+                             parser.isSet("local-backend-probe"),
+                         "--backend-probe-method requires --local-backend-probe");
+            const auto backendProbe = !parser.isSet("local-backend-probe") ? fol::BackendProbe::None
+                                      : method == "service-ini" ? fol::BackendProbe::ServiceIni
+                                                                : fol::BackendProbe::Selector;
+            result = fol::launch(
+                paths, args[1], parser.isSet("print-command"), parser.isSet("offline-probe"),
+                timeout, parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
+                parser.value("proton"), parser.isSet("launcher-context-probe"), backendProbe);
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||
