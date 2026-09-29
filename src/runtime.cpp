@@ -1,10 +1,12 @@
 #include "fol/core.h"
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QJsonDocument>
 #include <QLockFile>
 #include <QSet>
 #include <QStandardPaths>
+#include <QThread>
 #include <QUuid>
 
 namespace fol {
@@ -128,6 +130,30 @@ QJsonObject createPrefix(const Paths &paths, const QString &id) {
     require(status["initialized"].toBool(), "Wine exited without initializing prefix; log=" + log);
     status["log"] = log;
     status["runtime"] = wine;
+    return status;
+}
+QJsonObject stopPrefix(const Paths &paths, const QString &id) {
+    auto status = prefixStatus(paths, id);
+    require(status["owned"].toBool(), "Refusing to stop processes for an unowned prefix");
+    QLockFile lock(paths.prefix(id) + ".lock");
+    require(lock.tryLock(),
+            "Prefix is supervised by another launcher; interrupt that launch first");
+    auto members = ownedProcesses(paths.prefix(id), {});
+    for (const auto &process : members)
+        signalProcess(process, 15);
+    QElapsedTimer timer;
+    timer.start();
+    while (!ownedProcesses(paths.prefix(id), {}).isEmpty() && timer.elapsed() < 2000)
+        QThread::msleep(50);
+    for (const auto &process : members)
+        signalProcess(process, 9);
+    timer.restart();
+    while (!ownedProcesses(paths.prefix(id), {}).isEmpty() && timer.elapsed() < 2000)
+        QThread::msleep(50);
+    status = prefixStatus(paths, id);
+    require(status["active_processes"].toInt() == 0,
+            "Some owned prefix processes could not be stopped");
+    status["stopped_process_count"] = members.size();
     return status;
 }
 } // namespace fol

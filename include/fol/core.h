@@ -62,6 +62,7 @@ QJsonArray runtimes();
 QString wineExecutable();
 QJsonObject prefixStatus(const Paths &, const QString &id);
 QJsonObject createPrefix(const Paths &, const QString &id);
+QJsonObject stopPrefix(const Paths &, const QString &id);
 QJsonObject systemReport();
 QJsonObject vulkanReport();
 QJsonObject portReport(const QString &address, quint16 port);

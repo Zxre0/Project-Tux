@@ -67,3 +67,30 @@ Wine log redirection, and prevented a busy monitoring loop after the initial
 Wine process exits. Rebuilt: CTest 3/3 passed. Formatted all C++ source. Preparing
 first commit and push; next task is adversarial metadata/process regression testing
 and CLI subprocess integration coverage.
+
+### Second iteration: metadata boundary and process ownership
+
+First checkpoint `f4463ef` pushed successfully to origin/main. GitHub Actions run
+36524773798 passed on Ubuntu 24.04, including formatting, compilation and tests.
+Initial commit attempt lacked Git author identity; configured only this repository
+using the authenticated owner's GitHub noreply identity, then committed/pushed.
+
+A new regression test reproduced a chunk-boundary parser error: a release string
+split after `12.6` was incorrectly collected as a second version. Require a real
+metadata terminator and distinguish read boundaries from EOF; regression now passes.
+Malformed TOML registry schemas now fail without replacing the file. Added
+synthetic process tests proving EAC-name detection, session/prefix ownership,
+stale start-time rejection, and survival of an unrelated child process.
+
+Added `prefix stop ID`, guarded by ownership marker and operation lock; uses
+pidfds and bounded termination, not a global Wine kill. Tested on the orphaned
+winedevice from the first prefix experiment: stopped_process_count=1 and
+active_processes=0. The successfully initialized runtime-smoke prefix already
+had zero processes. No prefix directories or game files were deleted.
+
+Expanded regression coverage to CLI subprocess registration/removal/verification,
+failure exit codes, module manifest/hash corruption and occupied UDP ports.
+Private startup and game compatibility remain blocked by missing 12.61 files.
+Validation after these changes: 42 core/integration assertions passed; CTest 3/3.
+Next: exercise actual Wine execution inside the offline namespace and record its
+limits separately from Fortnite startup, then extend dependency evidence.

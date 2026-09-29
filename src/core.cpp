@@ -95,10 +95,14 @@ QMap<QString, QString> Registry::list() const {
     if (!QFile::exists(file))
         return result;
     auto table = toml::parse(readFile(file).toStdString());
+    require(table.size() == 1 && table["builds"].is_table(),
+            "Invalid registry schema: expected only a [builds] table; file preserved");
     if (auto builds = table["builds"].as_table()) {
         for (auto &&[key, val] : *builds) {
             auto path = val.value<std::string>();
             require(path.has_value(), "Invalid path in build registry");
+            require(QDir::isAbsolutePath(QString::fromStdString(*path)),
+                    "Registry paths must be absolute; file preserved");
             QString id = QString::fromStdString(std::string(key.str()));
             validateId(id);
             result.insert(id, QString::fromStdString(*path));

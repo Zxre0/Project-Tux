@@ -54,7 +54,7 @@ static void extract(const QByteArray &bytes, const QString &source, Build &build
         texts.append(QString::fromLatin1(ascii));
     }
     static const QRegularExpression release(
-        "\\+\\+Fortnite\\+Release-([0-9]{1,2}\\.[0-9]{1,2})(?![0-9.])");
+        "\\+\\+Fortnite\\+Release-([0-9]{1,2}\\.[0-9]{1,2})(?=[-+\\x00\\s\"'])");
     static const QRegularExpression engine(
         "([45]\\.[0-9]{1,2}\\.[0-9]+)-[0-9]+\\+{2,3}Fortnite\\+Release-");
     for (const auto &text : texts) {
@@ -117,6 +117,10 @@ Build inspectBuild(const QString &path) {
                 break;
             }
             auto data = tail + block;
+            // A chunk boundary must not terminate a partial version (12.6|1).
+            // Only true EOF may act as a terminator for ASCII or UTF-16 metadata.
+            if (file.atEnd())
+                data.append(QByteArray(2, '\0'));
             extract(data, relative, build, versions, engines);
             tail = data.right(256);
         }

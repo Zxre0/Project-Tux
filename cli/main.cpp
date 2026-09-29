@@ -93,9 +93,10 @@ int main(int argc, char **argv) {
             result["runtimes"] = fol::runtimes();
         } else if (command == "prefix") {
             arity(3);
-            fol::require(args[1] == "create" || args[1] == "status",
-                         "Supported prefix actions: create, status");
+            fol::require(args[1] == "create" || args[1] == "status" || args[1] == "stop",
+                         "Supported prefix actions: create, status, stop");
             result = args[1] == "create" ? fol::createPrefix(paths, args[2])
+                     : args[1] == "stop" ? fol::stopPrefix(paths, args[2])
                                          : fol::prefixStatus(paths, args[2]);
         } else if (command == "launch") {
             arity(2);

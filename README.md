@@ -38,6 +38,7 @@ fortnite-linux remove 12.61              # registration only; preserves files
 fortnite-linux runtime list
 fortnite-linux prefix create 12.61
 fortnite-linux prefix status 12.61
+fortnite-linux prefix stop 12.61         # only processes in this owned prefix
 fortnite-linux diagnose --output system.json
 fortnite-linux launch 12.61 --offline-probe --print-command
 fortnite-linux launch 12.61 --offline-probe --timeout 60
