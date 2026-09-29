@@ -227,6 +227,57 @@ int main(int argc, char **argv) {
         rejects([&] { fol::backupPrefix(paths, "recovery"); }, "active prefix backup rejected");
         recoveryBusy.terminate();
         check(recoveryBusy.waitForFinished(1000), "busy prefix fixture stops");
+
+        auto protonSource = temp.path() + "/synthetic proton";
+        QDir().mkpath(protonSource + "/files/bin");
+        QDir().mkpath(protonSource + "/files/share/default_pfx");
+        for (const QString name : {"proton", "files/bin/wine", "files/bin/wineserver"}) {
+            check(QFile::copy(QCoreApplication::applicationDirPath() + "/runtime-fixture",
+                              protonSource + "/" + name),
+                  "synthetic Proton executable copy");
+        }
+        fol::writeFile(protonSource + "/version", "synthetic-proton-not-real\n");
+        auto imported = fol::importProton(paths, "synthetic", protonSource);
+        check(fol::importedProtonRuntimes(paths).size() == 1, "imported Proton runtimes listed");
+        check(imported["version"] == "synthetic-proton-not-real" &&
+                  QFile::exists(protonSource + "/proton"),
+              "runtime import preserves source");
+        rejects([&] { fol::importProton(paths, "synthetic", protonSource); },
+                "runtime import refuses overwrite");
+        check(!fol::testProton(paths, "probe", "missing")["passed"].toBool(),
+              "missing Proton runtime fails closed");
+        auto protonNamespace = fol::run("unshare", {"--user", "--map-root-user", "--net", "true"});
+        if (protonNamespace.exitCode == 0) {
+            qputenv("STEAM_COMPAT_MEDIA_PATH", "/must-not-use-other-game-media");
+            qputenv("PROTON_REMOTE_DEBUG_CMD", "must-not-execute");
+            auto proton = fol::testProton(paths, "probe", "synthetic");
+            qunsetenv("STEAM_COMPAT_MEDIA_PATH");
+            qunsetenv("PROTON_REMOTE_DEBUG_CMD");
+            check(proton["passed"].toBool() && proton["execution_receipt_verified"].toBool(),
+                  "synthetic Proton verifies execution receipt");
+            qputenv("FOL_FIXTURE_MODE", "no-receipt");
+            auto empty = fol::testProton(paths, "probe", "synthetic");
+            qunsetenv("FOL_FIXTURE_MODE");
+            check(!empty["passed"].toBool() && empty["exit_code"].toInt() == 0,
+                  "Proton zero exit without current-session receipt is not success");
+            qputenv("FOL_FIXTURE_MODE", "eac-name");
+            auto eac = fol::testProton(paths, "probe", "synthetic");
+            qunsetenv("FOL_FIXTURE_MODE");
+            check(!eac["passed"].toBool() && eac["eac_status"].toString().startsWith("detected"),
+                  "Proton supervisor stops synthetic EAC-named child");
+            check(fol::ownedProcesses(paths.data + "/proton-prefixes/probe/pfx", {}).isEmpty(),
+                  "Proton supervisor drains owned processes");
+            fol::importProton(paths, "synthetic-second", protonSource);
+            check(fol::testProton(paths, "probe", "synthetic-second").contains("error"),
+                  "Proton runtime changes require a separate test prefix");
+        } else
+            QTextStream(stdout) << "SKIP Proton supervisor: namespaces unavailable\n";
+        fol::writeFile(paths.data + "/runtimes/synthetic/version", "changed\n");
+        check(fol::testProton(paths, "probe", "synthetic")["error"].toString().contains("digest"),
+              "changed Proton script/version is rejected");
+        fol::writeFile(protonSource + "/user_settings.py", "# custom settings, must not execute\n");
+        rejects([&] { fol::importProton(paths, "custom-settings", protonSource); },
+                "Proton custom executable settings rejected");
         auto malformed = paths.config + "/builds.toml";
         fol::writeFile(malformed, "builds = 12\n");
         rejects([&] { registry.list(); }, "malformed registry schema rejected");
@@ -235,7 +286,7 @@ int main(int argc, char **argv) {
 
         QProcess owned, unrelated;
         auto env = QProcessEnvironment::systemEnvironment();
-        env.insert("WINEPREFIX", temp.path() + "/test-prefix");
+        env.insert("WINEPREFIX", temp.path() + "/test-prefix/");
         env.insert("FOL_SESSION_ID", "test-session");
         owned.setProcessEnvironment(env);
         owned.start("/bin/bash", {"-c", "exec -a EasyAntiCheat_test.exe /bin/sleep 30"});
@@ -245,6 +296,8 @@ int main(int argc, char **argv) {
         auto members = fol::ownedProcesses(temp.path() + "/test-prefix", "test-session");
         check(members.size() == 1 && members[0].pid == owned.processId() && members[0].eac,
               "session ownership and synthetic EAC executable name detection");
+        check(fol::ownedProcesses(temp.path() + "/test-pref", "test-session").isEmpty(),
+              "trailing slash normalization does not match unrelated prefix names");
         auto stale = members[0];
         ++stale.started;
         check(!fol::signalProcess(stale, 15), "stale process identity must not be signalled");

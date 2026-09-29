@@ -16,3 +16,11 @@ native synthetic runtime passed for failure capture and EAC-named test-process
 termination; they do not execute EAC or Fortnite. 32-bit loader presence
 was checked, but 32-bit device execution remains untested. No claim is made for
 DXVK/VKD3D, rendering, performance, monitor changes, DPI, focus or mouse capture.
+
+| CachyOS command-only test | Execution | Cleanup | Scope |
+| --- | --- | --- | --- |
+| Wine 11.18 | Passed, including after reset and restore | No owned processes remain | Built-in cmd.exe, offline namespace |
+| Proton Experimental 11.0-20260924 | Passed twice with fresh Windows-written receipts | No owned processes remain | Imported copy, dedicated compatdata, offline namespace |
+| Proton Hotfix 20260828-ptr | Passed with Windows-written receipt | No owned processes remain | Separate imported copy and compatdata, offline namespace |
+
+These tests do not rank runtime performance or prove any Fortnite startup stage.

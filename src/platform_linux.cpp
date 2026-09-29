@@ -54,15 +54,25 @@ QList<Process> processes() {
 }
 QList<Process> ownedProcesses(const QString &prefix, const QString &session) {
     QList<Process> result;
-    auto wantedPrefix = "WINEPREFIX=" + prefix.toLocal8Bit();
+    auto wantedPrefix = QDir::cleanPath(prefix);
     auto wantedSession = "FOL_SESSION_ID=" + session.toUtf8();
     for (const auto &process : processes()) {
         QFile env(QString("/proc/%1/environ").arg(process.pid));
         if (!env.open(QIODevice::ReadOnly))
             continue;
         auto entries = env.read(1024 * 1024).split('\0');
-        if (entries.contains(wantedPrefix) &&
-            (session.isEmpty() || entries.contains(wantedSession)))
+        bool prefixMatches = false;
+        for (const auto &entry : entries) {
+            if (entry.startsWith("WINEPREFIX=")) {
+                auto value = QString::fromLocal8Bit(entry.mid(11));
+                // Proton appends a trailing slash to compatdata/pfx. Compare
+                // absolute lexical paths; never broaden to a prefix-string match.
+                prefixMatches =
+                    QDir::isAbsolutePath(value) && QDir::cleanPath(value) == wantedPrefix;
+                break;
+            }
+        }
+        if (prefixMatches && (session.isEmpty() || entries.contains(wantedSession)))
             result.append(process);
     }
     return result;

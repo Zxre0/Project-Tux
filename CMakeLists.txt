@@ -8,7 +8,7 @@ find_package(tomlplusplus 3.3 REQUIRED)
 find_package(Vulkan REQUIRED)
 add_library(fol_core
     src/core.cpp src/fortnite.cpp src/runtime.cpp src/prefix_backup.cpp src/platform_linux.cpp
-    src/diagnostics.cpp src/launcher.cpp src/reboot.cpp profiles/profiles.qrc)
+    src/diagnostics.cpp src/launcher.cpp src/reboot.cpp src/proton.cpp profiles/profiles.qrc)
 target_include_directories(fol_core PUBLIC include PRIVATE ${Vulkan_INCLUDE_DIRS})
 target_link_libraries(fol_core PUBLIC Qt6::Core Qt6::Network tomlplusplus::tomlplusplus)
 target_compile_options(fol_core PRIVATE -Wall -Wextra -Wpedantic -Werror)

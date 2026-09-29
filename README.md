@@ -40,6 +40,8 @@ fortnite-linux verify 12.61
 fortnite-linux verify 12.61 --manifest /path/to/integrity.toml
 fortnite-linux remove 12.61              # registration only; preserves files
 fortnite-linux runtime list
+fortnite-linux runtime import-proton '/path/to/Proton - Experimental' --id experimental
+fortnite-linux runtime test-proton proton-smoke --proton experimental
 fortnite-linux runtime test 12.61        # after creating the prefix; no Fortnite execution
 fortnite-linux prefix create 12.61
 fortnite-linux prefix status 12.61
@@ -76,8 +78,9 @@ initialized dedicated prefix. It never starts the EAC bootstrap intentionally.
 Process-name monitoring is sampled; absence from snapshots is not proof that EAC
 never loaded. See [EAC findings](docs/EAC.md).
 
-The core detects Steam-local Proton installations but does not launch through
-Proton yet. DXVK/VKD3D installation, runtime downloads, complete prefix lifecycle,
+The core detects Steam-local Proton installations and tests imported runtime copies;
+Fortnite launch through Proton is not implemented. DXVK/VKD3D rendering validation,
+runtime downloads, complete prefix lifecycle,
 private backend/server integration, server browser, dev-loop and GUI remain
 unimplemented. WineD3D is the unchanged Wine baseline. Gamescope is optional and
 currently only detected. No production services or router configuration are used.
@@ -93,6 +96,16 @@ No permanent prefix deletion or automatic backup pruning is implemented.
 `runtime test ID` runs Wine's built-in `cmd.exe /d /c ver` in an offline namespace
 and waits for that namespace's Wine server. This tests Windows command execution
 and clean shutdown only; it does not test D3D rendering or Fortnite compatibility.
+
+`runtime import-proton DIRECTORY --id NAME` copies a trusted, already-installed
+Proton runtime into project XDG data. It does not download runtimes or modify the
+source. `runtime test-proton PREFIX_ID --proton NAME` uses separate
+`proton-prefixes/PREFIX_ID/pfx` compatibility data, no game files and no Steam
+account. A unique Windows-written receipt and clean server shutdown are required
+for success; exit zero alone is insufficient. Custom `user_settings.py` is rejected,
+and inherited Steam/Proton/Wine overrides are removed from this baseline test.
+This supports the tested `files/bin/wine` layout, not every Proton/UMU release.
+Wine prefix backup commands do not currently manage Proton compatibility data.
 
 Configuration, data, cache and logs follow XDG conventions under
 `fortnite-on-linux`. Every launch request records a unique session under

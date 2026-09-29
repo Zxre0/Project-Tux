@@ -72,3 +72,35 @@ security boundary against a malicious process running as the same user.
 Real `runtime-smoke` backup, reset, archive and restore passed on 2026-09-29.
 Both the replacement and restored prefixes subsequently passed the offline Wine
 command test with zero remaining owned processes. Game files were not involved.
+
+## Proton command baseline
+
+The installed Experimental and Hotfix scripts use `STEAM_COMPAT_DATA_PATH/pfx`,
+append a slash to WINEPREFIX, update prefix files during `run`, and invoke a Steam
+shim before the requested Windows program. `waitforexitandrun` waits before the
+program, not after; the launcher waits for the bundled wineserver in the same
+user/network namespace after `run` instead. Script inspection was performed on
+the exact installed versions, not assumed from a generic Wine invocation.
+
+CLI import stores copies under `runtimes/ID` with source, version and combined
+script/version SHA-256 metadata. This detects those files changing, not runtime
+authenticity or every corrupted library. Use only trusted runtime installations.
+Updates require new IDs; tests reject switching an existing Proton prefix to a
+different runtime. `runtime list` shows local discovery and imported copies.
+Proton's own default-prefix/fixup mutations are confined to its imported copy.
+
+Test data lives in `proton-prefixes/ID`, separate from ordinary Wine prefixes.
+The smoke test supplies an empty project-owned Steam-client directory, neutral
+app ID 0 for log naming, and no Steam account/credentials. It clears inherited
+Steam/Proton/Wine/media settings (some upstream media paths can trigger migrations),
+rejects custom executable user settings, and launches only built-in cmd.exe in
+a network namespace. Successful receipt comparison, exit status and process drain
+are independent checks. Process ownership normalizes the trailing slash without
+using an unsafe prefix-string match. Logs contain the reproducible command and
+sampled process names/ancestry, not unrelated process arguments.
+
+Experimental `experimental-11.0-20260924-x86_64` passed twice; Hotfix
+`hotfix-20260828-ptr-x86_64` passed separately. The logs still contain winebth
+driver/service errors and `Failed to connect to Steam`; these did not prevent
+the isolated command receipt or clean shutdown. They are not suppressed or
+attributed as Fortnite crash causes. No D3D workload or Fortnite was executed.

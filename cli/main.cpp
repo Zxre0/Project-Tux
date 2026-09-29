@@ -19,6 +19,7 @@ int main(int argc, char **argv) {
         "[ROOT...], diagnose, runtime list|test ID, prefix "
         "create|status|stop|backup|backups|archive|reset ID, "
         "prefix restore ID BACKUP_TOKEN, launch ID, "
+        "runtime import-proton PATH --id NAME, runtime test-proton ID --proton NAME, "
         "module PATH, "
         "network ADDRESS PORT, logs, processes, version");
     parser.addHelpOption();
@@ -28,6 +29,7 @@ int main(int argc, char **argv) {
         {{"id", "Registration ID (defaults to detected version)", "id"},
          {"output", "Also save JSON to this file", "path"},
          {"manifest", "Module compatibility or build-integrity TOML manifest", "path"},
+         {"proton", "Project-imported Proton runtime ID (runtime test-proton only)", "id"},
          {"print-command", "Plan only; never execute"},
          {"offline-probe", "Network-isolated, unmodified direct startup diagnostic"},
          {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});
@@ -103,6 +105,16 @@ int main(int argc, char **argv) {
             if (args[1] == "list") {
                 arity(2);
                 result["runtimes"] = fol::runtimes();
+                result["imported_proton"] = fol::importedProtonRuntimes(paths);
+            } else if (args[1] == "import-proton") {
+                arity(3);
+                fol::require(parser.isSet("id"), "Runtime import requires --id NAME");
+                result = fol::importProton(paths, parser.value("id"), args[2]);
+            } else if (args[1] == "test-proton") {
+                arity(3);
+                fol::require(parser.isSet("proton"), "Proton test requires --proton RUNTIME_ID");
+                result = fol::testProton(paths, args[2], parser.value("proton"));
+                exitCode = result["passed"].toBool() ? 0 : 2;
             } else {
                 arity(3);
                 fol::require(args[1] == "test", "Supported runtime actions: list, test PREFIX_ID");

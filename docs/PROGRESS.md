@@ -236,3 +236,40 @@ use a project-cache copy, not Steam's installation. Initial isolated `run cmd.ex
 exited 0 and loaded cmd.exe, but stdout was not captured; do not yet treat that as
 a proven command result. Investigating an explicit per-session execution receipt.
 No 12.61 assets or legitimate private gameplay integration have become available.
+
+### Proton runtime import and reproducible smoke tests
+
+Prefix checkpoint `5069993` pushed; Ubuntu CI run 36526918663 passed.
+Added trusted installed-runtime import into project data, leaving Steam's original
+unchanged, and `runtime test-proton ID --proton RUNTIME_ID`. Runtime copies have
+ownership and script/version digests; existing IDs cannot be overwritten. Prefixes
+are isolated from Wine data and tied to a single imported runtime. Baseline tests
+reject custom Python user settings and clear inherited Steam/Proton/Wine/media
+overrides. Source inspection found media migration paths that can mutate files,
+so this clearing is a storage-safety measure as well as a reproducibility measure.
+
+Proton's Steam shim did not relay cmd console output in the first manual run.
+Implemented a unique Windows-written per-session receipt rather than inferring
+success from exit 0. The supervisor requires that receipt, normal exit 0, no
+observed EAC-name process, and complete process drain. It handles interrupt,
+timeout and scoped cleanup. Proton's trailing WINEPREFIX slash exposed an exact
+string-matching issue; normalized absolute lexical paths now match correctly
+without admitting another prefix with a similar name. Synthetic tests cover
+successful execution, stale/missing receipt with exit 0, EAC-named child cleanup,
+runtime mismatch/digest changes and preservation of the import source.
+
+Actual results, all using offline user/network namespaces and no game files:
+- Experimental 11.0-20260924: receipt/exit/cleanup passed in sessions
+  `proton-798a8e51-41a3-47c1-b84b-bf47bf5099e3` and
+  `proton-79f9a9eb-cf4e-42bb-bad0-9da8edfa95b6`.
+- Hotfix 20260828-ptr: receipt/exit/cleanup passed in
+  `proton-922539ad-8be4-40fb-a037-607d15cb26aa`.
+- Wine baseline remains intact; imported runtimes are not selected for game launch.
+- Release CTest 3/3 and 81 assertions passed; ASan/UBSan non-GPU suite 76 passed.
+  Full graphics-enabled sanitizer leak remains unresolved, not declared green.
+
+Proton logs retain winebth/service and Steam-connect errors. Empty project Steam
+client path is intentional; no account or production login is needed for cmd.exe.
+No game-specific compatibility or rendering conclusion follows from these tests.
+Next: review failure/interrupt cleanup and strengthen runtime diagnostic reporting
+while actual Fortnite 12.61 startup remains blocked by inaccessible game files.

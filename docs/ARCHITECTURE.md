@@ -16,6 +16,11 @@
 owns /proc inspection and pidfd signalling. `diagnostics.cpp` owns Vulkan and
 network checks. `launcher.cpp` orchestrates session planning and monitoring.
 `reboot.cpp` validates supplied modules; it does not inject or patch anything.
+`prefix_backup.cpp` owns recoverable Wine-prefix snapshots and restoration.
+`proton.cpp` owns runtime import and isolated command smoke tests. Proton data is
+separate from Wine prefixes; neither manager silently adopts the other's storage.
+Import copies a trusted installed runtime because Proton may update its default
+prefix and SteamPipe files. The CLI never patches Proton or Steam installations.
 
 The profile in `profiles/fortnite/12.61.toml` is embedded as a Qt resource, so an
 installed binary does not depend on its original working directory. Native GUI,
