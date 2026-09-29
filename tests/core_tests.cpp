@@ -158,6 +158,13 @@ int main(int argc, char **argv) {
                 .isEmpty(),
             "mention of anti-cheat is not treated as module load");
         check(fol::quote("a'b") == "'a'\\''b'", "shell escaping");
+        const auto ipc = fol::localIpcReport();
+        check(ipc["family"] == "AF_UNIX" && !ipc["operation"].toString().isEmpty(),
+              "IPC probe identifies family and exact operation");
+        check(ipc["functional"].toBool() ? ipc["errno"] == 0 : !ipc["error"].toString().isEmpty(),
+              "IPC probe reports real success or explicit failure");
+        check(!ipc.contains("cleanup_error") && !ipc.contains("close_error"),
+              "IPC probe cleans its own resources");
         for (bool ipv6 : {false, true}) {
             auto capability = fol::udpSocketCreationReport(ipv6);
             check(capability["created"].toBool() == (capability["errno"].toInt(-1) == 0),

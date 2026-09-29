@@ -40,6 +40,14 @@ runs the remaining targets, but is explicitly a partial suite, not a green full
 build. The core target separately prints skips for namespace/GPU-dependent paths.
 The full `./build.sh` and CI still run every target.
 
+The separate `ipc` target similarly requires a working local AF_UNIX socket
+bind/listen. In environments denying both local IPC and UDP, the explicitly
+partial suite is `ctest --test-dir build -E 'network|ipc'`. Do not describe it as
+a passing full build. A Wine `wineserver: bind: Operation not permitted` error
+can occur without any GPU/display use; inspect `diagnose.local_ipc` before
+resetting prefixes or attributing it to the game. Headless rendering is not a
+substitute for functioning Wine-server IPC.
+
 ## Known sanitizer observations
 
 The full graphics-enabled sanitizer suite reports retained allocations after

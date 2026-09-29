@@ -10,9 +10,10 @@ established. Native CLI, synthetic tests, diagnostics
 and Wine/Proton command execution work within the measured limits below; no game
 startup or gameplay is claimed. Latest pushed code checkpoint: `1e6ba64`.
 Last unrestricted release tests passed 109 assertions; sanitized non-GPU tests
-passed 100. Socket-independent tests currently pass 125 core and 32 manifest
+passed 100. Portable tests currently pass 128 core and 32 manifest
 assertions, including ASan/UBSan with leak detection explicitly disabled. The
-separate network test fails UDP bind; do not report the full suite as passing.
+separate network and IPC tests fail their socket operations; do not report the
+full suite (4/6 targets passing) as passing.
 Graphics-enabled LeakSanitizer remains unresolved, and sandbox leak checks fail.
 
 Installed native CLI: `/home/atlas/.local/bin/fortnite-linux`. Source checkout:
@@ -549,3 +550,43 @@ anti-cheat observation and scoped cleanup. Inspect the resulting message-box /
 debug-string evidence before proposing a compatibility change. If it proves an
 authorization/protection requirement, document that blocker rather than bypass it.
 No completion claim is made; the objective remains unmet.
+
+### Resumed work: test headless runtime alternative, identify Wine IPC denial
+
+User requested continued work after the blocked checkpoint. Rechecked clean
+canonical checkout at `2c9defa`. Investigated whether a GPU-independent runtime
+experiment could advance startup diagnostics without changing the security
+boundary or bypassing sandbox restrictions.
+
+Executed the existing isolated Wine command test on the owned `runtime-smoke`
+prefix with DISPLAY and WAYLAND_DISPLAY removed. New session
+`runtime-4ad5f6d6-464a-46ac-ad2c-03036090db01` failed immediately: exit 1, missing
+Windows command receipt, `sock_init: ERROR in sock_check_pollhup()` followed by
+`wineserver: bind: Operation not permitted`. No Fortnite or anti-cheat executable
+was selected; post-test prefix status reports zero active processes. The failure
+occurs before GPU rendering and blocks even the ordinary Windows command probe.
+No new headless game profile or changed game arguments were introduced.
+
+Epic's [command-line reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/unreal-engine-command-line-arguments-reference)
+documents null-RHI/headless operation generically, not verified support for this
+Fortnite build. A renderer option cannot fix Wine's earlier IPC failure, so no
+such argument was treated as an established Fortnite compatibility workaround.
+
+Added independent `diagnose.local_ipc` AF_UNIX stream socket creation/bind/listen
+probe with operation, errno and scoped temporary cleanup. Actual result: socket
+creation succeeds, **bind fails EPERM**, matching the Wine-server error. This is
+more specific than the earlier IPv4/IPv6 socket-creation evidence. No Wine socket,
+game asset, active prefix, sandbox policy or GPU driver was modified.
+
+Added a separate IPC CTest target that requires real success, plus portable
+report/cleanup assertions. Current full release CTest is **4/6**: core, manifest,
+CLI help/version pass; network and IPC targets fail explicitly under restrictions.
+The next real launch still requires permitted local IPC and GPU/display access;
+host networking alone would not fix Wine's local bind failure.
+
+Validation: 128 portable core assertions and 32 manifest assertions pass. The
+explicit ASan/UBSan subset excluding `network|ipc` passes with leak detection
+disabled under the already documented sandbox restriction. Formatting and diff
+checks pass. Fresh diagnostics saved to XDG state `logs/headless-ipc-diagnostics.json`.
+Next required action remains a permitted environment with working AF_UNIX IPC;
+only then can Wine startup and the targeted Fortnite trace proceed meaningfully.

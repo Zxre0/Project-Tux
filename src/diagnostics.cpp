@@ -181,6 +181,7 @@ QJsonObject systemReport() {
         {"eac_status", eac.isEmpty() ? "not observed in readable process snapshot" : "detected"},
         {"launch_profile", "Private Development"},
         {"server", portReport("127.0.0.1", 7777)},
+        {"local_ipc", localIpcReport()},
         {"dxvk", "not configured"},
         {"vkd3d", "not configured"},
         {"reboot_module", "not configured"},

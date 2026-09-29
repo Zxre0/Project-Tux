@@ -3,14 +3,64 @@
 #include <QFile>
 #include <QRegularExpression>
 #include <QSet>
+#include <QTemporaryDir>
 #include <cerrno>
 #include <cstring>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 namespace fol {
+QJsonObject localIpcReport() {
+    QJsonObject result{
+        {"functional", false},
+        {"family", "AF_UNIX"},
+        {"scope", "temporary local stream socket bind/listen; not a Wine execution test"},
+        {"operation", "temporary-directory"}};
+    QTemporaryDir directory(QDir::tempPath() + "/fol-ipc-XXXXXX");
+    if (!directory.isValid()) {
+        result["error"] = directory.errorString();
+        return result;
+    }
+    const auto path = QFile::encodeName(directory.path() + "/probe.sock");
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    if (path.size() >= qsizetype(sizeof(address.sun_path))) {
+        result["operation"] = "socket-path";
+        result["error"] = "Temporary socket path exceeds AF_UNIX path capacity";
+        return result;
+    }
+    std::memcpy(address.sun_path, path.constData(), size_t(path.size()));
+    result["operation"] = "socket";
+    const int descriptor = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    int failure = descriptor < 0 ? errno : 0;
+    if (descriptor >= 0) {
+        result["operation"] = "bind";
+        if (::bind(descriptor, reinterpret_cast<const sockaddr *>(&address), sizeof(address)) != 0)
+            failure = errno;
+        else {
+            result["operation"] = "listen";
+            if (::listen(descriptor, 1) != 0)
+                failure = errno;
+        }
+        if (::close(descriptor) != 0)
+            result["close_error"] = QString::fromLocal8Bit(std::strerror(errno));
+    }
+    result["errno"] = failure;
+    result["functional"] = failure == 0;
+    result["error"] = failure ? QString::fromLocal8Bit(std::strerror(failure)) : "";
+    if (failure == EPERM || failure == EACCES)
+        result["hint"] = "Local IPC denied. Wine server communication can fail before graphics "
+                         "or game initialization. Check sandbox/container IPC permissions; "
+                         "do not reset game files or unrelated prefixes.";
+    // Only this newly-created, private temporary directory is removed. No Wine
+    // server socket or prefix is touched, and no client connects to this socket.
+    if (!directory.remove())
+        result["cleanup_error"] = "Could not remove temporary IPC probe directory";
+    return result;
+}
 QJsonObject udpSocketCreationReport(bool ipv6) {
     const int descriptor =
         ::socket(ipv6 ? AF_INET6 : AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_UDP);

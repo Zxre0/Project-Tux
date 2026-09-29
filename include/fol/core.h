@@ -79,6 +79,7 @@ QJsonObject systemReport();
 QJsonObject vulkanReport();
 QJsonObject portReport(const QString &address, quint16 port);
 QJsonObject udpSocketCreationReport(bool ipv6);
+QJsonObject localIpcReport();
 QJsonObject moduleReport(const QString &path, const QString &manifest);
 struct Process {
     qint64 pid, parent;
