@@ -16,9 +16,9 @@ It does not establish 12.61 compatibility. See [12.50 evidence](docs/FORTNITE_12
 ## Build
 
 Requires C++20, CMake >=3.22, Ninja, Qt >=6.4 Core/Network, toml++ >=3.3,
-and Vulkan headers/loader development files. No Wine is needed to run the CLI
+zlib, and Vulkan headers/loader development files. No Wine is needed to run the CLI
 or asset-free tests. On Arch/CachyOS developer packages are `base-devel cmake
-ninja qt6-base tomlplusplus vulkan-headers vulkan-icd-loader`.
+ninja qt6-base tomlplusplus zlib vulkan-headers vulkan-icd-loader`.
 
 ```sh
 ./build.sh
@@ -41,6 +41,7 @@ fortnite-linux add /path/to/Fortnite
 fortnite-linux builds
 fortnite-linux verify 12.61
 fortnite-linux verify 12.61 --manifest /path/to/integrity.toml
+fortnite-linux manifest /path/to/build.manifest --installation /path/to/Fortnite --hash-files
 fortnite-linux remove 12.61              # registration only; preserves files
 fortnite-linux runtime list
 fortnite-linux runtime import-proton '/path/to/Proton - Experimental' --id experimental
@@ -74,6 +75,13 @@ file paths to SHA-256 strings. Only listed files are checked; manifest provenanc
 is not authenticated. Paths escaping the installation, including symlink escapes,
 are rejected. The same `--manifest` option on `module` expects `fortnite_version`
 and `sha256` fields instead. See [12.61 validation](docs/FORTNITE_12_61.md).
+
+`manifest PATH` independently reads supported legacy binary Epic manifests.
+Add `--installation ROOT` to check listed file presence/sizes, and `--hash-files`
+to stream SHA-1 verification (a full installation can take several minutes).
+This is read-only and never executes the manifest's launcher or downloads files.
+Matches prove consistency with the supplied local manifest, not authenticity.
+See [manifest verification](docs/MANIFESTS.md) for scope and format limits.
 
 Normal `launch` and `host` currently report a blocker. `--offline-probe` is only a
 network-isolated direct startup experiment using installed Wine, not working

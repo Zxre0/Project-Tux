@@ -49,6 +49,8 @@ struct Build {
 };
 Build inspectBuild(const QString &path);
 QJsonObject verifyIntegrity(const QString &root, const QString &manifest);
+QJsonObject inspectEpicManifest(const QString &manifest, const QString &installation = {},
+                                bool hashFiles = false);
 QStringList discoverBuilds(const QStringList &roots, int maxDepth = 7);
 class Registry {
     Paths paths;

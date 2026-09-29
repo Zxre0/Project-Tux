@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Dependencies
-        run: sudo apt-get update && sudo apt-get install -y ninja-build qt6-base-dev libtomlplusplus-dev libvulkan-dev clang-format
+        run: sudo apt-get update && sudo apt-get install -y ninja-build qt6-base-dev libtomlplusplus-dev libvulkan-dev zlib1g-dev clang-format
       - name: Formatting
         run: find src cli include tests -type f \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format --dry-run --Werror
       - name: Build and asset-free tests

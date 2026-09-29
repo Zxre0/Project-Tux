@@ -8,8 +8,10 @@ Supplied root: `/home/atlas/Documents/Fortnite/++Fortnite+Release-12`.
 Ordinary Shipping and CrashReportClient both contain `++Fortnite+Release-12.50`;
 Shipping also contains `++Fortnite+Release-12.50-CL-13137020`. The engine version
 has not been inferred from Season 12. Structural validation passes for x64 PE,
-Engine/FortniteGame folders and readable nonempty pak content; full hashes against
-an authenticated manifest have not been checked.
+Engine/FortniteGame folders and readable nonempty pak content. All 398 files
+listed in the supplied local Epic manifest also match their sizes and SHA-1
+hashes (90,166,901,135 bytes checked). The manifest is not authenticated; this is
+content-consistency evidence, not provenance or gameplay compatibility.
 
 Observed ordinary Shipping SHA-256:
 `34a10af4ddff20b75d889e269a66644d570c3000f13548a5799d3a7ef690190c`.
@@ -56,3 +58,19 @@ device enumeration returned -3 and no devices; `/dev/dri`, `/dev/nvidia0` and
 returns EPERM. Session `2026-09-29_13-37-40_7e950a34` stopped before Wine/game start.
 The exact game-exit cause therefore remains unresolved pending suitable device
 access. Do not remove the Vulkan gate or bypass the sandbox to force a retest.
+
+## Local manifest verification
+
+The supplied `.egstore/EA2F274841C3E0693C3E06BFD2CBA2DE.manifest` reports
+`++Fortnite+Release-12.50-CL-13137020-Windows`, agreeing with embedded PE metadata.
+It is an unencrypted zlib-compressed container v18 with metadata feature level 13.
+Its launcher field names `FortniteLauncher.exe`; this is reported only and is not
+used by the private diagnostic launch path.
+
+Read-only verification checked all 398 entries, including tagged components,
+in 72.658 seconds. Results: 398 matched, zero missing, zero mismatched, internal
+manifest payload hash valid. The full machine-local report is
+`~/.local/state/fortnite-on-linux/logs/12.50-manifest-hashes.json`.
+No game files, manifest contents or anti-cheat files were changed. This reduces
+ordinary corruption as a hypothesis for the observed exit but does not identify
+the cause or validate a legitimate offline execution path.

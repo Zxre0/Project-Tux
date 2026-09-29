@@ -3,7 +3,7 @@
 ## Current handoff state
 
 Fortnite 12.61 files remain unavailable. The user supplied a separate 12.50 build;
-its metadata and structure are verified, and isolated startup diagnostics are in
+its metadata, structure and all 398 local-manifest file hashes are verified, and isolated startup diagnostics are in
 progress, now blocked by sandbox GPU/socket restrictions. The corrected Wine run
 exited 1; its cause is unresolved. No legitimate non-EAC private execution path is
 established. Native CLI, synthetic tests, diagnostics
@@ -386,3 +386,37 @@ push results. Next real experiment remains the unchanged isolated game command
 with targeted startup tracing in an environment with GPU/display/socket access.
 The no-bypass boundary remains in force if that trace reveals an authorization
 or anti-cheat requirement. No game menu, private join, hosting or 12.61 success.
+
+### Read-only 12.50 content verification during sandbox restriction
+
+Startup tracing/device diagnostics were committed locally as `8836f44`.
+`git push origin HEAD` failed with `Could not resolve host: github.com`; the
+commit remains local. No work was discarded and no force push was attempted.
+
+Added independent bounded legacy Epic manifest inspection and file verification,
+with CLI `manifest PATH --installation ROOT [--hash-files]`. No downloads,
+decryption, repairs, game writes or manifest-provided command execution.
+Initial strict parser rejected metadata feature 13 despite container 18; source
+format inspection confirmed those are distinct fields. Added explicit 13–18
+feature support while retaining v17/18 container and v0 file-list bounds.
+New zlib dependency is explicit in CMake and CI.
+
+Supplied manifest identifies `++Fortnite+Release-12.50-CL-13137020-Windows`.
+Size check and then full SHA-1 check both passed: **398/398 files**, zero missing,
+zero mismatched, **90,166,901,135 bytes hashed**, elapsed **72.658 seconds**.
+Report: XDG state `logs/12.50-manifest-hashes.json`. Internal manifest SHA-1
+also matches. The local manifest is not authenticated, so authenticity is not
+claimed. Metadata names FortniteLauncher.exe, but no change to the ordinary
+Shipping-only offline launch chain was made. No game assets were modified.
+
+Release build and 32 dedicated asset-free manifest assertions pass; malformed
+compression/sizes, corruption, optional tags, empty files, UTF-16, traversal,
+duplicates and symlink escapes covered. AddressSanitizer/UBSan pass these 32
+checks with `ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1`.
+LeakSanitizer itself fatally fails under this sandbox (`does not work under
+ptrace`); this is not a leak-free claim. Current full CTest: 3/4 pass, core still
+fails its UDP-bind assertion. Formatting/diff checks pass.
+
+Next: separate network-dependent tests from portable core regressions, retaining
+the network failure explicitly. Real traced startup still needs GPU/socket access;
+the file-integrity result does not explain the Wine exit or prove gameplay.

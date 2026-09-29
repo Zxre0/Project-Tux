@@ -20,6 +20,7 @@ int main(int argc, char **argv) {
         "create|status|stop|backup|backups|archive|reset ID, "
         "prefix restore ID BACKUP_TOKEN, launch ID, "
         "runtime import-proton PATH --id NAME, runtime test-proton ID --proton NAME, "
+        "manifest PATH [--installation ROOT] [--hash-files], "
         "module PATH, "
         "network ADDRESS PORT, logs, processes, version");
     parser.addHelpOption();
@@ -29,6 +30,8 @@ int main(int argc, char **argv) {
         {{"id", "Registration ID (defaults to detected version)", "id"},
          {"output", "Also save JSON to this file", "path"},
          {"manifest", "Module compatibility or build-integrity TOML manifest", "path"},
+         {"installation", "Installation root for local Epic manifest verification", "path"},
+         {"hash-files", "Hash all files listed in the supplied legacy Epic manifest (read-only)"},
          {"proton", "Project-imported Proton runtime ID (runtime test-proton only)", "id"},
          {"print-command", "Plan only; never execute"},
          {"offline-probe", "Network-isolated, unmodified direct startup diagnostic"},
@@ -155,6 +158,13 @@ int main(int argc, char **argv) {
                                result["exit_code"].toInt() != 0
                            ? 2
                            : 0;
+        } else if (command == "manifest") {
+            arity(2);
+            result = fol::inspectEpicManifest(args[1], parser.value("installation"),
+                                              parser.isSet("hash-files"));
+            if (result.contains("all_listed_files_match") &&
+                !result["all_listed_files_match"].toBool())
+                exitCode = 2;
         } else if (command == "module") {
             arity(2);
             result = fol::moduleReport(args[1], parser.value("manifest"));
