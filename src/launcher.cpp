@@ -42,7 +42,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                    int timeoutSeconds, bool traceStartup, bool engineStdout,
                    const QString &protonId, bool launcherContextProbe, BackendProbe backendProbe,
                    const QString &httpProbeHelper, const QString &httpModule, bool privateBackend,
-                   bool developmentLogin, const QString &lawinConfig, bool launcherPresenceProbe) {
+                   bool developmentLogin, const QString &lawinConfig, bool launcherPresenceProbe,
+                   bool launcherIdentityProbe) {
     const bool localBackendProbe = backendProbe != BackendProbe::None;
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
@@ -62,6 +63,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                        {"engine_stdout_requested", engineStdout},
                        {"launcher_context_probe", launcherContextProbe},
                        {"launcher_presence_probe", launcherPresenceProbe},
+                       {"launcher_identity_probe", launcherIdentityProbe},
                        {"local_backend_probe", localBackendProbe},
                        {"backend_probe_method", backendProbe == BackendProbe::ServiceIni
                                                     ? "service-ini"
@@ -69,6 +71,10 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                     : "none"},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(!launcherIdentityProbe ||
+                    (offlineProbe && launcherContextProbe && privateBackend && !localBackendProbe),
+                "Launcher identity requires isolated launcher context and private backend, "
+                "without alternate backend-selection arguments");
         require(!launcherPresenceProbe || (offlineProbe && launcherContextProbe && privateBackend &&
                                            !httpProbeHelper.isEmpty() && !httpModule.isEmpty()),
                 "Launcher presence requires isolated launcher context, module bootstrap and "
@@ -94,6 +100,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         auto selectedProfile = Profile::forVersion(build.version);
         require(selectedProfile.has_value(), "Unsupported build: " + build.version);
         auto profile = *selectedProfile;
+        require(!launcherIdentityProbe || !profile.launcherIdentityArguments.isEmpty(),
+                "No launcher identity experiment is defined for this build");
         QString helper, checkedModule;
         bool requestObserver = false, moduleBootstrap = false, moduleObserver = false,
              moduleRouter = false;
@@ -334,6 +342,11 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         args.append(profile.arguments);
         if (launcherContextProbe)
             args.append(profile.launcherContextArguments);
+        if (launcherIdentityProbe) {
+            args.append(profile.launcherIdentityArguments);
+            result["launcher_identity_arguments"] =
+                QJsonArray::fromStringList(profile.launcherIdentityArguments);
+        }
         if (localBackendProbe)
             args.append(backendArguments);
         // Logging-only experiment, kept separate from the unchanged baseline.

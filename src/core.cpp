@@ -94,6 +94,7 @@ std::optional<Profile> Profile::forVersion(const QString &version) {
               {},
               {},
               {},
+              {},
               table["private_path_verified"].value_or(false),
               table["http_interface_probe_allowed"].value_or(false),
               str("http_observer_sha256"),
@@ -104,6 +105,9 @@ std::optional<Profile> Profile::forVersion(const QString &version) {
     if (auto arguments = table["launcher_context_arguments"].as_array())
         for (auto &arg : *arguments)
             p.launcherContextArguments.append(QString::fromStdString(arg.value_or("")));
+    if (auto arguments = table["launcher_identity_arguments"].as_array())
+        for (auto &arg : *arguments)
+            p.launcherIdentityArguments.append(QString::fromStdString(arg.value_or("")));
     if (auto arguments = table["local_backend_arguments"].as_array())
         for (auto &arg : *arguments)
             p.localBackendArguments.append(QString::fromStdString(arg.value_or("")));

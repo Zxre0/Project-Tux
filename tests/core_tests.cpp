@@ -412,6 +412,22 @@ int main(int argc, char **argv) {
         check(fol::classifyFailure("error: DXVK device initialization failed") == "dxvk",
               "component-scoped DXVK error evidence");
         auto launch = fol::launch(paths, "missing", false, false, 1);
+        const auto identityProfile = fol::Profile::forVersion("12.50");
+        check(identityProfile &&
+                  identityProfile->launcherIdentityArguments ==
+                      QStringList{"-epicapp=Fortnite", "-epicenv=Prod", "-epiclocale=en-us"} &&
+                  fol::Profile::forVersion("12.61")->launcherIdentityArguments.isEmpty(),
+              "application identity experiment is specific to supplied 12.50 profile");
+        auto identityWithoutIsolation = fol::launch(paths, "missing", true, false, 1, false, false,
+                                                    {}, true, fol::BackendProbe::None, "helper.exe",
+                                                    "module.dll", true, false, {}, false, true);
+        check(identityWithoutIsolation["error"].toString().contains("Launcher identity requires"),
+              "application identity cannot omit network isolation");
+        auto identityConflictingBackend = fol::launch(
+            paths, "missing", true, true, 1, false, false, {}, true, fol::BackendProbe::Selector,
+            "helper.exe", "module.dll", true, false, {}, false, true);
+        check(identityConflictingBackend["error"].toString().contains("Launcher identity requires"),
+              "application identity cannot conflict with backend selector");
         auto presenceWithoutIsolation =
             fol::launch(paths, "missing", true, false, 1, false, false, {}, true,
                         fol::BackendProbe::None, "helper.exe", "module.dll", true, false, {}, true);

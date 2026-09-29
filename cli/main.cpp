@@ -47,6 +47,8 @@ int main(int argc, char **argv) {
           "Opt-in 12.50 launcher-context experiment; requires --offline-probe; no authentication"},
          {"launcher-presence-probe",
           "Hold the supplied FortniteLauncher suspended in the owned isolated diagnostic job"},
+         {"launcher-identity-probe",
+          "Test profile-defined application identity arguments against the isolated backend"},
          {"local-backend-probe", "Probe built-in localhost backend selection; requires offline and "
                                  "launcher-context probes"},
          {"backend-probe-method", "Local backend experiment: selector or service-ini", "method",
@@ -192,7 +194,8 @@ int main(int argc, char **argv) {
                 parser.value("proton"), parser.isSet("launcher-context-probe"), backendProbe,
                 parser.value("http-probe-helper"), parser.value("http-module"),
                 parser.isSet("private-backend"), parser.isSet("development-login"),
-                parser.value("lawin-config"), parser.isSet("launcher-presence-probe"));
+                parser.value("lawin-config"), parser.isSet("launcher-presence-probe"),
+                parser.isSet("launcher-identity-probe"));
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||

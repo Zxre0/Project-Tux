@@ -153,3 +153,9 @@ is patched by the presence option. Production networking remains unavailable.
 
 Tests and actual game results are recorded in PROGRESS.md. Process presence alone
 must not be reported as a completed login or a functional lobby.
+
+The separate `--launcher-identity-probe` supplies the 12.50 profile's application
+name/environment/locale arguments. It also requires the isolated private backend;
+`Prod` is an input label under investigation, not permission for production access.
+Both presence alone and presence plus identity still produced AppES closing code1
+in actual tests. Neither establishes the underlying rejection condition.

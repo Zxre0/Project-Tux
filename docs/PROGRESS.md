@@ -2161,3 +2161,20 @@ screenshots include the best-settings prompt, not proof of a stable lobby.
 
 Next: inspect the remaining application-identity arguments separately from
 bootstrap presence; preserve this negative control rather than retry unchanged.
+
+### Application-identity comparison
+
+Added independent --launcher-identity-probe with profile-defined -epicapp=Fortnite,
+-epicenv=Prod and -epiclocale=en-us from the pinned Reboot Launcher argument
+builder. These labels do not enable production access: isolated private backend
+and launcher context are mandatory, and conflicting backend-selector experiments
+are rejected. No authentication token or anti-cheat launch claim was added by
+this option. Initial native build exposed the Profile aggregate initializer's
+missing new list member; corrected it. Native build and all13 tests pass25.16s.
+
+Session2026-09-29_23-58-18_702bec9c adds only this option to the prior presence
+test's command/runtime. Party created23:58:44.779, sign-in Completed23:58:44.787,
+AppES closing1 at23:58:46.692, verify501 response23:58:46.717, RequestExit0 at
+23:59:06.692. No EAC observed in samples; scoped cleanup left no owned processes.
+Identity arguments therefore did not remove the failure. Both experiments remain
+opt-in negative controls, not working-lobby claims or default launch changes.
