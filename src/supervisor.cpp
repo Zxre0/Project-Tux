@@ -54,32 +54,19 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
     QMap<qint64, Process> observed;
     auto members = [&] {
         auto all = processes();
-        QSet<qint64> ids;
-        if (process.state() != QProcess::NotRunning)
-            ids.insert(process.processId());
-        for (const auto &item : ownedProcesses(prefix, session))
-            ids.insert(item.pid);
+        auto roots = ownedProcesses(prefix, session);
+        if (process.state() != QProcess::NotRunning && process.processId() > 1)
+            for (const auto &item : all)
+                if (item.pid == process.processId())
+                    roots.append(item);
         // Retain ancestry ownership after reparenting only while PID/start ticks
         // still match. Never treat a recycled PID as the old session's child.
         for (const auto &item : all)
             if (observed.contains(item.pid) && observed[item.pid].started == item.started)
-                ids.insert(item.pid);
-        for (qsizetype pass = 0; pass < all.size(); ++pass) {
-            bool changed = false;
-            for (const auto &item : all)
-                if (ids.contains(item.parent) && !ids.contains(item.pid)) {
-                    ids.insert(item.pid);
-                    changed = true;
-                }
-            if (!changed)
-                break;
-        }
-        QList<Process> selected;
-        for (const auto &item : all)
-            if (ids.contains(item.pid)) {
-                selected.append(item);
-                observed.insert(item.pid, item);
-            }
+                roots.append(item);
+        auto selected = selectProcessTree(all, roots);
+        for (const auto &item : selected)
+            observed.insert(item.pid, item);
         return selected;
     };
     QElapsedTimer elapsed;
@@ -90,6 +77,7 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
         for (const auto &item : current) {
             snapshot.append(item.json());
             result.eac |= item.eac;
+            result.battleye |= item.battleye;
         }
         auto bytes =
             QJsonDocument(QJsonObject{{"timestamp",
@@ -104,7 +92,7 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
         }
         result.interrupted = bool(runtimeInterrupted);
         result.timedOut = elapsed.elapsed() >= timeoutMs;
-        if (result.eac || result.timedOut || result.interrupted ||
+        if (result.eac || result.battleye || result.timedOut || result.interrupted ||
             (process.state() == QProcess::NotRunning && current.isEmpty()))
             break;
         if (process.state() == QProcess::NotRunning)

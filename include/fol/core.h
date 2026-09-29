@@ -34,6 +34,7 @@ struct Profile {
     QStringList arguments;
     bool privatePathVerified;
     static Profile load();
+    static std::optional<Profile> forVersion(const QString &version);
 };
 struct PeInfo {
     bool valid = false, x64 = false, dll = false;
@@ -81,15 +82,19 @@ struct Process {
     quint64 started;
     QString name;
     bool eac;
+    bool battleye = false;
     QJsonObject json() const;
 };
 bool isEacName(const QString &name);
+bool isBattlEyeName(const QString &name);
+QString antiCheatModuleEvidence(const QByteArray &text);
 QList<Process> processes();
+QList<Process> selectProcessTree(const QList<Process> &snapshot, const QList<Process> &roots);
 QList<Process> ownedProcesses(const QString &prefix, const QString &session);
 bool signalProcess(const Process &, int signal);
 struct SupervisionResult {
     bool started = false, crashed = false, timedOut = false, interrupted = false;
-    bool eac = false, remaining = false;
+    bool eac = false, battleye = false, remaining = false;
     int exitCode = -1;
     QString error;
 };

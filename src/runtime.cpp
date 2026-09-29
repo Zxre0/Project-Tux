@@ -217,7 +217,7 @@ QJsonObject testRuntime(const Paths &paths, const QString &id) {
     bool receiptOk = QFileInfo(receipt).isFile() && !QFileInfo(receipt).isSymLink() &&
                      QString::fromUtf8(readFile(receipt, 4096)).trimmed() == session;
     bool ok = outcome.started && !outcome.crashed && !outcome.timedOut && outcome.exitCode == 0 &&
-              !outcome.remaining && !outcome.eac && !outcome.interrupted &&
+              !outcome.remaining && !outcome.eac && !outcome.battleye && !outcome.interrupted &&
               outcome.error.isEmpty() && receiptOk;
     QJsonObject report{
         {"session_id", session},
@@ -231,6 +231,7 @@ QJsonObject testRuntime(const Paths &paths, const QString &id) {
         {"timed_out", outcome.timedOut},
         {"interrupted", outcome.interrupted},
         {"owned_processes_remaining", outcome.remaining},
+        {"battleye_process_observed", outcome.battleye},
         {"eac_status", outcome.eac ? "detected; terminated"
                                    : "not observed in sampled monitoring; not proof of absence"},
         {"server_wait_scope", "same user and network namespace as Wine"},

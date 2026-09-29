@@ -10,6 +10,9 @@ was found on the development machine. A legitimate non-EAC private execution
 path has not been established. This project does not bypass authentication,
 DRM, SSL pinning or anti-cheat, and distributes no Fortnite assets.
 
+A supplied **12.50** build is now registered as a separate diagnostic-only target.
+It does not establish 12.61 compatibility. See [12.50 evidence](docs/FORTNITE_12_50.md).
+
 ## Build
 
 Requires C++20, CMake >=3.22, Ninja, Qt >=6.4 Core/Network, toml++ >=3.3,

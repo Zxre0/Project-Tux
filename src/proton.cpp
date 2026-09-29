@@ -217,8 +217,8 @@ QJsonObject testProton(const Paths &paths, const QString &id, const QString &run
         bool receiptOk = QFileInfo(receipt).isFile() && !QFileInfo(receipt).isSymLink() &&
                          QString::fromUtf8(readFile(receipt, 4096)).trimmed() == session;
         bool passed = outcome.started && !outcome.crashed && outcome.exitCode == 0 && receiptOk &&
-                      !outcome.remaining && !outcome.eac && !outcome.timedOut &&
-                      !outcome.interrupted && outcome.error.isEmpty();
+                      !outcome.remaining && !outcome.eac && !outcome.battleye &&
+                      !outcome.timedOut && !outcome.interrupted && outcome.error.isEmpty();
         result["passed"] = passed;
         result["runtime"] = runtime;
         result["version"] = marker["version"];
@@ -228,6 +228,7 @@ QJsonObject testProton(const Paths &paths, const QString &id, const QString &run
         result["interrupted"] = outcome.interrupted;
         result["execution_receipt_verified"] = receiptOk;
         result["owned_processes_remaining"] = outcome.remaining;
+        result["battleye_process_observed"] = outcome.battleye;
         result["eac_status"] =
             outcome.eac ? "detected; terminated"
                         : "not observed in sampled process monitoring; not proof of absence";

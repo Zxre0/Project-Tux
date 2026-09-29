@@ -75,10 +75,16 @@ CommandResult run(const QString &program, const QStringList &args, int timeout,
     return {process.exitStatus() == QProcess::CrashExit ? -1 : process.exitCode(), timedOut,
             QString::fromUtf8(process.readAll())};
 }
-Profile Profile::load() {
+Profile Profile::load() { return forVersion("12.61").value(); }
+std::optional<Profile> Profile::forVersion(const QString &version) {
     static const bool initialized = (initProfiles(), true);
     Q_UNUSED(initialized);
-    auto table = toml::parse(readFile(":/profiles/fortnite/12.61.toml").toStdString());
+    if (!QRegularExpression("^[0-9]{1,2}\\.[0-9]{1,2}$").match(version).hasMatch())
+        return {};
+    auto resource = ":/profiles/fortnite/" + version + ".toml";
+    if (!QFile::exists(resource))
+        return {};
+    auto table = toml::parse(readFile(resource).toStdString());
     auto str = [&](const char *key) { return QString::fromStdString(table[key].value_or("")); };
     Profile p{str("version"),
               str("executable"),
@@ -88,6 +94,7 @@ Profile Profile::load() {
               table["private_path_verified"].value_or(false)};
     for (auto &arg : *table["arguments"].as_array())
         p.arguments.append(QString::fromStdString(arg.value_or("")));
+    require(p.version == version, "Embedded compatibility profile version mismatch");
     return p;
 }
 QMap<QString, QString> Registry::list() const {

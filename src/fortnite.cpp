@@ -150,14 +150,14 @@ Build inspectBuild(const QString &path) {
     return build;
 }
 QJsonObject Build::json() const {
-    auto profile = Profile::load();
+    auto profile = Profile::forVersion(version);
     return {{"path", root},
             {"version", version.isEmpty() ? "unknown" : version},
             {"engine", engine.isEmpty() ? "unknown" : engine},
             {"valid", valid()},
-            {"compatibility_profile", version == profile.version ? profile.version : "unsupported"},
+            {"compatibility_profile", profile ? profile->version : "unsupported"},
             {"linux_status", "experimental-unverified"},
-            {"reboot", version == profile.version ? profile.rebootStatus : "unverified"},
+            {"reboot", profile ? profile->rebootStatus : "unverified"},
             {"evidence", QJsonArray::fromStringList(evidence)},
             {"errors", QJsonArray::fromStringList(errors)},
             {"warnings", QJsonArray::fromStringList(warnings)}};

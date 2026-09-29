@@ -1,13 +1,15 @@
 # EAC/private-development boundary
 
-No legitimate non-EAC private gameplay path has been verified. No game launch has
-occurred: the available filesystem has no complete identified Fortnite 12.61 build.
+No legitimate non-EAC private gameplay path has been verified. A supplied 12.50
+build is undergoing isolated diagnostics; 12.61 files remain unavailable.
 
 Expected upstream executable names are `FortniteClient-Win64-Shipping.exe`,
 `FortniteClient-Win64-Shipping_EAC.exe`, `FortniteLauncher.exe`, and
 `CrashReportClient.exe`. EAC detection also recognizes EasyAntiCheat-prefixed
 executables/services, `start_protected_game.exe` and `eac_launcher.exe`.
-Actual installation-specific inventory remains pending supplied files.
+The supplied 12.50 build also includes Shipping_BE.exe, BattlEye/BEService_x64.exe,
+BEClient_x64.dll and EAC setup/x64/x86 DLLs. EAC Settings.json and BattlEye
+BELauncher.ini both target ordinary Shipping. Neither bootstrap is invoked.
 
 Reboot Launcher's game-start button creates paused launcher and EAC processes,
 then the shipping process and an authentication module. That is not an acceptable
@@ -26,8 +28,9 @@ records process ancestry and start ticks, and stops its owned launch if EAC is
 observed. It uses a dedicated WINEPREFIX and session marker, and pidfds when
 signalling. It does not kill other Wine applications. Polling can miss short-lived
 processes, unreadable processes or renamed modules; therefore status says
-`not observed`, not an unconditional `Not Loaded`. Module-load attestation is
-not implemented. Preflight without game execution reports `not tested`.
+`not observed`, not an unconditional `Not Loaded`. The probe also inspects Wine
+loaddll traces for EAC/BattlEye module-load evidence and stops on a match; this is
+not complete module attestation. Preflight without execution reports `not tested`.
 
 2026-09-29 baseline: no EAC-named processes observed; this is a system snapshot,
 not a Fortnite 12.61 result. The first launch request failed before execution due

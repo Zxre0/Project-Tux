@@ -51,6 +51,13 @@ int main(int argc, char **argv) {
         check(temp.isValid(), "temporary directory");
         auto root = temp.path() + "/game with spaces";
         auto profile = fol::Profile::load();
+        check(profile.version == "12.61", "12.61 remains default profile");
+        auto diagnosticProfile = fol::Profile::forVersion("12.50");
+        check(diagnosticProfile && diagnosticProfile->version == "12.50" &&
+                  !diagnosticProfile->privatePathVerified,
+              "12.50 has separate diagnostic-only profile");
+        check(!fol::Profile::forVersion("12.60") && !fol::Profile::forVersion("../../12.61"),
+              "unknown and traversal profiles rejected");
         auto exe = root + "/" + profile.executable;
         fol::writeFile(exe, syntheticPe());
         QDir().mkpath(root + "/Engine");
@@ -58,6 +65,14 @@ int main(int argc, char **argv) {
         auto build = fol::inspectBuild(root);
         check(build.valid() && build.version == "12.61" && build.engine == "4.25.0",
               "ASCII version metadata");
+        auto older = syntheticPe();
+        older.replace("Release-12.61", "Release-12.50");
+        fol::writeFile(exe, older);
+        auto olderBuild = fol::inspectBuild(root);
+        check(olderBuild.version == "12.50" &&
+                  olderBuild.json()["compatibility_profile"] == "12.50",
+              "12.50 is not aliased to 12.61");
+        fol::writeFile(exe, syntheticPe());
         check(fol::discoverBuilds({temp.path()}).contains(root),
               "discovery finds structural build");
         auto integrityManifest = temp.path() + "/integrity.toml";
@@ -126,6 +141,24 @@ int main(int argc, char **argv) {
         check(fol::isEacName("C:\\Game\\EasyAntiCheat_EOS.exe"), "EAC Windows path");
         check(fol::isEacName("FortniteClient-Win64-Shipping_EAC.exe"), "EAC bootstrap");
         check(!fol::isEacName("FortniteClient-Win64-Shipping.exe"), "ordinary shipping is not EAC");
+        check(fol::isBattlEyeName("C:\\Game\\BEService_x64.exe") &&
+                  fol::isBattlEyeName("FortniteClient-Win64-Shipping_BE.exe"),
+              "BattlEye bootstrap/service detection");
+        check(!fol::isBattlEyeName("FortniteClient-Win64-Shipping.exe"),
+              "ordinary shipping is not BattlEye");
+        check(
+            !fol::antiCheatModuleEvidence(
+                 "trace:loaddll:build_module Loaded L\"C:\\Game\\EasyAntiCheat_x64.dll\" at 0x10\n")
+                 .isEmpty(),
+            "EAC module-load trace evidence detected");
+        check(!fol::antiCheatModuleEvidence(
+                   "trace:loaddll:build_module Loaded L\"C:\\Game\\BEClient_x64.dll\" at 0x10\n")
+                   .isEmpty(),
+              "BattlEye module-load trace evidence detected");
+        check(
+            fol::antiCheatModuleEvidence("Missing EasyAntiCheat_x64.dll; not a loaded-module trace")
+                .isEmpty(),
+            "mention of anti-cheat is not treated as module load");
         check(fol::quote("a'b") == "'a'\\''b'", "shell escaping");
         check(fol::classifyFailure("err:module:import_dll missing") == "missing-library",
               "DLL failure classification");
@@ -349,6 +382,24 @@ int main(int argc, char **argv) {
         rejects([&] { registry.add("12.61", root); }, "mutation refuses malformed registry");
         check(fol::readFile(malformed) == "builds = 12\n", "malformed registry preserved");
 
+        QList<fol::Process> graph{{1, 0, 1, "init", false},
+                                  {2, 0, 2, "kernel", false},
+                                  {10, 1, 10, "unrelated", false},
+                                  {20, 1, 20, "game", false},
+                                  {21, 20, 21, "game-child", false}};
+        check(fol::selectProcessTree(graph, {{0, 0, 0, "exited", false}}).isEmpty(),
+              "PID zero must never seed a process tree");
+        check(fol::selectProcessTree(graph, {graph[0]}).isEmpty(),
+              "init must never seed a process tree");
+        check(fol::selectProcessTree(graph, {graph[3]}).size() == 2,
+              "only live root descendants selected");
+        auto staleRoot = graph[3];
+        ++staleRoot.started;
+        check(fol::selectProcessTree(graph, {staleRoot}).isEmpty(), "stale root identity ignored");
+        for (const auto &item : fol::processes())
+            if (item.pid == QCoreApplication::applicationPid())
+                check(!fol::signalProcess(item, 0), "cleanup refuses its own launcher identity");
+
         QProcess owned, unrelated;
         auto env = QProcessEnvironment::systemEnvironment();
         env.insert("WINEPREFIX", temp.path() + "/test-prefix/");
@@ -415,6 +466,21 @@ int main(int argc, char **argv) {
             auto failed = fol::launch(paths, "12.61", false, true, 5);
             check(failed["exit_code"] == 53 && failed["likely_subsystem"] == "missing-library",
                   "supervisor captures synthetic crash evidence");
+            QProcess surviving;
+            surviving.start("/bin/sleep", {"30"});
+            check(surviving.waitForStarted(),
+                  "unrelated process starts before root-exit regression");
+            qputenv("FOL_FIXTURE_MODE", "root-exits-first");
+            auto earlyExit = fol::launch(paths, "12.61", false, true, 5);
+            qunsetenv("FOL_FIXTURE_MODE");
+            check(
+                earlyExit["status"] == "exited; gameplay-unverified" &&
+                    earlyExit["exit_code"].toInt() == 0,
+                "root exit before surviving Wine-style services does not select global processes");
+            check(surviving.state() == QProcess::Running,
+                  "unrelated process survives root-exit cleanup");
+            surviving.terminate();
+            check(surviving.waitForFinished(1000), "root-exit unrelated fixture cleanup");
             qputenv("FOL_FIXTURE_MODE", "eac-name");
             auto eac = fol::launch(paths, "12.61", false, true, 5);
             qunsetenv("FOL_FIXTURE_MODE");

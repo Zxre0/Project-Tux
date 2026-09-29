@@ -1,0 +1,12 @@
+version = "12.50"
+engine_expectation = "Not yet detected from supplied metadata; never infer from 12.61"
+executable = "FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe"
+working_directory = "FortniteGame/Binaries/Win64"
+arguments = ["-log", "-d3d11"]
+launch_profile = "private-development"
+eac_policy = "must-not-start"
+linux_status = "diagnostic-only-unverified"
+reboot_status = "unverified; 12.61-specific behavior must not be applied"
+private_path_verified = false
+runtime_recommendation = "Wine diagnostic baseline; no game-runtime comparison yet"
+graphics = "D3D11 diagnostic baseline; no component modifications"

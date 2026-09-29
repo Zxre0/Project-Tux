@@ -2,8 +2,9 @@
 
 ## Current handoff state
 
-Milestone 1 remains blocked on accessible Fortnite 12.61 files and an established
-legitimate non-EAC private execution path. Native CLI, synthetic tests, diagnostics
+Fortnite 12.61 files remain unavailable. The user supplied a separate 12.50 build;
+its metadata and structure are verified, and isolated startup diagnostics are in
+progress. No legitimate non-EAC private execution path is established. Native CLI, synthetic tests, diagnostics
 and Wine/Proton command execution work within the measured limits below; no game
 startup or gameplay is claimed. Latest code checkpoint: `9501795`, pushed to
 canonical main. Local release tests pass 91 assertions; sanitized non-GPU tests
@@ -18,7 +19,7 @@ Project-owned Experimental and Hotfix copies passed isolated command execution
 and clean-shutdown tests using separate Proton compatibility data. Cancellation,
 timeout, missing-receipt and EAC-name handling have synthetic regression coverage.
 
-Next required external input: an accessible complete 12.61 installation path.
+An accessible complete 12.61 installation remains required for 12.61 testing.
 The 930.5 GiB NTFS Windows partition `/dev/nvme1n1p3` is unmounted. A read-only,
 noninteractive UDisks mount attempt was denied with `NotAuthorizedCanObtain`.
 It was not mounted or inspected, and no filesystem repair/write was attempted.
@@ -310,3 +311,42 @@ preflight: `Build is not registered: 12.61; use add /path/to/Fortnite`.
 Session `2026-09-29_05-49-23_325daeb5` retains the blocked result. No game or EAC
 was started. An accessible legitimate 12.61 installation is still the prerequisite
 for the next real startup experiment; runtime tests cannot replace this evidence.
+
+### Supplied 12.50 build and critical process-scope correction
+
+User supplied `/home/atlas/Documents/Fortnite/++Fortnite+Release-12` and requested
+continued autonomous development. Embedded metadata in both Shipping and
+CrashReportClient identifies **12.50**, not 12.60/12.61. Shipping's UTF-16 metadata
+includes CL 13137020. Engine version remains undetected. Structural validation
+passes; this is not a full content-integrity or authenticity assertion.
+Added a separate embedded 12.50 diagnostic-only profile; ordinary private launch
+remains gated. 12.61 stays the default, and its module/version assumptions are
+not applied to 12.50. Upstream search found no exact `12.50`/`12.5` branches in
+the inspected Reboot source; neighboring version logic is not proof of support.
+
+Inventory includes ordinary Shipping, Shipping_EAC, Shipping_BE, FortniteLauncher,
+EAC setup/DLLs and BattlEye service/client DLLs. Bootstrap configs target ordinary
+Shipping. No bootstrap, authentication module or protection patch is used. Added
+BattlEye process detection and Wine module-load evidence monitoring alongside EAC
+process detection. A positive module-load trace stops the game probe; this is
+reactive observation, not a guarantee that no module briefly loaded.
+
+Registered 12.50 and initialized its dedicated Wine prefix. First 45-second offline
+probe session `2026-09-29_06-13-15_5c4ab67f` produced Wine logs showing engine exit
+and LauncherCheck shutdown, but no result.json. On continuation its process handle
+was absent and no related processes remained, so no exit code can be asserted.
+Inspection found a **critical launcher process-selection bug**: QProcess reports
+PID 0 after exit; the old ancestry scan seeded that value, reaching init/kernel
+roots and unrelated sessions while Wine services remained. Captured snapshots
+confirm expansion to 425 processes at 06:13:29.876 UTC. Cleanup may have signalled
+unrelated user processes and the launcher itself. The exact external impact is
+unknown; it is not correct to claim this run preserved unrelated applications.
+No new real-game run was attempted before fixing this issue.
+
+Implemented shared identity-checked tree selection that rejects PID 0/1 roots;
+both game/runtime monitors use it. Signalling also rejects PID 0/1, the launcher
+and its ancestors as defense in depth. Regression tests include a root that exits
+before a detached Wine-style child, an unrelated live child that must survive,
+stale root identity, and zero/init roots. Release build/CTest 3/3 and 109 assertions
+pass. Next: sanitizer regression, commit this safety correction, then capture a
+correctly supervised 12.50 startup and its exact visible failure.

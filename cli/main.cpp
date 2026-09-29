@@ -148,6 +148,7 @@ int main(int argc, char **argv) {
             result = fol::launch(paths, args[1], parser.isSet("print-command"),
                                  parser.isSet("offline-probe"), timeout);
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
+                               result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||
                                result["exit_code"].toInt() != 0
                            ? 2

@@ -51,8 +51,9 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         auto build = inspectBuild(Registry(paths).resolve(id));
         result["build"] = build.json();
         require(build.valid(), "Installation validation failed: " + build.errors.join("; "));
-        auto profile = Profile::load();
-        require(build.version == profile.version, "Unsupported build: " + build.version);
+        auto selectedProfile = Profile::forVersion(build.version);
+        require(selectedProfile.has_value(), "Unsupported build: " + build.version);
+        auto profile = *selectedProfile;
         require(offlineProbe || profile.privatePathVerified,
                 "Private-development execution path is unverified. Only --offline-probe is "
                 "available; it has no network access or authentication modifications.");
@@ -114,33 +115,27 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             auto oldTerm = std::signal(SIGTERM, interrupt);
             process.start(unshare, args);
             bool started = process.waitForStarted(5000);
-            bool eac = false, timedOut = false;
+            bool eac = false, battleye = false, timedOut = false;
+            QFile moduleTrace(directory + "/wine.log");
+            bool traceReadable = moduleTrace.open(QIODevice::ReadOnly);
+            QByteArray traceTail;
+            QString moduleEvidence;
             QElapsedTimer elapsed;
             elapsed.start();
             QList<Process> observed;
             while (started) {
                 auto all = processes();
-                auto owned = ownedProcesses(paths.prefix(id), session);
-                QSet<qint64> descendants{process.processId()};
-                for (const auto &item : owned)
-                    descendants.insert(item.pid);
-                for (qsizetype pass = 0; pass < all.size(); ++pass) {
-                    bool changed = false;
+                auto roots = ownedProcesses(paths.prefix(id), session);
+                if (process.state() != QProcess::NotRunning && process.processId() > 1)
                     for (const auto &item : all)
-                        if (descendants.contains(item.parent) && !descendants.contains(item.pid)) {
-                            descendants.insert(item.pid);
-                            changed = true;
-                        }
-                    if (!changed)
-                        break;
-                }
+                        if (item.pid == process.processId())
+                            roots.append(item);
                 QJsonArray snapshot;
-                for (const auto &item : all) {
-                    if (descendants.contains(item.pid)) {
-                        observed.append(item);
-                        eac |= item.eac;
-                        snapshot.append(item.json());
-                    }
+                for (const auto &item : selectProcessTree(all, roots)) {
+                    observed.append(item);
+                    eac |= item.eac;
+                    battleye |= item.battleye;
+                    snapshot.append(item.json());
                 }
                 snapshots.write(QJsonDocument(QJsonObject{{"timestamp",
                                                            QDateTime::currentDateTimeUtc().toString(
@@ -149,15 +144,23 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                     .toJson(QJsonDocument::Compact) +
                                 '\n');
                 snapshots.flush();
+                if (traceReadable) {
+                    auto data = traceTail + moduleTrace.read(1024 * 1024);
+                    moduleEvidence = antiCheatModuleEvidence(data);
+                    traceTail = data.right(4096);
+                    if (moduleTrace.error() != QFile::NoError)
+                        traceReadable = false;
+                }
                 timedOut = elapsed.elapsed() >= timeoutSeconds * 1000LL;
-                if (eac || timedOut || interrupted)
+                if (eac || battleye || !moduleEvidence.isEmpty() || !traceReadable || timedOut ||
+                    interrupted)
                     break;
                 if (process.state() == QProcess::NotRunning)
                     QThread::msleep(100);
                 else
                     process.waitForFinished(100);
                 if (process.state() == QProcess::NotRunning &&
-                    ownedProcesses(paths.prefix(id), session).isEmpty())
+                    ownedProcesses(paths.prefix(id), session).isEmpty() && moduleTrace.atEnd())
                     break;
             }
             // pidfds plus start-time checks prevent killing a process that reused an observed PID.
@@ -178,15 +181,26 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             std::signal(SIGINT, oldInt);
             std::signal(SIGTERM, oldTerm);
             result["exit_code"] = started ? process.exitCode() : -1;
-            result["status"] = !started      ? "failed-to-start"
-                               : eac         ? "stopped-eac-detected"
-                               : timedOut    ? "probe-timeout"
-                               : interrupted ? "stopped"
-                                             : "exited; gameplay-unverified";
+            result["status"] = !started ? "failed-to-start"
+                               : eac    ? "stopped-eac-detected"
+                               : battleye || !moduleEvidence.isEmpty()
+                                   ? "stopped-anticheat-detected"
+                               : !traceReadable ? "stopped-log-unreadable"
+                               : timedOut       ? "probe-timeout"
+                               : interrupted    ? "stopped"
+                                                : "exited; gameplay-unverified";
             result["eac_status"] =
                 eac       ? "detected; launch terminated"
                 : started ? "not observed during sampled monitoring; not proof of absence"
                           : "not tested";
+            result["battleye_process_observed"] = battleye;
+            if (!moduleEvidence.isEmpty()) {
+                result["anti_cheat_module_evidence"] = moduleEvidence;
+                if (moduleEvidence.contains("EasyAntiCheat", Qt::CaseInsensitive))
+                    result["eac_status"] = "module load observed; launch terminated";
+            }
+            if (!traceReadable)
+                result["error"] = "Wine trace unreadable; probe stopped";
             QFile log(directory + "/wine.log");
             if (log.open(QIODevice::ReadOnly)) {
                 log.seek(qMax(qint64(0), log.size() - 1024 * 1024));

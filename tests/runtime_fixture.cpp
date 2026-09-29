@@ -12,6 +12,13 @@ int main(int argc, char **argv) {
     auto executable = QFileInfo(app.arguments()[0]).fileName();
     if (executable == "wineserver")
         return 0;
+    if (qEnvironmentVariable("FOL_FIXTURE_MODE") == "root-exits-first") {
+        QProcess child;
+        child.setProgram("/bin/sleep");
+        child.setArguments({"0.5"});
+        child.setProcessEnvironment(QProcessEnvironment::systemEnvironment());
+        return child.startDetached() ? 0 : 1;
+    }
     if (app.arguments().contains("--version")) {
         QTextStream(stdout) << "synthetic-runtime-fixture\n";
         return 0;
