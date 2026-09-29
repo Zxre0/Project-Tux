@@ -2023,3 +2023,11 @@ All owned processes cleaned up; no EAC observed during sampled monitoring. No
 functional lobby or12.61 claim. Next: investigate the independent startup error
 from its actual provenance and permitted launch context, not by assuming a party
 timeout or by fabricating profile-token verification.
+
+Startup-boundary follow-up: read-only exact Shipping strings confirm LogAppES,
+the displayed dialog and profile-token endpoint. Current official support advice
+is generic and not12.50/Wine/private-service proof. Reboot Launcher Dart source
+and the independently found FNLauncher source depend on paused launcher/EAC
+processes; no such process spoofing/suspension or packaged bypass was executed.
+Recorded references/limits in EAC.md. The exact AppES condition remains unknown,
+not assumed fixed by XMPP or party state. Pushed50c0a98; XMPP checkpoint CI passed.

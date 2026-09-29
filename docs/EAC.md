@@ -79,3 +79,28 @@ the game still reports its UAC direct-launch warning. No EAC/BattlEye process wa
 observed by sampled monitoring, but this does not establish the absence of
 in-process checks. No check or exit behavior has been patched. The screenshot is
 startup-failure evidence, not a successful private-login screenshot.
+
+## Lawin lobby investigation (2026-09-29)
+
+Session `2026-09-29_23-22-29_63f1dcea` now has real-game authenticated XMPP,
+successful party creation and Active persistent party state. Nevertheless,
+`LogAppES: Display: closing code 1` still precedes the startup dialog and exit.
+The profile-token HTTP501 response follows this marker; changing that response
+is not an evidence-based fix for the earlier error. The exact AppES condition
+has not been established. Do not infer a missing GPU dependency, EAC process or
+bad password solely from this generic message.
+
+Read-only strings from the supplied Shipping executable contain both LogAppES
+and the displayed error text, plus the profile-token verification endpoint.
+No matching AppES implementation was found by source search in the pinned
+Project Reboot3.0 or Reboot Launcher C++/header files. Reboot Launcher's Dart
+game_start_button explicitly creates paused launcher/EAC processes; its argument
+builder declares an EAC launch context. Those dependencies do not constitute a
+verified legitimate no-EAC launch path and have not been reproduced here.
+
+An additional [FNLauncher reference](https://github.com/DottoXD/FNLauncher/blob/main/main.go)
+likewise starts and suspends launcher/EAC processes. It was inspected only to
+classify that dependency, not installed or executed. The [official support note](https://www.epicgames.com/help/c-34254770/c-38015632/a14186258)
+associates the generic message with interference or networking problems, but
+does not establish its cause for this old build, Wine, or private services.
+No protection check, process-presence stand-in, token or exit patch is introduced.
