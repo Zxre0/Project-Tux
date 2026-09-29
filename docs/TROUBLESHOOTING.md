@@ -88,3 +88,12 @@ most 128 evidence entries, reporting any truncation. It does not echo arbitrary
 command lines, HTTP bodies or log text. Raw game logs may still contain sensitive
 data; inspect and redact them before sharing. Analysis success (CLI exit zero)
 means the file was analyzed, not that the game started successfully.
+
+Login analysis also recognizes the observed `AbortLoggingIn` diagnostic, reporting
+`login_aborted_logged`, the last logged stage/result, and its source line. It does
+not copy DisplayError/DetailedError text, which can contain private payloads.
+These are historical observations: a player-token HTTP200 or subsequent manual
+sign-in screen does not establish successful in-game authentication. For example,
+the first real local-password attempt logged stage `LoggingIn`, result13 after
+the backend erroneously revoked the current session. The session fix still needs
+a real game retest; do not infer that it succeeded from diagnostic unit tests.

@@ -1559,3 +1559,27 @@ Push retry in this environment failed before authentication:
 access returns; the already-published ab06757 checkpoint remains available. No
 force push or history rewrite attempted. Formatting and diff whitespace checks
 pass locally; remote CI cannot yet verify the new checkpoint.
+
+### Login failure evidence while execution access is restricted (2026-09-29)
+
+Previous turn made progress and committed 7aa17b0 locally. Revalidated the
+environment on continuation: backend HTTP bind still fails, AF_UNIX bind and UDP
+socket creation still return EPERM, and Vulkan enumerates no device with no GPU
+device nodes visible. These are execution-environment restrictions, not evidence
+of broken host driver packages. No new game was started; no isolation bypass or
+driver/prefix change was attempted.
+
+Read the prior real game log again. Line2475 explicitly aborts login at LoggingIn,
+result13; QueryLoggedInUserInfo failed with player_authentication_required and
+QueryExternalAuths with the previously missing route. Both underlying backend
+changes are in 7aa17b0, but their game behavior remains untested. Added structured
+recognition of this exact login-abort shape, storing only stage/result and source
+line, excluding arbitrary error strings. Automatic captured-log analysis uses
+the same parser. Manual sign-in following an abort cannot be reported as success.
+
+Native build succeeds and20 game-evidence checks pass, including secret exclusion,
+embedded-marker rejection, and precedence. Ran `fortnite-linux logs analyze` on
+the actual 21-36-41 session: it reports login_aborted_logged=true, LoggingIn/13,
+source line2475. This is historical failure evidence, not a corrected-login test.
+Next meaningful end-to-end step remains the corrected private login retest with
+socket/IPC/Vulkan access, followed by actual next-request diagnosis and screenshot.

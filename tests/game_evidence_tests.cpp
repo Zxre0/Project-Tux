@@ -52,6 +52,30 @@ int main(int argc, char **argv) {
         check(mixed["manual_sign_in_logged"].toBool() &&
                   mixed["interpretation"] == "backend rejection logged; inspect configuration",
               "earlier sign-in marker never suppresses backend rejection");
+        const QByteArray loginAbort =
+            "[2026.09.29-21.37.06:230][ 98]LogOnlineAccount: Warning: "
+            "[UOnlineAccountCommon::AbortLoggingIn] Aborting OnlineAccountCommon login due to "
+            "error [CurrentLoginStep=LoggingIn] [LoginResult=13] "
+            "[DisplayError=synthetic-private-error] [DetailedError=synthetic-secret]\r\n";
+        const auto failedLogin = fol::analyzeGameLog(loginAbort + signIn);
+        check(failedLogin["login_aborted_logged"].toBool() &&
+                  failedLogin["last_logged_login_failure"].toObject()["stage"] == "LoggingIn" &&
+                  failedLogin["last_logged_login_failure"].toObject()["result"] == 13 &&
+                  failedLogin["evidence"].toArray()[0].toObject()["line"] == 1,
+              "actual login abort shape retains stage, result and source line");
+        check(failedLogin["manual_sign_in_logged"].toBool() &&
+                  failedLogin["interpretation"] ==
+                      "login abort logged; successful login unverified",
+              "manual sign-in after failure does not imply authenticated login");
+        check(!QJsonDocument(failedLogin).toJson().contains("synthetic-private-error") &&
+                  !QJsonDocument(failedLogin).toJson().contains("synthetic-secret"),
+              "login evidence excludes arbitrary error payloads");
+        check(!fol::analyzeGameLog("chat: " + loginAbort)["login_aborted_logged"].toBool() &&
+                  !empty["login_aborted_logged"].toBool(),
+              "embedded abort strings and missing evidence are not login failures");
+        check(fol::analyzeGameLog(loginAbort + fixture)["interpretation"] ==
+                  "backend rejection logged; inspect configuration",
+              "backend configuration rejection retains precedence");
         auto spoof = fol::analyzeGameLog(
             "LogInit: Command Line: LogFortLogin: Focusing widget SignIn_Credentials\n"
             "chat: LogOnlineGame: Error: Invalid backend requested! Exiting.\n"

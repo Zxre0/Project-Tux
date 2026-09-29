@@ -13,13 +13,15 @@ QJsonObject analyzeGameLog(const QByteArray &data) {
         R"(^LogOnlineGame: Using EpicApp backend '([A-Za-z0-9._-]{1,64})' with host '([A-Za-z0-9.:-]{1,253}|<unconfigured>)' based on environment '([A-Za-z0-9._-]{1,64})' and override '([A-Za-z0-9._-]{0,64})'$)");
     static const QRegularExpression missing(
         R"(^LogOnlineGame: Error: Did not find Fortnite MCPConfig ([A-Za-z0-9._-]{1,64}) for service ([A-Za-z0-9._-]{1,64})$)");
+    static const QRegularExpression loginAbort(
+        R"(^LogOnlineAccount: Warning: \[UOnlineAccountCommon::AbortLoggingIn\] Aborting OnlineAccountCommon login due to error \[CurrentLoginStep=([A-Za-z0-9_]{1,64})\] \[LoginResult=([0-9]{1,5})\] \[DisplayError=.*\] \[DetailedError=.*\]$)");
     QJsonObject result{{"scope", "recognized game-log observations; not proof of rendering, "
                                  "authentication, gameplay or network reachability"},
                        {"engine_version", "unknown"},
                        {"compatible_engine_version", "unknown"}};
     QJsonArray evidence;
     int matches = 0, skipped = 0, lineNumber = 0;
-    bool missingLogged = false, rejected = false, signIn = false;
+    bool missingLogged = false, rejected = false, signIn = false, loginAborted = false;
     qsizetype offset = 0;
     while (offset < data.size()) {
         auto end = data.indexOf('\n', offset);
@@ -63,6 +65,15 @@ QJsonObject analyzeGameLog(const QByteArray &data) {
         } else if (line == "LogOnlineGame: Error: Invalid backend requested! Exiting.") {
             rejected = true;
             entry["kind"] = "backend_rejected";
+        } else if ((match = loginAbort.match(line)).hasMatch()) {
+            loginAborted = true;
+            // Error strings can contain arbitrary backend payloads or credentials.
+            // Retain only the bounded stage and numeric result from this marker.
+            QJsonObject failure{{"stage", match.captured(1)},
+                                {"result", match.captured(2).toInt()}};
+            result["last_logged_login_failure"] = failure;
+            entry["kind"] = "login_aborted";
+            entry["value"] = failure;
         } else if (line == "LogUIActionRouter: Display: Applying input config for leaf-most "
                            "node [SignIn_Credentials]" ||
                    line == "LogFortLogin: Focusing widget SignIn_Credentials") {
@@ -78,9 +89,11 @@ QJsonObject analyzeGameLog(const QByteArray &data) {
     result["backend_configuration_missing_logged"] = missingLogged;
     result["backend_rejected_logged"] = rejected;
     result["manual_sign_in_logged"] = signIn;
-    result["interpretation"] = rejected ? "backend rejection logged; inspect configuration"
-                               : signIn ? "manual sign-in logged; login/gameplay unverified"
-                                        : "no recognized terminal startup observation";
+    result["login_aborted_logged"] = loginAborted;
+    result["interpretation"] = rejected       ? "backend rejection logged; inspect configuration"
+                               : loginAborted ? "login abort logged; successful login unverified"
+                               : signIn       ? "manual sign-in logged; login/gameplay unverified"
+                                              : "no recognized terminal startup observation";
     result["evidence"] = evidence;
     result["matched_lines"] = matches;
     result["evidence_truncated"] = matches > evidence.size();
