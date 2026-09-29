@@ -76,7 +76,8 @@ CommandResult run(const QString &program, const QStringList &args, int timeout,
             QString::fromUtf8(process.readAll())};
 }
 Profile Profile::load() {
-    initProfiles();
+    static const bool initialized = (initProfiles(), true);
+    Q_UNUSED(initialized);
     auto table = toml::parse(readFile(":/profiles/fortnite/12.61.toml").toStdString());
     auto str = [&](const char *key) { return QString::fromStdString(table[key].value_or("")); };
     Profile p{str("version"),

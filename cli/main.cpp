@@ -88,9 +88,16 @@ int main(int argc, char **argv) {
             result["data_path"] = paths.data;
             result["log_path"] = paths.state + "/logs";
         } else if (command == "runtime") {
-            arity(2);
-            fol::require(args[1] == "list", "Only runtime list is currently implemented");
-            result["runtimes"] = fol::runtimes();
+            fol::require(args.size() >= 2, "Supported runtime actions: list, test PREFIX_ID");
+            if (args[1] == "list") {
+                arity(2);
+                result["runtimes"] = fol::runtimes();
+            } else {
+                arity(3);
+                fol::require(args[1] == "test", "Supported runtime actions: list, test PREFIX_ID");
+                result = fol::testRuntime(paths, args[2]);
+                exitCode = result["passed"].toBool() ? 0 : 2;
+            }
         } else if (command == "prefix") {
             arity(3);
             fol::require(args[1] == "create" || args[1] == "status" || args[1] == "stop",

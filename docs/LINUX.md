@@ -36,3 +36,11 @@ Cache: `$XDG_CACHE_HOME/fortnite-on-linux` (default `~/.cache/...`).
 Logs: `$XDG_STATE_HOME/fortnite-on-linux/logs` (default `~/.local/state/...`).
 Relative XDG environment values are ignored. Prefix IDs cannot traverse paths;
 symlinked prefix components and unowned directories are rejected.
+
+`runtime test runtime-smoke` passed with Wine 11.18 in an unprivileged user/network
+namespace, printing Microsoft Windows 10.0.19045 and leaving zero owned processes.
+The wineserver wait must run inside the same user namespace: its socket identity
+depends on effective UID, so a host-side wait can incorrectly report completion.
+Log session: `runtime-fcfb4677-b274-4b7c-a8cc-af24990951e1`. Wine logged a winebth
+service-start error in the earlier run; the built-in command still executed.
+This is not a graphics or Fortnite test.

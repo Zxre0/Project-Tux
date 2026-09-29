@@ -9,6 +9,7 @@ namespace fol {
 PeInfo inspectPe(const QString &path) {
     PeInfo result;
     try {
+        require(QFileInfo(path).isFile(), "PE path is not a regular file: " + path);
         QFile file(path);
         require(file.open(QIODevice::ReadOnly), "Unreadable PE: " + path);
         auto dos = file.read(64);
@@ -101,6 +102,10 @@ Build inspectBuild(const QString &path) {
         QFile file(build.root + "/" + relative);
         if (!file.exists())
             continue;
+        if (!QFileInfo(file).isFile()) {
+            build.errors.append("Metadata is not a regular file: " + relative);
+            continue;
+        }
         if (!file.open(QIODevice::ReadOnly)) {
             build.errors.append("Unreadable metadata: " + relative);
             continue;

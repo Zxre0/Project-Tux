@@ -10,6 +10,9 @@ Results as of 2026-09-29. Synthetic tests do not count as game compatibility.
 | Arch + NVIDIA | Untested | Untested | Untested | Untested | Untested |
 | Arch + AMD | Untested | Untested | Untested | Untested | Untested |
 
-Prefix initialization results are tracked in PROGRESS.md. 32-bit loader presence
+Prefix initialization and offline Wine cmd.exe execution passed on the CachyOS
+host, with zero owned processes after completion. Full supervisor tests using a
+native synthetic runtime passed for failure capture and EAC-named test-process
+termination; they do not execute EAC or Fortnite. 32-bit loader presence
 was checked, but 32-bit device execution remains untested. No claim is made for
 DXVK/VKD3D, rendering, performance, monitor changes, DPI, focus or mouse capture.

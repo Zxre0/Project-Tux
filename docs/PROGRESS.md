@@ -94,3 +94,32 @@ Private startup and game compatibility remain blocked by missing 12.61 files.
 Validation after these changes: 42 core/integration assertions passed; CTest 3/3.
 Next: exercise actual Wine execution inside the offline namespace and record its
 limits separately from Fortnite startup, then extend dependency evidence.
+
+### Third iteration: Wine execution and complete supervisor fixture
+
+Second checkpoint `f7a642c` pushed; Ubuntu CI run 36525062014 passed.
+Added `runtime test PREFIX_ID`: built-in cmd.exe execution within an offline
+namespace, with session logs and cleanup verification. First attempt executed
+cmd.exe successfully (Windows 10.0.19045) but returned failed cleanup. Inspection
+showed six services still running despite a successful host-side wineserver wait.
+Hypothesis: mapped UID changes Wine's server socket identity, so wait outside the
+user namespace targets a different server. Moved wait inside the same namespace.
+Retest passed with no owned processes. Failing session:
+`runtime-20c5f10a-59d5-4cff-b833-f9417e7c2b5b`; passing session:
+`runtime-fcfb4677-b274-4b7c-a8cc-af24990951e1`. Both retain Wine logs. This is a
+runtime smoke test, not Fortnite startup evidence.
+
+Added a native synthetic runtime fixture and exercised the complete offline launch
+supervisor: command planning, captured exit 53 and missing-library classification,
+EAC-named synthetic child detection, scoped termination, and zero surviving owned
+processes. No Fortnite or EAC binary is involved. Namespace/Vulkan-dependent
+fixture checks explicitly skip on unsupported CI hosts; other tests always run.
+Hardened metadata against special-file paths and prefix placement inside an
+unregistered structurally recognizable Fortnite installation. Embedded resources
+are initialized once. Local CTest 3/3 passed including 47 assertions.
+
+Both dedicated prefixes now report initialized=true and active_processes=0.
+Current blockers remain unchanged: no complete 12.61 installation, no validated
+private non-EAC gameplay path, no reviewed compatible module/backend. Next task:
+inspect prefix components and actionable package evidence, then finalize the
+current reproducible diagnostic baseline before actual 12.61 runtime testing.

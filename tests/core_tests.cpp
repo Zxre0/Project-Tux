@@ -183,6 +183,49 @@ int main(int argc, char **argv) {
         check(unrelated.state() == QProcess::Running, "unrelated process survives");
         unrelated.terminate();
         check(unrelated.waitForFinished(1000), "test cleanup");
+
+        // Exercise the full offline supervisor when this host allows namespaces
+        // and has a Vulkan device. CI without those facilities still runs all
+        // parser, registry, CLI, module and process-identity tests above.
+        auto namespaceProbe = fol::run("unshare", {"--user", "--map-root-user", "--net", "true"});
+        if (namespaceProbe.exitCode == 0 && fol::vulkanReport()["functional"].toBool()) {
+            QFile::remove(malformed);
+            registry.add("12.61", root);
+            auto prefix = paths.prefix("12.61");
+            fol::writeFile(
+                prefix + "/.fol-prefix.json",
+                QJsonDocument(
+                    QJsonObject{{"owner", "fortnite-on-linux"}, {"id", "12.61"}, {"path", prefix}})
+                    .toJson());
+            fol::writeFile(prefix + "/system.reg", "synthetic test registry");
+            QDir().mkpath(prefix + "/drive_c/windows");
+            auto bin = temp.path() + "/fake-bin";
+            QDir().mkpath(bin);
+            check(QFile::link(QCoreApplication::applicationDirPath() + "/runtime-fixture",
+                              bin + "/wine"),
+                  "runtime fixture link");
+            auto originalPath = qgetenv("PATH");
+            qputenv("PATH", bin.toLocal8Bit() + ":" + originalPath);
+            auto planned = fol::launch(paths, "12.61", true, true, 5);
+            check(planned["status"] == "planned; not executed" &&
+                      planned["command"].toString().contains("WINEDEBUG="),
+                  "offline plan includes managed environment");
+            auto failed = fol::launch(paths, "12.61", false, true, 5);
+            check(failed["exit_code"] == 53 && failed["likely_subsystem"] == "missing-library",
+                  "supervisor captures synthetic crash evidence");
+            qputenv("FOL_FIXTURE_MODE", "eac-name");
+            auto eac = fol::launch(paths, "12.61", false, true, 5);
+            qunsetenv("FOL_FIXTURE_MODE");
+            qputenv("PATH", originalPath);
+            check(eac["status"] == "stopped-eac-detected",
+                  "supervisor stops synthetic EAC-named child");
+            QThread::msleep(100);
+            check(fol::ownedProcesses(prefix, {}).isEmpty(),
+                  "supervisor leaves no owned processes");
+        } else {
+            QTextStream(stdout)
+                << "SKIP full offline supervisor: namespaces or Vulkan unavailable\n";
+        }
         QTextStream(stdout) << checks << " checks passed\n";
         return 0;
     } catch (const std::exception &error) {

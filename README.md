@@ -36,6 +36,7 @@ fortnite-linux builds
 fortnite-linux verify 12.61
 fortnite-linux remove 12.61              # registration only; preserves files
 fortnite-linux runtime list
+fortnite-linux runtime test 12.61        # after creating the prefix; no Fortnite execution
 fortnite-linux prefix create 12.61
 fortnite-linux prefix status 12.61
 fortnite-linux prefix stop 12.61         # only processes in this owned prefix
@@ -65,6 +66,10 @@ Proton yet. DXVK/VKD3D installation, runtime downloads, complete prefix lifecycl
 private backend/server integration, server browser, dev-loop and GUI remain
 unimplemented. WineD3D is the unchanged Wine baseline. Gamescope is optional and
 currently only detected. No production services or router configuration are used.
+
+`runtime test ID` runs Wine's built-in `cmd.exe /d /c ver` in an offline namespace
+and waits for that namespace's Wine server. This tests Windows command execution
+and clean shutdown only; it does not test D3D rendering or Fortnite compatibility.
 
 Configuration, data, cache and logs follow XDG conventions under
 `fortnite-on-linux`. Every launch request records a unique session under
