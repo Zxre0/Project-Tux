@@ -42,7 +42,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                    int timeoutSeconds, bool traceStartup, bool engineStdout,
                    const QString &protonId, bool launcherContextProbe, BackendProbe backendProbe,
                    const QString &httpProbeHelper, const QString &httpModule, bool privateBackend,
-                   bool developmentLogin, const QString &lawinConfig) {
+                   bool developmentLogin, const QString &lawinConfig, bool launcherPresenceProbe) {
     const bool localBackendProbe = backendProbe != BackendProbe::None;
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
@@ -61,6 +61,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                        {"startup_trace", traceStartup},
                        {"engine_stdout_requested", engineStdout},
                        {"launcher_context_probe", launcherContextProbe},
+                       {"launcher_presence_probe", launcherPresenceProbe},
                        {"local_backend_probe", localBackendProbe},
                        {"backend_probe_method", backendProbe == BackendProbe::ServiceIni
                                                     ? "service-ini"
@@ -68,6 +69,10 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                     : "none"},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(!launcherPresenceProbe || (offlineProbe && launcherContextProbe && privateBackend &&
+                                           !httpProbeHelper.isEmpty() && !httpModule.isEmpty()),
+                "Launcher presence requires isolated launcher context, module bootstrap and "
+                "private backend");
         require(lawinConfig.isEmpty() || privateBackend,
                 "Lawin deployment requires --private-backend");
         require(!developmentLogin || (privateBackend && !traceStartup && !engineStdout),
@@ -142,6 +147,28 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         }
         require(!privateBackend || moduleRouter,
                 "Private backend requires the isolated local router module");
+        QString presenceLauncher;
+        if (launcherPresenceProbe) {
+            require(moduleBootstrap, "Launcher presence requires the owned module bootstrap");
+            const QFileInfo candidate(build.root +
+                                      "/FortniteGame/Binaries/Win64/FortniteLauncher.exe");
+            presenceLauncher = candidate.canonicalFilePath();
+            require(
+                candidate.isFile() && !candidate.isSymLink() &&
+                    presenceLauncher.startsWith(QFileInfo(build.root).canonicalFilePath() + "/"),
+                "Launcher presence requires the installation's regular FortniteLauncher.exe");
+            const auto pe = inspectPe(presenceLauncher);
+            require(pe.valid && pe.x64 && !pe.dll,
+                    "Presence launcher must be an x64 PE executable");
+            result["launcher_presence"] = QJsonObject{
+                {"path", presenceLauncher},
+                {"sha256", QString::fromLatin1(QCryptographicHash::hash(
+                                                   readFile(presenceLauncher, 64 * 1024 * 1024),
+                                                   QCryptographicHash::Sha256)
+                                                   .toHex())},
+                {"scope", "supplied launcher created suspended and never resumed; spoofed "
+                          "presence experiment, not authentic Epic authorization"}};
+        }
         const auto backendArguments = backendProbe == BackendProbe::ServiceIni
                                           ? profile.serviceIniArguments
                                           : profile.localBackendArguments;
@@ -167,6 +194,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                 "Module lifetime is managed by the launcher");
         require(!environment.contains("FOL_DEV_LOGIN_FILE"),
                 "Development login file is managed by the launcher");
+        require(!environment.contains("FOL_LAUNCHER_PRESENCE_PATH"),
+                "Launcher presence path must come from the checked launch option");
         QMap<QString, QString> overrides;
         QStringList unsetArgs;
         if (protonId.isEmpty()) {
@@ -193,6 +222,11 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             result["runtime_mode"] = "Proton script on host; no Steam Linux Runtime container";
         }
         result["prefix"] = prefix;
+        if (launcherPresenceProbe) {
+            QString windowsLauncher = "Z:" + presenceLauncher;
+            windowsLauncher.replace('/', '\\');
+            overrides["FOL_LAUNCHER_PRESENCE_PATH"] = windowsLauncher;
+        }
         QByteArray localSecret;
         if (developmentLogin) {
             const auto loginFile = paths.config + "/backend/local-login.json";

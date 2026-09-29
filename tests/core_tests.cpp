@@ -106,6 +106,31 @@ int main(int argc, char **argv) {
         const auto receiptOk = fol::analyzeHttpProbe(receipt, "test");
         check(receiptOk["complete"].toBool() && receiptOk["candidate_observed"].toBool(),
               "session-bound helper completion receipt");
+        const QByteArray suspended =
+            "FOL_HTTP_PROBE {\"event\":\"launcher_presence_suspended\",\"value\":43}\n";
+        const QByteArray stopped =
+            "FOL_HTTP_PROBE {\"event\":\"launcher_presence_stopped\",\"value\":1}\n";
+        auto presenceReceipt = receipt;
+        presenceReceipt.insert(presenceReceipt.indexOf("FOL_HTTP_PROBE {\"event\":\"owned"),
+                               suspended);
+        presenceReceipt.insert(presenceReceipt.indexOf("FOL_HTTP_PROBE {\"event\":\"completed"),
+                               stopped);
+        const auto presenceReport = fol::analyzeHttpProbe(presenceReceipt, "test");
+        check(presenceReport["complete"].toBool() &&
+                  presenceReport["launcher_presence_windows_pid"].toInt() == 43 &&
+                  presenceReport["launcher_presence_stopped"].toBool(),
+              "launcher presence requires a distinct process and verified cleanup");
+        for (const auto &pair : QList<QPair<QByteArray, QByteArray>>{
+                 {stopped, {}},
+                 {suspended, suspended + suspended},
+                 {"suspended\",\"value\":43", "suspended\",\"value\":42"},
+                 {"suspended\",\"value\":43", "suspended\",\"value\":0"},
+                 {"stopped\",\"value\":1", "stopped\",\"value\":0"}}) {
+            auto invalid = presenceReceipt;
+            invalid.replace(pair.first, pair.second);
+            check(fol::analyzeHttpProbe(invalid, "test").contains("error"),
+                  "invalid launcher presence receipt rejected");
+        }
         check(fol::analyzeHttpProbe({}, "test").contains("error"), "missing helper receipt");
         check(fol::analyzeHttpProbe(receipt, "other").contains("error"), "stale helper receipt");
         check(fol::analyzeHttpProbe(receipt.chopped(1), "test").contains("error"),
@@ -387,6 +412,16 @@ int main(int argc, char **argv) {
         check(fol::classifyFailure("error: DXVK device initialization failed") == "dxvk",
               "component-scoped DXVK error evidence");
         auto launch = fol::launch(paths, "missing", false, false, 1);
+        auto presenceWithoutIsolation =
+            fol::launch(paths, "missing", true, false, 1, false, false, {}, true,
+                        fol::BackendProbe::None, "helper.exe", "module.dll", true, false, {}, true);
+        check(presenceWithoutIsolation["error"].toString().contains("Launcher presence requires"),
+              "launcher presence cannot omit network isolation");
+        auto presenceWithoutBootstrap =
+            fol::launch(paths, "missing", true, true, 1, false, false, {}, true,
+                        fol::BackendProbe::None, {}, {}, true, false, {}, true);
+        check(presenceWithoutBootstrap["error"].toString().contains("Launcher presence requires"),
+              "launcher presence cannot omit owned helper");
         auto lawinWithoutPrivate =
             fol::launch(paths, "missing", true, true, 1, false, false, {}, false,
                         fol::BackendProbe::None, {}, {}, false, false, "/example/lawin.json");

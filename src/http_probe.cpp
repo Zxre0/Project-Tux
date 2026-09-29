@@ -13,6 +13,7 @@ QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
                 "HTTP probe report missing, truncated or oversized");
         bool started = false, child = false, candidate = false, complete = false;
         bool attached = false, observationComplete = false;
+        bool presence = false, presenceStopped = false;
         int requests = 0;
         int control = 0;
         bool controlObserved = false;
@@ -33,8 +34,20 @@ QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
                             !session.isEmpty(),
                         "HTTP probe session mismatch");
                 started = true;
+            } else if (event == "launcher_presence_suspended") {
+                require(!child && !presence && record["value"].toInt() > 0,
+                        "Invalid suspended launcher presence record");
+                presence = true;
+                result["launcher_presence_windows_pid"] = record["value"];
+            } else if (event == "launcher_presence_stopped") {
+                require(presence && candidate && !presenceStopped && record["value"].toInt(-1) == 1,
+                        "Suspended launcher cleanup was not verified");
+                presenceStopped = true;
+                result["launcher_presence_stopped"] = true;
             } else if (event == "owned_child_started") {
                 require(!child && record["value"].toInt() > 0, "Invalid HTTP probe child record");
+                require(!presence || record["value"] != result["launcher_presence_windows_pid"],
+                        "Launcher and game must be distinct processes");
                 child = true;
                 result["child_windows_pid"] = record["value"];
             } else if (event == "development_login_requested") {
@@ -49,7 +62,7 @@ QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
                 result["candidate_observed"] = discovered == 1;
             } else if (event == "completed") {
                 require(candidate && (!attached || observationComplete) &&
-                            (control != 1 || controlObserved) &&
+                            (!presence || presenceStopped) && (control != 1 || controlObserved) &&
                             record["value"].toInt(-1) == (discovered && !control ? 0 : 67),
                         "Invalid HTTP probe completion record");
                 complete = true;

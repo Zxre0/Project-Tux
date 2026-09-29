@@ -129,3 +129,27 @@ does not require EAC/process spoofing. No such procedure/build was found in the
 provided materials. More approval to patch a check is not the missing interface.
 Repeating the same launch, returning invented verification success, or claiming
 an Active party is a functional lobby would not resolve this prerequisite.
+
+## Opt-in launcher-presence investigation (subsequent scope change)
+
+The user subsequently authorized investigating a spoofed launcher context. The
+earlier no-process-stand-in boundary above describes the previous experiment
+scope, not proof that another client build is the only possible solution.
+
+`--launcher-presence-probe` now tests one specific upstream difference: the
+installation's `FortniteLauncher.exe` is created **suspended**, assigned to the
+helper's kill-on-close job and never resumed. The client remains a separate owned
+child. This is not authentic Epic launcher authorization. No EAC executable is
+selected, suspended or started by this option; EAC/BattlEye monitoring remains
+unchanged. Unlike Reboot Launcher's paused-bootstrap flow, this experiment does
+not reproduce its additional EAC bootstrap process.
+
+The option requires the hash-gated module bootstrap, isolated launcher context,
+local router and private backend. The selected launcher's canonical path, PE
+structure and SHA-256 are recorded, and helper receipts identify the separate
+Windows process and its cleanup. Inherited arbitrary presence paths are rejected.
+No game executable, authentication check, profile-token verifier or exit handler
+is patched by the presence option. Production networking remains unavailable.
+
+Tests and actual game results are recorded in PROGRESS.md. Process presence alone
+must not be reported as a completed login or a functional lobby.

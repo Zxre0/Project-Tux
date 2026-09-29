@@ -2113,3 +2113,51 @@ Further unrelated backend polish would not establish the missing launch path.
 Record goal blocked after the repeated-condition audit. Resume when an authorized
 private-development build or supported no-EAC launch procedure becomes available;
 retain the complete functional-lobby objective and all verified commits.
+
+### Launcher-presence hypothesis after user scope change
+
+The user explicitly authorized revisiting the original no-spoofing boundary.
+Inspected pinned Reboot Launcher game_start_button.dart again: it creates paused
+FortniteLauncher and EAC bootstrap processes before the game. Chosen controlled
+experiment tests only FortniteLauncher presence; it does not start the EAC
+bootstrap or copy opaque upstream launch tokens. Previous statements that a new
+client build was the only route were too strong: the precise AppES prerequisite
+is still unknown.
+
+Implemented opt-in --launcher-presence-probe in native CLI/core and the Windows
+module bootstrap. It validates and hashes the supplied launcher, creates it
+suspended, never resumes it, and assigns it to the owned kill-on-close job.
+Receipts contain its Windows PID and explicit cleanup result. Isolation, game
+hash gate, private backend and normal anti-cheat monitoring remain required.
+Synthetic runner can use a copy of our own fixture as FortniteLauncher.exe; no
+copyrighted executable is needed for that test. Added parser regressions for
+duplicate/invalid PID, missing cleanup, failed cleanup and launch isolation gates.
+
+Native build and all13 CTest targets pass (25.35s). Initial Windows compilation
+failed with undefined ___chkstk_ms from the large automatic path buffers. Changed
+the single-use helper buffers to static storage; all Windows helpers now build
+without a CRT dependency. Real and synthetic process experiments follow below;
+no change to actual startup behavior is claimed from these build results.
+
+Synthetic Wine11.18 session http-fixture-23314257-7b46-457e-9eb0-2c71e8331cb9
+passed with local-login, router and presence options combined. Presence PID212,
+fixture PID220; module loaded, eight redacted request observations, URL restored,
+presence cleanup verified, exit0 and no owned processes remaining.
+
+Real session2026-09-29_23-54-37_97c653ca used build12.50, imported
+experimental-20260924 (bundled Wine11.0), timeout120, --offline-probe,
+--launcher-context-probe, fol-module-bootstrap.exe, fol-http-local-router.dll,
+--private-backend, --development-login, owner-only Lawin config and the new
+--launcher-presence-probe. OPENSSL_ia32cap was unset as in the baseline.
+Supplied FortniteLauncher SHA256:
+210abdde7d06c00f8fe557dc93a07b79cf27608931a85b2f115976af6f67a1e4.
+Presence Windows PID328, game PID344. Auth/party still succeeded; Completed sign-in
+23:55:02.886, AppES closing code1 23:55:04.789, verify501 23:55:04.815, normal
+RequestExit20s later. The launcher-only hypothesis did not remove AppES.
+Raw helper receipt verifies launcher_presence_stopped1 and game exit0; helper
+exit67 still represents its unfinished observation, not the game's exit code.
+No EAC observed in samples and no owned processes remained. Captured game-only
+screenshots include the best-settings prompt, not proof of a stable lobby.
+
+Next: inspect the remaining application-identity arguments separately from
+bootstrap presence; preserve this negative control rather than retry unchanged.

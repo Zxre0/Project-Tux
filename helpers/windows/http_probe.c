@@ -367,6 +367,10 @@ static BOOL scan(HANDLE child, ULONG_PTR base) {
     return found;
 }
 
+#ifdef FOL_MODULE_BOOTSTRAP
+#include "launcher_presence.h"
+#endif
+
 /* Freestanding PE entry point; Windows API only, no MSVC/MinGW runtime needed. */
 void probe_entry(void) {
     static wchar_t report_path[4096];
@@ -428,6 +432,11 @@ void probe_entry(void) {
     }
     BOOL development_login = FALSE;
 #ifdef FOL_MODULE_BOOTSTRAP
+    HANDLE presence_process = NULL;
+    if (!start_launcher_presence(job, &presence_process)) {
+        CloseHandle(job);
+        ExitProcess(66);
+    }
     wchar_t *command = development_command(target_command, &development_login);
     if (!command) {
         event("development_command_rejected", 1);
@@ -490,6 +499,14 @@ void probe_entry(void) {
     /* End only the child job created here. These are diagnostic probes, not a
      * completed login or an authorization to patch a reported candidate. */
     CloseHandle(job);
+#ifdef FOL_MODULE_BOOTSTRAP
+    if (presence_process) {
+        BOOL stopped = WaitForSingleObject(presence_process, 5000) == WAIT_OBJECT_0;
+        event("launcher_presence_stopped", stopped);
+        observation = observation && stopped;
+        CloseHandle(presence_process);
+    }
+#endif
     WaitForSingleObject(child.hProcess, 5000);
     CloseHandle(child.hProcess);
     event("completed", discovered && observation ? 0 : 67);

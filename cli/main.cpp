@@ -45,6 +45,8 @@ int main(int argc, char **argv) {
           "Request engine stdout logging and flushing; support is build-dependent"},
          {"launcher-context-probe",
           "Opt-in 12.50 launcher-context experiment; requires --offline-probe; no authentication"},
+         {"launcher-presence-probe",
+          "Hold the supplied FortniteLauncher suspended in the owned isolated diagnostic job"},
          {"local-backend-probe", "Probe built-in localhost backend selection; requires offline and "
                                  "launcher-context probes"},
          {"backend-probe-method", "Local backend experiment: selector or service-ini", "method",
@@ -184,13 +186,13 @@ int main(int argc, char **argv) {
             const auto backendProbe = !parser.isSet("local-backend-probe") ? fol::BackendProbe::None
                                       : method == "service-ini" ? fol::BackendProbe::ServiceIni
                                                                 : fol::BackendProbe::Selector;
-            result = fol::launch(paths, args[1], parser.isSet("print-command"),
-                                 parser.isSet("offline-probe"), timeout,
-                                 parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
-                                 parser.value("proton"), parser.isSet("launcher-context-probe"),
-                                 backendProbe, parser.value("http-probe-helper"),
-                                 parser.value("http-module"), parser.isSet("private-backend"),
-                                 parser.isSet("development-login"), parser.value("lawin-config"));
+            result = fol::launch(
+                paths, args[1], parser.isSet("print-command"), parser.isSet("offline-probe"),
+                timeout, parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
+                parser.value("proton"), parser.isSet("launcher-context-probe"), backendProbe,
+                parser.value("http-probe-helper"), parser.value("http-module"),
+                parser.isSet("private-backend"), parser.isSet("development-login"),
+                parser.value("lawin-config"), parser.isSet("launcher-presence-probe"));
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||

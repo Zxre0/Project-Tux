@@ -13,12 +13,15 @@
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     try {
-        fol::require(
-            argc >= 3 && argc <= 5,
-            "Usage: windows-probe-runner HELPER_EXE FIXTURE_EXE [DLL [--development-login]]");
-        const bool loginTest = argc == 5;
-        fol::require(!loginTest || app.arguments()[4] == "--development-login",
-                     "Unknown fixture option");
+        fol::require(argc >= 3 && argc <= 6,
+                     "Usage: windows-probe-runner HELPER_EXE FIXTURE_EXE [DLL "
+                     "[--development-login] [--launcher-presence-probe]]");
+        const auto options = app.arguments().mid(4);
+        for (const auto &option : options)
+            fol::require(option == "--development-login" || option == "--launcher-presence-probe",
+                         "Unknown fixture option");
+        const bool loginTest = options.contains("--development-login");
+        const bool presenceTest = options.contains("--launcher-presence-probe");
         const auto paths = fol::Paths::system();
         const auto status = fol::prefixStatus(paths, "runtime-smoke");
         fol::require(status["owned"].toBool() && status["initialized"].toBool() &&
@@ -72,6 +75,17 @@ int main(int argc, char **argv) {
         reportPath.replace('/', '\\');
         env.insert("FOL_HTTP_PROBE_LOG", reportPath);
         QString moduleAssignments;
+        env.remove("FOL_LAUNCHER_PRESENCE_PATH");
+        if (presenceTest) {
+            // Synthetic PE only; never use the supplied game launcher for this test.
+            const auto launcher = directory + "/FortniteLauncher.exe";
+            fol::require(QFile::copy(fixture, launcher),
+                         "Cannot create synthetic presence fixture");
+            QString windowsLauncher = "Z:" + launcher;
+            windowsLauncher.replace('/', '\\');
+            env.insert("FOL_LAUNCHER_PRESENCE_PATH", windowsLauncher);
+            moduleAssignments += " FOL_LAUNCHER_PRESENCE_PATH=" + fol::quote(windowsLauncher);
+        }
         if (moduleBootstrap) {
             QString modulePath = "Z:" + module;
             QString moduleReportPath = "Z:" + directory + "/http-module.json";
@@ -79,8 +93,8 @@ int main(int argc, char **argv) {
             moduleReportPath.replace('/', '\\');
             env.insert("FOL_HTTP_MODULE", modulePath);
             env.insert("FOL_HTTP_MODULE_REPORT", moduleReportPath);
-            moduleAssignments = " FOL_HTTP_MODULE=" + fol::quote(modulePath) +
-                                " FOL_HTTP_MODULE_REPORT=" + fol::quote(moduleReportPath);
+            moduleAssignments += " FOL_HTTP_MODULE=" + fol::quote(modulePath) +
+                                 " FOL_HTTP_MODULE_REPORT=" + fol::quote(moduleReportPath);
         }
         env.insert("WINEDEBUG", "+timestamp,+pid,+seh,+loaddll");
         if (loginTest) {
@@ -170,6 +184,8 @@ int main(int argc, char **argv) {
             evidence["candidate_observed"].toBool() && fixtureTable &&
             (!observer || observedRequests) && (!moduleObserver || moduleObservationOkay) &&
             (!loginTest || evidence["development_login_requested"].toBool()) &&
+            (!presenceTest || (evidence["launcher_presence_windows_pid"].toInteger() > 0 &&
+                               evidence["launcher_presence_stopped"].toBool())) &&
             (!moduleBootstrap ||
              (moduleReceipt["ready"].toBool() && evidence["module_loaded"].toBool() &&
               evidence["module_control_child_live"].toBool()));
