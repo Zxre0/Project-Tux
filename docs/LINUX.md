@@ -56,3 +56,19 @@ are labelled runtime-dependent; their necessity is not inferred from a 64-bit ga
 Prefix status inspects dxgi, d3d11, d3d12, vcruntime140 and msvcp140 for readable
 x64 DLL structure. All five were present in the Wine-created 12.61 prefix. This
 does not prove DXVK/VKD3D or Microsoft VC++ is installed: Wine supplies its own DLLs.
+
+## Recoverable prefix operations
+
+`prefix backup ID` copies an inactive owned prefix using GNU coreutils
+`cp --archive --reflink=auto`; symlinks are copied, not traversed. `archive` moves
+it into project-owned backup storage. `reset` archives first, then initializes a
+fresh Wine prefix. Failed initialization includes the recovery location in its
+error. Restore requires `prefix restore ID TOKEN` with no existing active prefix;
+it consumes that backup via rename, retaining its metadata as a recovery record.
+No recursive deletion is performed. Backup directories are owner-only; partial
+copies are explicitly incomplete. These are same-user recovery safeguards, not a
+security boundary against a malicious process running as the same user.
+
+Real `runtime-smoke` backup, reset, archive and restore passed on 2026-09-29.
+Both the replacement and restored prefixes subsequently passed the offline Wine
+command test with zero remaining owned processes. Game files were not involved.

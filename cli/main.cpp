@@ -16,7 +16,9 @@ int main(int argc, char **argv) {
     parser.setApplicationDescription(
         "Native Linux Fortnite development diagnostics. Gameplay and private-server integration "
         "remain unverified.\nCommands: builds, add PATH, remove ID, verify ID|PATH, discover "
-        "[ROOT...], diagnose, runtime list|test ID, prefix create|status|stop ID, launch ID, "
+        "[ROOT...], diagnose, runtime list|test ID, prefix "
+        "create|status|stop|backup|backups|archive|reset ID, "
+        "prefix restore ID BACKUP_TOKEN, launch ID, "
         "module PATH, "
         "network ADDRESS PORT, logs, processes, version");
     parser.addHelpOption();
@@ -108,12 +110,24 @@ int main(int argc, char **argv) {
                 exitCode = result["passed"].toBool() ? 0 : 2;
             }
         } else if (command == "prefix") {
-            arity(3);
-            fol::require(args[1] == "create" || args[1] == "status" || args[1] == "stop",
-                         "Supported prefix actions: create, status, stop");
-            result = args[1] == "create" ? fol::createPrefix(paths, args[2])
-                     : args[1] == "stop" ? fol::stopPrefix(paths, args[2])
-                                         : fol::prefixStatus(paths, args[2]);
+            fol::require(args.size() >= 2, "Missing prefix action; see --help");
+            arity(args[1] == "restore" ? 4 : 3);
+            if (args[1] == "create")
+                result = fol::createPrefix(paths, args[2]);
+            else if (args[1] == "status")
+                result = fol::prefixStatus(paths, args[2]);
+            else if (args[1] == "stop")
+                result = fol::stopPrefix(paths, args[2]);
+            else if (args[1] == "backup" || args[1] == "archive")
+                result = fol::backupPrefix(paths, args[2], args[1] == "archive");
+            else if (args[1] == "backups")
+                result = fol::prefixBackups(paths, args[2]);
+            else if (args[1] == "restore")
+                result = fol::restorePrefix(paths, args[2], args[3]);
+            else if (args[1] == "reset")
+                result = fol::resetPrefix(paths, args[2]);
+            else
+                throw fol::Error("Unknown prefix action; see --help");
         } else if (command == "launch") {
             arity(2);
             bool ok;

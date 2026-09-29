@@ -74,6 +74,8 @@ QJsonObject prefixStatus(const Paths &paths, const QString &id) {
     verifyPrefixLocation(paths, id);
     const auto prefix = paths.prefix(id);
     bool owned = false;
+    require(!QFileInfo(prefix + "/.fol-prefix.json").isSymLink(),
+            "Refusing symlinked prefix ownership marker");
     if (QFile::exists(prefix + "/.fol-prefix.json")) {
         auto marker = readJson(prefix + "/.fol-prefix.json");
         owned = marker["owner"] == "fortnite-on-linux" && marker["id"] == id &&

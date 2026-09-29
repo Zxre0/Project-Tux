@@ -44,6 +44,11 @@ fortnite-linux runtime test 12.61        # after creating the prefix; no Fortnit
 fortnite-linux prefix create 12.61
 fortnite-linux prefix status 12.61
 fortnite-linux prefix stop 12.61         # only processes in this owned prefix
+fortnite-linux prefix backup 12.61       # copy; leaves active prefix in place
+fortnite-linux prefix backups 12.61      # list recovery tokens
+fortnite-linux prefix archive 12.61      # move aside without deleting files
+fortnite-linux prefix restore 12.61 BACKUP_TOKEN  # requires absent active prefix
+fortnite-linux prefix reset 12.61        # archive old prefix, then initialize new Wine prefix
 fortnite-linux diagnose --output system.json
 fortnite-linux launch 12.61 --offline-probe --print-command
 fortnite-linux launch 12.61 --offline-probe --timeout 60
@@ -76,6 +81,14 @@ Proton yet. DXVK/VKD3D installation, runtime downloads, complete prefix lifecycl
 private backend/server integration, server browser, dev-loop and GUI remain
 unimplemented. WineD3D is the unchanged Wine baseline. Gamescope is optional and
 currently only detected. No production services or router configuration are used.
+
+Prefix recovery uses private XDG data storage in `prefix-backups/ID/TOKEN/`.
+Copy backups preserve symlinks without following Wine's links into the host.
+Archive/reset retain the previous prefix; restore consumes the selected backup
+by renaming it into place and refuses to overwrite an existing prefix. Incomplete
+backups are retained for inspection but cannot be restored automatically. Stop all
+prefix users first; launcher locks cannot prevent an independently started Wine.
+No permanent prefix deletion or automatic backup pruning is implemented.
 
 `runtime test ID` runs Wine's built-in `cmd.exe /d /c ver` in an offline namespace
 and waits for that namespace's Wine server. This tests Windows command execution

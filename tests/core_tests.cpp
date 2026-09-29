@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QHostAddress>
 #include <QJsonDocument>
+#include <QLockFile>
 #include <QProcess>
 #include <QTemporaryDir>
 #include <QTextStream>
@@ -176,6 +177,56 @@ int main(int argc, char **argv) {
         check(invoke({"remove", "test-build"}).exitCode == 0 && QFile::exists(exe),
               "CLI unregister preserves content");
         check(invoke({"verify", "test-build"}).exitCode == 2, "CLI missing build fails");
+
+        auto recoveryPrefix = paths.prefix("recovery");
+        QDir().mkpath(recoveryPrefix);
+        rejects([&] { fol::backupPrefix(paths, "recovery"); }, "unowned backup rejected");
+        fol::writeFile(recoveryPrefix + "/.fol-prefix.json",
+                       QJsonDocument(QJsonObject{{"owner", "fortnite-on-linux"},
+                                                 {"id", "recovery"},
+                                                 {"path", recoveryPrefix}})
+                           .toJson());
+        fol::writeFile(recoveryPrefix + "/system.reg", "preserved registry");
+        QDir().mkpath(recoveryPrefix + "/drive_c/windows");
+        QFile::link(temp.path() + "/outside", recoveryPrefix + "/host-link");
+        {
+            QLockFile heldLock(recoveryPrefix + ".lock");
+            check(heldLock.tryLock(), "test prefix lock acquired");
+            rejects([&] { fol::backupPrefix(paths, "recovery"); }, "locked backup rejected");
+        }
+        auto backup = fol::backupPrefix(paths, "recovery");
+        auto token = backup["token"].toString();
+        check(backup["complete"].toBool() && QFile::exists(recoveryPrefix + "/system.reg"),
+              "copy backup preserves active prefix");
+        check(QFileInfo(backup["path"].toString() + "/prefix/host-link").isSymLink(),
+              "backup preserves rather than follows host symlink");
+        rejects([&] { fol::restorePrefix(paths, "recovery", token); },
+                "restore never overwrites existing prefix");
+        rejects([&] { fol::restorePrefix(paths, "recovery", "../escape"); },
+                "restore traversal rejected");
+        auto archived = fol::backupPrefix(paths, "recovery", true);
+        check(!QFileInfo::exists(recoveryPrefix) && archived["complete"].toBool(),
+              "archive moves prefix without deleting content");
+        check(fol::prefixBackups(paths, "recovery")["backups"].toArray().size() == 2,
+              "backups enumerated");
+        auto restored = fol::restorePrefix(paths, "recovery", token);
+        check(restored["initialized"].toBool() &&
+                  fol::readFile(recoveryPrefix + "/system.reg") == "preserved registry",
+              "backup restore preserves registry and ownership");
+        check(QFile::exists(archived["path"].toString() + "/prefix/system.reg"),
+              "restore does not consume other backups");
+        QFile::link(temp.path(), paths.data + "/prefix-backups/linked-storage");
+        rejects([&] { fol::prefixBackups(paths, "linked-storage"); },
+                "symlink backup storage rejected");
+        QProcess recoveryBusy;
+        auto recoveryEnv = QProcessEnvironment::systemEnvironment();
+        recoveryEnv.insert("WINEPREFIX", recoveryPrefix);
+        recoveryBusy.setProcessEnvironment(recoveryEnv);
+        recoveryBusy.start("/bin/sleep", {"30"});
+        check(recoveryBusy.waitForStarted(), "busy prefix fixture starts");
+        rejects([&] { fol::backupPrefix(paths, "recovery"); }, "active prefix backup rejected");
+        recoveryBusy.terminate();
+        check(recoveryBusy.waitForFinished(1000), "busy prefix fixture stops");
         auto malformed = paths.config + "/builds.toml";
         fol::writeFile(malformed, "builds = 12\n");
         rejects([&] { registry.list(); }, "malformed registry schema rejected");

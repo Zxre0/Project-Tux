@@ -203,3 +203,36 @@ installation attempt). No supplied game installation is accessible in the curren
 environment. Real startup diagnosis cannot continue until the installation becomes
 accessible; screenshots, simulated assets and runtime smoke tests cannot substitute
 for it. No background development process or game is left running.
+
+### Continued iteration: Git recovery and prefix lifecycle
+
+On resumption, HEAD `9be15ab` could not be read: six loose Git objects were empty.
+Cause is unknown. Remote HEAD still matched that commit. Preserved the entire
+local `.git` under the XDG cache `git-recovery-20260929/original-git`, cloned a
+read-only recovery mirror, verified it with `git fsck --full`, copied its pack,
+and quarantined only the six confirmed zero-byte objects. Working files and
+refs were not reset or overwritten. Local `git fsck --full` now passes and the
+worktree was clean before new edits. Corrupt originals remain recoverable in cache.
+
+Implemented prefix copy backup, listing, archive, reset and explicit restore in
+a separate core module. Operations reject unowned/active/locked prefixes and
+symlinked storage; copy preserves Wine host links without following them.
+Restore never overwrites an existing prefix; reset archives before initialization.
+Partial backups stay on disk with incomplete status. No permanent deletion occurs.
+Regression tests cover preservation, ownership, locking, symlinks, traversal,
+enumeration and active processes. Release CTest: 3/3, 66 assertions. Sanitized
+non-GPU suite: 61 assertions passed; earlier graphics-stack leak remains unresolved.
+
+Actual `runtime-smoke` prefix: copied backup, reset/reinitialized, passed offline
+Wine cmd test (`runtime-2ee2ef82-3407-4e66-9b73-5f582ef1dbc7`), archived replacement,
+restored original copy, passed again (`runtime-458f9ff1-12bc-4ac8-81a1-2c2ec2f537f0`).
+Both tests exited 0 with no remaining owned processes. Two archived prefixes and
+the consumed-copy metadata remain in XDG backup storage; nothing was deleted.
+
+Next: make Proton smoke testing reproducible. Inspected installed Experimental
+script setup, default-prefix creation, SteamPipe fixups, compatdata layout, logging
+and run/runinprefix paths. Script may mutate its runtime directory, so experiments
+use a project-cache copy, not Steam's installation. Initial isolated `run cmd.exe`
+exited 0 and loaded cmd.exe, but stdout was not captured; do not yet treat that as
+a proven command result. Investigating an explicit per-session execution receipt.
+No 12.61 assets or legitimate private gameplay integration have become available.
