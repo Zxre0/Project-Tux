@@ -1,6 +1,7 @@
 #include "fol/core.h"
 #include <QCoreApplication>
 #include <QHostAddress>
+#include <QJsonDocument>
 #include <QUdpSocket>
 #include <iostream>
 
@@ -9,7 +10,10 @@ int main(int argc, char **argv) {
     try {
         QUdpSocket port;
         const bool bound = port.bind(QHostAddress::LocalHost, 0, QUdpSocket::DontShareAddress);
-        fol::require(bound, "UDP test fixture could not bind: " + port.errorString());
+        if (!bound)
+            throw fol::Error("UDP test fixture could not bind: " + port.errorString() + "; " +
+                             QString::fromUtf8(QJsonDocument(fol::udpSocketCreationReport(false))
+                                                   .toJson(QJsonDocument::Compact)));
         auto occupied = fol::portReport("127.0.0.1", port.localPort());
         fol::require(!occupied["bind_available"].toBool(), "Occupied UDP port not detected");
         fol::require(occupied["upnp"] == "off" && occupied["firewall"] == "not tested",

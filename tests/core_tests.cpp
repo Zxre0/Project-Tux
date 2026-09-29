@@ -158,6 +158,14 @@ int main(int argc, char **argv) {
                 .isEmpty(),
             "mention of anti-cheat is not treated as module load");
         check(fol::quote("a'b") == "'a'\\''b'", "shell escaping");
+        for (bool ipv6 : {false, true}) {
+            auto capability = fol::udpSocketCreationReport(ipv6);
+            check(capability["created"].toBool() == (capability["errno"].toInt(-1) == 0),
+                  "socket capability distinguishes actual failure from success");
+            check(capability["family"] == (ipv6 ? "IPv6" : "IPv4") &&
+                      capability["operation"] == "socket",
+                  "socket capability reports exact operation and family");
+        }
         check(fol::classifyFailure("err:module:import_dll missing") == "missing-library",
               "DLL failure classification");
         check(fol::classifyFailure("nothing informative") == "unknown; inspect logs",

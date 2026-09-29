@@ -13,9 +13,12 @@
 `src/fortnite.cpp` owns PE inspection, metadata detection and content structure;
 `core.cpp` owns XDG paths, atomic TOML registration and embedded compatibility profiles;
 `runtime.cpp` owns Wine discovery and dedicated prefixes; `platform_linux.cpp`
-owns /proc inspection and pidfd signalling. `diagnostics.cpp` owns Vulkan and
+owns /proc inspection, pidfd signalling and native socket capability probes. `diagnostics.cpp` owns Vulkan and
 network checks. `launcher.cpp` orchestrates session planning and monitoring.
 `reboot.cpp` validates supplied modules; it does not inject or patch anything.
+`manifest.cpp` independently reads a bounded legacy Epic manifest subset and
+optionally verifies existing local files. It never executes manifest commands,
+downloads files or treats a local manifest as authenticated provenance.
 `prefix_backup.cpp` owns recoverable Wine-prefix snapshots and restoration.
 `proton.cpp` owns runtime import and isolated command smoke tests. Proton data is
 separate from Wine prefixes; neither manager silently adopts the other's storage.

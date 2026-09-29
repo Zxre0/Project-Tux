@@ -10,7 +10,7 @@ established. Native CLI, synthetic tests, diagnostics
 and Wine/Proton command execution work within the measured limits below; no game
 startup or gameplay is claimed. Latest pushed code checkpoint: `1e6ba64`.
 Last unrestricted release tests passed 109 assertions; sanitized non-GPU tests
-passed 100. Socket-independent tests currently pass 103 core and 32 manifest
+passed 100. Socket-independent tests currently pass 107 core and 32 manifest
 assertions, including ASan/UBSan with leak detection explicitly disabled. The
 separate network test fails UDP bind; do not report the full suite as passing.
 Graphics-enabled LeakSanitizer remains unresolved, and sandbox leak checks fail.
@@ -458,3 +458,28 @@ assertions, leak detection explicitly disabled for the sandbox run. The network
 target remains failing; graphics-dependent supervisor checks remain skipped.
 Next: improve native network diagnostics for socket-creation denial, since Qt
 currently reports only `Unknown error` for this environment's EPERM restriction.
+
+### Actionable socket-creation diagnostics
+
+Graphics classification committed as `b61e0c0`. Added a Linux-platform UDP socket
+creation probe after failed Qt binds; it records the actual errno and operation
+without claiming successful creation means successful binding. It closes any
+created descriptor and sends no traffic. `network 127.0.0.1 7777` and
+`network ::1 7777` now both report creation denied with **errno 1 / Operation not
+permitted**, preserving Qt's bind error and distinguishing it from an occupied
+port or remote firewall failure. No permissions, firewall or router changes.
+
+Four capability-report assertions bring the portable core count to 107; all 32
+manifest assertions continue to pass. Release full CTest remains 4/5, with the
+network failure now showing concrete native evidence. ASan/UBSan partial suite
+passes with the previously documented leak-detection restriction. Formatting and
+diff checks pass. This improves the blocker report, not game compatibility.
+
+Remaining startup experiment: targeted msgbox/debugstr trace of ordinary 12.50
+Shipping, unchanged `-log -d3d11`, isolated network, bounded supervisor and no
+anti-cheat bootstrap. Current sandbox lacks GPU nodes and denies socket creation;
+do not disable either safety preflight or isolation. Local manifest verification
+has exhausted the supplied installation's ordinary integrity question. Next
+safe work is a focused audit of preflight/process-monitor regressions and parser
+bounds; another identical game launch in this unchanged environment adds no
+startup evidence. Push remains subject to GitHub DNS availability.

@@ -98,13 +98,20 @@ QJsonObject portReport(const QString &address, quint16 port) {
             "Bind probe requires a loopback or local interface address");
     QUdpSocket socket;
     bool ok = socket.bind(host, port, QUdpSocket::DontShareAddress);
-    return {{"address", address},
-            {"port", port},
-            {"protocol", "UDP"},
-            {"bind_available", ok},
-            {"error", ok ? "" : socket.errorString()},
-            {"firewall", "not tested"},
-            {"upnp", "off"}};
+    QJsonObject result{{"address", address},
+                       {"port", port},
+                       {"protocol", "UDP"},
+                       {"bind_available", ok},
+                       {"error", ok ? "" : socket.errorString()},
+                       {"firewall", "not tested"},
+                       {"upnp", "off"}};
+    // Qt can report only "Unknown error" when seccomp denies socket creation.
+    // Keep its bind error, and collect a separate, explicitly labelled native
+    // creation probe. A successful creation probe does not prove a usable bind.
+    if (!ok)
+        result["socket_creation_probe"] =
+            udpSocketCreationReport(host.protocol() == QAbstractSocket::IPv6Protocol);
+    return result;
 }
 QJsonObject systemReport() {
     QJsonObject display;

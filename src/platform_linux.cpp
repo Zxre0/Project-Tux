@@ -3,10 +3,37 @@
 #include <QFile>
 #include <QRegularExpression>
 #include <QSet>
+#include <cerrno>
+#include <cstring>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
 namespace fol {
+QJsonObject udpSocketCreationReport(bool ipv6) {
+    const int descriptor =
+        ::socket(ipv6 ? AF_INET6 : AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_UDP);
+    const int failure = descriptor < 0 ? errno : 0;
+    QJsonObject result{{"operation", "socket"},
+                       {"family", ipv6 ? "IPv6" : "IPv4"},
+                       {"created", descriptor >= 0},
+                       {"errno", failure},
+                       {"error", failure ? QString::fromLocal8Bit(std::strerror(failure)) : ""}};
+    if (descriptor >= 0) {
+        if (::close(descriptor) != 0)
+            result["close_error"] = QString::fromLocal8Bit(std::strerror(errno));
+    } else if (failure == EPERM || failure == EACCES) {
+        result["hint"] = "UDP socket creation was denied before bind. Check execution "
+                         "sandbox/container policy; this is not evidence of an occupied port "
+                         "or remote firewall failure.";
+    } else if (failure == EMFILE || failure == ENFILE) {
+        result["hint"] = "File descriptor limit prevents UDP socket creation.";
+    } else if (failure == EAFNOSUPPORT || failure == EPROTONOSUPPORT) {
+        result["hint"] = "Requested address family or UDP protocol is unavailable.";
+    }
+    return result;
+}
 bool isEacName(const QString &name) {
     QString base = name;
     base.replace('\\', '/');

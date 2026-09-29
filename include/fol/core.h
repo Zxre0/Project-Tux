@@ -78,6 +78,7 @@ QJsonObject testProton(const Paths &, const QString &id, const QString &runtimeI
 QJsonObject systemReport();
 QJsonObject vulkanReport();
 QJsonObject portReport(const QString &address, quint16 port);
+QJsonObject udpSocketCreationReport(bool ipv6);
 QJsonObject moduleReport(const QString &path, const QString &manifest);
 struct Process {
     qint64 pid, parent;
