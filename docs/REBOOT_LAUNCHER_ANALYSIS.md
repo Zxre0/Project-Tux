@@ -127,8 +127,40 @@ allocator dependence, pointer discovery and unbounded startup waiting must not b
 blindly reused. Native Linux's ABI is not the Windows x64 C++ ABI. The upstream
 project uses MSVC v143/Windows SDK, not a Linux ELF target. Local clang-cl/lld-link
 and winegcc are present, but a MinGW/Windows SDK header-library set was not found
-in the checked standard paths. No module build or injection has been attempted.
+in the checked standard paths. Subsequent work builds an independent freestanding
+PE probe with Clang and Wine's packaged Windows headers/kernel32 library; no
+routing-module build or injection has been attempted.
 
 The license is MIT-like **with an additional Project Era usage restriction**, not
 unmodified MIT. No source was copied. Preserve the complete notice and restriction
 if any reuse is subsequently chosen; do not label it unrestricted MIT.
+
+## Supplied 12.50 runtime interface observations
+
+The original read-only helper first identified the ProcessRequest marker candidate
+in session 2026-09-29_19-39-02_27490309. Bounded follow-ups establish why the first
+pointer in a contiguous run must not be assumed to be an interface start. Session
+2026-09-29_19-44-51_59da246c found a 65-entry code-pointer run beginning at
+RVA107847440, with the marker function at run index27. Code references target
+indices0,5,41,51,58, consistent with multiple adjacent tables. Run entries0 and5
+have deleting-destructor behavior in subsequent code observations; invoking one
+as GetURL would be unsafe.
+
+The explicitly requested bounded code observations in
+2026-09-29_19-46-43_f25f2108 support a separate logical interface beginning at run
+index10 (RVA107847520): its first entry copies the string at object offset104 into
+the caller's result, and the entry ten slots later checks request state then assigns
+to offset104. The intervening run index17 has deleting-destructor behavior, while
+run index18 copies the field at offset120. Thus the getter/setter index hypothesis
+is consistent with this particular executable; this is not proof that every
+surrounding method is identified, that an actual request object's vptr uses this
+base, or that the allocator/calling contract has been exercised successfully.
+The marker function would be logical slot17 under this hypothesis.
+
+Code windows are local diagnostic artifacts only and are not committed or included
+in launcher summary JSON. Disassembly past short functions includes padding or
+unrelated instructions and sometimes ends mid-instruction; those tails are not ABI
+evidence. No URL object, authentication payload, certificate state or token was
+read. No game function was called or modified. The next integration test must
+validate actual request identity and ownership without adopting the complete
+upstream module's unrelated patches.

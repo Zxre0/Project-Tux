@@ -30,11 +30,18 @@ validation, change exit behavior, alter game files or contact a service.
 
 It searches a bounded readable in-memory image for the known HTTP stat marker,
 executable RIP-relative references, exception-directory function bounds and pointer
-references. It reports RVAs/counts only, not raw memory, request data or credentials.
+references. By default it reports RVAs/counts only, not raw memory, request data or credentials.
 Unreadable/guard regions are skipped. Missing or ambiguous evidence is not a license
 to guess a hook. Reported pointers do not by themselves prove a vtable or callable
 Unreal ABI. Runtime function tables and allocator/virtual-method semantics need
 separate validation before any future adapter can call game methods.
+
+For manual ABI inspection only, `FOL_HTTP_PROBE_CODE=1` records a bounded 128-byte
+executable-code window at each observed table function (at most 129 entries).
+This explicit diagnostic is recorded in the launch command and never captures
+request objects, heap data, credentials or a full image. Code observations stay in
+the owner-only local `http-probe.jsonl`; do not commit them or distribute game code.
+They are observations for disassembly, not validated signatures or method names.
 
 The optional launcher path is gated by the embedded build profile:
 

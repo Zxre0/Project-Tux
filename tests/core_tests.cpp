@@ -69,6 +69,31 @@ int main(int argc, char **argv) {
         const auto noCandidate = fol::analyzeHttpProbe(absent, "test");
         check(noCandidate["complete"].toBool() && !noCandidate["candidate_observed"].toBool(),
               "completed discovery can find no candidate");
+        auto tableReceipt = receipt;
+        const QByteArray table =
+            "FOL_HTTP_PROBE {\"event\":\"pointer_table\",\"reference_rva\":800,"
+            "\"start_rva\":800,\"candidate_slot\":0,\"scan_limit_reached\":false,"
+            "\"function_rvas\":[4096,4144],\"table_address_xrefs\":[]}\n";
+        tableReceipt.insert(tableReceipt.indexOf("FOL_HTTP_PROBE {\"event\":\"interface"), table);
+        check(fol::analyzeHttpProbe(tableReceipt, "test")["pointer_tables"].toArray().size() == 1,
+              "bounded pointer table evidence");
+        tableReceipt.replace("\"candidate_slot\":0", "\"candidate_slot\":2");
+        check(fol::analyzeHttpProbe(tableReceipt, "test").contains("error"),
+              "pointer table rejects out of bounds candidate slot");
+        auto codeReceipt = receipt;
+        QByteArray codeRecord =
+            "FOL_HTTP_PROBE {\"event\":\"code_observation\",\"function_rva\":4096,"
+            "\"table_slot\":0,\"bytes\":\"" +
+            QByteArray(256, 'a') + "\"}\n";
+        codeReceipt.insert(codeReceipt.indexOf("FOL_HTTP_PROBE {\"event\":\"interface"),
+                           codeRecord);
+        const auto codeReport = fol::analyzeHttpProbe(codeReceipt, "test");
+        check(codeReport["complete"].toBool() && codeReport["code_observations"].toInt() == 1 &&
+                  !QJsonDocument(codeReport).toJson().contains(QByteArray(256, 'a')),
+              "code observations counted without propagating code into launch summary");
+        codeReceipt.replace(QByteArray(256, 'a'), "invalid");
+        check(fol::analyzeHttpProbe(codeReceipt, "test").contains("error"),
+              "malformed code sample rejected");
         auto root = temp.path() + "/game with spaces";
         auto profile = fol::Profile::load();
         check(profile.version == "12.61", "12.61 remains default profile");

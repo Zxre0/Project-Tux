@@ -14,6 +14,7 @@ void *memset(void *destination, int value, SIZE_T size) {
 }
 
 static HANDLE report = INVALID_HANDLE_VALUE;
+static BOOL inspect_code;
 static void output(const char *text) {
     static char line[4096];
     static DWORD size;
@@ -115,6 +116,101 @@ static ULONG_PTR image_base(DWORD pid, const wchar_t *name) {
 static BOOL in_range(DWORD offset, SIZE_T size, DWORD image_size) {
     return offset <= image_size && size <= image_size - offset;
 }
+static BOOL valid_span(const BYTE *valid, DWORD offset, SIZE_T count, DWORD size) {
+    if (!in_range(offset, count, size))
+        return FALSE;
+    for (SIZE_T i = 0; i < count; ++i)
+        if (!valid[offset + i])
+            return FALSE;
+    return TRUE;
+}
+static BOOL code_pointer(HANDLE child, ULONG_PTR base, const BYTE *image, const BYTE *valid,
+                         DWORD size, DWORD slot) {
+    if (!valid_span(valid, slot, sizeof(ULONG_PTR), size))
+        return FALSE;
+    ULONG_PTR target = *(const ULONG_PTR *)(image + slot);
+    if (target < base || target - base >= size)
+        return FALSE;
+    MEMORY_BASIC_INFORMATION page;
+    if (!VirtualQueryEx(child, (void *)target, &page, sizeof(page)) || page.State != MEM_COMMIT ||
+        !readable(page.Protect))
+        return FALSE;
+    DWORD protection = page.Protect & 0xff;
+    return protection == PAGE_EXECUTE_READ || protection == PAGE_EXECUTE_READWRITE ||
+           protection == PAGE_EXECUTE_WRITECOPY;
+}
+static void pointer_table(HANDLE child, ULONG_PTR base, const BYTE *image, const BYTE *valid,
+                          DWORD size, DWORD reference) {
+    DWORD begin = reference, end = reference + 8;
+    unsigned before = 0, after = 0;
+    while (begin >= 8 && before < 64 && code_pointer(child, base, image, valid, size, begin - 8)) {
+        begin -= 8;
+        ++before;
+    }
+    while (after < 64 && code_pointer(child, base, image, valid, size, end)) {
+        end += 8;
+        ++after;
+    }
+    /* A contiguous code-pointer table is not by itself a C++ vtable. Report the
+     * observed bounds and executable references; never invoke any candidate. */
+    output("FOL_HTTP_PROBE {\"event\":\"pointer_table\",\"reference_rva\":");
+    number(reference);
+    output(",\"start_rva\":");
+    number(begin);
+    output(",\"candidate_slot\":");
+    number(before);
+    output(",\"scan_limit_reached\":");
+    output(before == 64 || after == 64 ? "true" : "false");
+    output(",\"function_rvas\":[");
+    for (DWORD slot = begin; slot < end; slot += 8) {
+        if (slot != begin)
+            output(",");
+        number(*(const ULONG_PTR *)(image + slot) - base);
+    }
+    output("],\"table_address_xrefs\":[");
+    unsigned refs = 0;
+    for (DWORD i = 0; i + 7 <= size && refs < 64; ++i) {
+        if ((image[i] != 0x48 && image[i] != 0x4c) || image[i + 1] != 0x8d ||
+            (image[i + 2] & 0xc7) != 0x05 || !valid_span(valid, i, 7, size))
+            continue;
+        LONG displacement;
+        for (unsigned j = 0; j < 4; ++j)
+            ((BYTE *)&displacement)[j] = image[i + 3 + j];
+        LONGLONG target = (LONGLONG)i + 7 + displacement;
+        if (target < begin || target >= end || (target - begin) % 8)
+            continue;
+        MEMORY_BASIC_INFORMATION page;
+        if (!VirtualQueryEx(child, (void *)(base + i), &page, sizeof(page)) ||
+            !(page.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)))
+            continue;
+        if (refs++)
+            output(",");
+        output("{\"instruction_rva\":");
+        number(i);
+        output(",\"table_slot\":");
+        number((target - begin) / 8);
+        output("}");
+    }
+    output("]}\n");
+    if (inspect_code) {
+        for (DWORD slot = begin; slot < end; slot += 8) {
+            DWORD target = (DWORD)(*(const ULONG_PTR *)(image + slot) - base);
+            if (!valid_span(valid, target, 128, size))
+                continue;
+            output("FOL_HTTP_PROBE {\"event\":\"code_observation\",\"function_rva\":");
+            number(target);
+            output(",\"table_slot\":");
+            number((slot - begin) / 8);
+            output(",\"bytes\":\"");
+            for (DWORD i = 0; i < 128; ++i) {
+                static const char hex[] = "0123456789abcdef";
+                char byte[3] = {hex[image[target + i] >> 4], hex[image[target + i] & 15], 0};
+                output(byte);
+            }
+            output("\"}\n");
+        }
+    }
+}
 static BOOL scan(HANDLE child, ULONG_PTR base) {
     IMAGE_DOS_HEADER dos;
     IMAGE_NT_HEADERS64 nt;
@@ -180,7 +276,7 @@ static BOOL scan(HANDLE child, ULONG_PTR base) {
         for (DWORD i = 0; i + 7 <= size; ++i) {
             /* x64 LEA reg,[RIP+disp32]; only an observation, not a signature
              * authorizing a hook. The exception directory supplies function bounds. */
-            if (!valid[i] || !valid[i + 6] || (image[i] != 0x48 && image[i] != 0x4c) ||
+            if (!valid_span(valid, i, 7, size) || (image[i] != 0x48 && image[i] != 0x4c) ||
                 image[i + 1] != 0x8d || (image[i + 2] & 0xc7) != 0x05)
                 continue;
             LONG displacement;
@@ -220,7 +316,8 @@ static BOOL scan(HANDLE child, ULONG_PTR base) {
             unsigned pointers = 0;
             if (begin) {
                 for (DWORD j = 0; j + sizeof(ULONG_PTR) <= size; j += sizeof(ULONG_PTR)) {
-                    if (valid[j] && valid[j + 7] && *(ULONG_PTR *)(image + j) == base + begin) {
+                    if (valid_span(valid, j, 8, size) &&
+                        *(ULONG_PTR *)(image + j) == base + begin) {
                         if (pointers < 32) {
                             if (pointers)
                                 output(",");
@@ -233,6 +330,15 @@ static BOOL scan(HANDLE child, ULONG_PTR base) {
             output("],\"pointer_reference_count\":");
             number(pointers);
             output("}\n");
+            if (begin && pointers == 1) {
+                for (DWORD j = 0; j + sizeof(ULONG_PTR) <= size; j += sizeof(ULONG_PTR)) {
+                    if (valid_span(valid, j, 8, size) &&
+                        *(ULONG_PTR *)(image + j) == base + begin) {
+                        pointer_table(child, base, image, valid, size, j);
+                        break;
+                    }
+                }
+            }
             found |= begin != 0 && pointers != 0;
             if (xrefs >= 32)
                 break;
@@ -261,6 +367,9 @@ void probe_entry(void) {
         session_ascii[i] = (char)c;
     }
     session_ascii[session_size] = 0;
+    wchar_t code_option[2];
+    inspect_code = GetEnvironmentVariableW(L"FOL_HTTP_PROBE_CODE", code_option, 2) == 1 &&
+                   code_option[0] == L'1';
     /* CREATE_NEW prevents overwriting an earlier report. No dependence on the
      * console handles provided (or omitted) by Proton's steam.exe wrapper. */
     report = CreateFileW(report_path, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW,

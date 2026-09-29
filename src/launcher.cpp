@@ -138,6 +138,12 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             result["runtime_mode"] = "Proton script on host; no Steam Linux Runtime container";
         }
         result["prefix"] = prefix;
+        if (environment.contains("FOL_HTTP_PROBE_CODE")) {
+            require(!helper.isEmpty() && environment.value("FOL_HTTP_PROBE_CODE") == "1",
+                    "FOL_HTTP_PROBE_CODE=1 requires the isolated HTTP probe helper");
+            overrides["FOL_HTTP_PROBE_CODE"] = "1";
+            result["http_code_observation_requested"] = true;
+        }
         auto unshare = QStandardPaths::findExecutable("unshare");
         require(!unshare.isEmpty(), "util-linux unshare is required for isolated startup probes");
         auto probe = run(unshare, {"--user", "--map-root-user", "--net", "true"});

@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QStandardPaths>
 #include <QTextStream>
@@ -48,6 +49,9 @@ int main(int argc, char **argv) {
         env.insert("FOL_HTTP_PROBE_LOG", reportPath);
         env.insert("WINEDEBUG", "+timestamp,+pid,+seh,+loaddll");
         env.insert("WINEDLLOVERRIDES", "winemenubuilder.exe=d");
+        const bool codeRequested = env.contains("FOL_HTTP_PROBE_CODE");
+        fol::require(!codeRequested || env.value("FOL_HTTP_PROBE_CODE") == "1",
+                     "Only FOL_HTTP_PROBE_CODE=1 is supported");
         const QStringList args{"--user", "--map-root-user", "--net", "--", fol::wineExecutable(),
                                helper,   windowsFixture};
         QStringList quoted;
@@ -55,8 +59,8 @@ int main(int argc, char **argv) {
             quoted.append(fol::quote(argument));
         fol::writeFile(directory + "/launch-command.txt",
                        ("env WINEPREFIX=" + fol::quote(env.value("WINEPREFIX")) +
-                        " FOL_SESSION_ID=" + fol::quote(session) +
-                        " FOL_HTTP_PROBE_LOG=" + fol::quote(reportPath) +
+                        " FOL_SESSION_ID=" + fol::quote(session) + " FOL_HTTP_PROBE_LOG=" +
+                        fol::quote(reportPath) + (codeRequested ? " FOL_HTTP_PROBE_CODE=1" : "") +
                         " WINEDEBUG=" + fol::quote(env.value("WINEDEBUG")) +
                         " WINEDLLOVERRIDES=" + fol::quote(env.value("WINEDLLOVERRIDES")) + " " +
                         fol::quote(unshare) + " " + quoted.join(' ') + "\n")
@@ -66,11 +70,16 @@ int main(int argc, char **argv) {
         QFile receipt(directory + "/http-probe.jsonl");
         const auto evidence = fol::analyzeHttpProbe(
             receipt.open(QIODevice::ReadOnly) ? receipt.read(65537) : QByteArray{}, session);
+        const auto tables = evidence["pointer_tables"].toArray();
+        const bool fixtureTable = tables.size() == 1 &&
+                                  tables[0].toObject()["candidate_slot"].toInt(-1) == 0 &&
+                                  tables[0].toObject()["function_rvas"].toArray().size() == 2 &&
+                                  !tables[0].toObject()["scan_limit_reached"].toBool(true);
         const bool passed = outcome.started && outcome.exitCode == 0 && !outcome.remaining &&
                             !outcome.eac && !outcome.battleye && outcome.moduleEvidence.isEmpty() &&
                             outcome.error.isEmpty() && !outcome.timedOut &&
                             evidence["complete"].toBool() &&
-                            evidence["candidate_observed"].toBool();
+                            evidence["candidate_observed"].toBool() && fixtureTable;
         QJsonObject result{{"session_id", session},
                            {"logs", directory},
                            {"passed", passed},

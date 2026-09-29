@@ -1244,3 +1244,45 @@ Next: validate whether the pointer belongs to the expected request interface and
 establish the 12.50 method/string ownership contract before a local-only adapter.
 Static bytes at the runtime function RVA do not decode as that runtime function;
 do not infer ABI from those on-disk bytes or hardcode nearby-version hook guesses.
+
+### Pointer-table boundaries and URL-method hypothesis (2026-09-29)
+
+Committed/pushed d5c0f04, and GitHub Linux build36620990205 passed. Continued the
+same login goal with read-only pointer-table observations rather than adopting
+nearby-version offsets. The helper now checks every byte in observed spans and
+bounds table scans to64 slots on either side. Synthetic fixture now has two
+distinct functions; manual tests verify exactly two table entries and index0 for
+its request function (http-fixture-70d2c185-d7d6-4870-b2c2-5fb478b56e52 and
+http-fixture-183e3e0d-8b0b-4c89-b4cb-b141afd16650, both passed/cleaned up).
+
+Real probe 2026-09-29_19-43-42_ef7be1bd found65 contiguous function pointers at
+RVA107847440 with the marker function at index27. 192 snapshots/max15/no PID0/1,
+no observed anti-cheat, cleanup complete. Shipping SHA256 remains
+34a10af4ddff20b75d889e269a66644d570c3000f13548a5799d3a7ef690190c.
+Follow-up 2026-09-29_19-44-51_59da246c additionally checked references to interior
+table addresses, finding indices0,5,41,51,58. A contiguous run is not a vtable
+boundary, so none of those findings authorize invoking arbitrary entries.
+
+Added explicit FOL_HTTP_PROBE_CODE=1 diagnostic, limited to128 bytes at each
+observed executable function (max129); default does not record code. It is logged
+in the launch command and never reads request objects or credentials. Code remains
+in owner-only local session artifacts, excluded from summary JSON and Git.
+Asset-free fixture http-fixture-298766b0-1c9d-4892-9bb7-0fcf056f8382 reported two
+code observations and passed. Real session 2026-09-29_19-46-43_f25f2108 added65
+bounded observations with complete receipt and scoped cleanup. Inspected these
+with local llvm-mc using the x86_64 Windows target; truncated/padding disassembly
+warnings were not treated as valid method instructions.
+
+Method evidence now supports a logical interface beginning at run index10:
+getter copies object offset104, setter ten logical slots later assigns offset104
+after a request-state check, and another getter copies offset120. The marker
+function would be logical slot17. Full reasoning/limitations are in
+REBOOT_LAUNCHER_ANALYSIS.md. No function invocation, heap/request scan, remote write,
+module injection, routing change or backend service was attempted. Current next
+task is a controlled request-interface validation and local-only routing design,
+followed by actual backend requests; login remains unachieved.
+
+Final release regression run passes 8/8 CTest targets in 25.17 seconds (201 core
+checks), including bounded table/code receipt validation and non-propagation of
+code samples into the launcher summary. The real code-observation helper hashes
+to 99f6a063221e4302abcc8d7a15bb716d5809a65a5971df6461fbfd44ae5bd60f.

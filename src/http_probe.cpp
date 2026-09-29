@@ -1,5 +1,7 @@
 #include "fol/core.h"
+#include <QJsonArray>
 #include <QJsonDocument>
+#include <QRegularExpression>
 
 namespace fol {
 QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
@@ -41,10 +43,33 @@ QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
                         "Invalid HTTP probe completion record");
                 complete = true;
                 result["reported_helper_exit_code"] = record["value"];
+            } else if (event == "pointer_table") {
+                const auto functions = record["function_rvas"].toArray();
+                const auto slot = record["candidate_slot"].toInt(-1);
+                require(child && !candidate && !functions.isEmpty() && functions.size() <= 129 &&
+                            slot >= 0 && slot < functions.size() &&
+                            record["start_rva"].toInteger(-1) > 0 &&
+                            record["reference_rva"].toInteger(-1) ==
+                                record["start_rva"].toInteger() + slot * 8 &&
+                            record["scan_limit_reached"].isBool(),
+                        "Invalid HTTP probe pointer-table record");
+                auto tables = result["pointer_tables"].toArray();
+                tables.append(record);
+                result["pointer_tables"] = tables;
+            } else if (event == "code_observation") {
+                static const QRegularExpression hex("\\A[0-9a-f]{256}\\z");
+                require(child && !candidate && record["function_rva"].toInteger() > 0 &&
+                            record["table_slot"].toInt(-1) >= 0 &&
+                            record["table_slot"].toInt(-1) < 129 &&
+                            hex.match(record["bytes"].toString()).hasMatch(),
+                        "Invalid bounded code observation");
+                // Keep executable-byte samples only in the explicit local probe
+                // file; do not propagate them into the general launch report.
+                result["code_observations"] = result["code_observations"].toInt() + 1;
             } else {
                 require(child && !candidate &&
                             (event == "marker_matches" || event == "xref_matches_up_to_limit" ||
-                             record.contains("xref_rva")),
+                             event == "candidate"),
                         "HTTP probe failed or emitted an unexpected record");
             }
         }
