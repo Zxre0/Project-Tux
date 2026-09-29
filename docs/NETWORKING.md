@@ -28,7 +28,15 @@ argument but still selected its normal production backend with an empty override
 requests remained blocked by isolation. Thus `--local-backend-probe` is a negative
 discovery experiment, not a working local redirect or host-server connection.
 It requires both --offline-probe and --launcher-context-probe and is not a default.
-No HTTP backend, XMPP service or game server was started for this test.
+The current profile now tests the separate `-epicapp=Localhost` selector based on
+the binary's explicit epicapp/backend diagnostics; the earlier MCPCONFIG result
+must not be attributed to this new command. No HTTP backend, XMPP service or game
+server was started for the MCPCONFIG test.
+
+Epicapp follow-up `2026-09-29_18-53-34_b7a20b71` recognizes Localhost but logs a
+missing Fortnite MCPConfig for service fortnite and host `<unconfigured>`, then
+rejects the backend. A listener alone cannot fix an absent game-side service
+configuration. No working HTTP route, authentication or private join is implied.
 
 Future saved server records and browser adapters should support hostnames, IPv4,
 IPv6 and user-managed tunnels. They must remain optional for local development.

@@ -1075,3 +1075,24 @@ Next: determine the actual supported backend configuration contract, if present,
 or a separately reviewed local-only adapter; preserve isolation and the known
 sign-in baseline. Do not start the upstream backend unchanged, assume XMPP ports
 agree, disable certificate checking, or claim multiplayer from a sign-in screen.
+
+### Built-in Localhost selector: missing service configuration (2026-09-29)
+
+Confirmed b93a6af pushed to main and asset-free CI passed (run 36614815852).
+Read-only binary strings explicitly identify epicapp override diagnostics and a
+Localhost backend entry. Replaced only the opt-in local-backend experiment's
+profile argument with -epicapp=Localhost; baseline/context-only behavior stays
+unchanged. All seven release CTest targets pass (25.16 seconds).
+
+Real isolated session 2026-09-29_18-53-34_b7a20b71 recognizes the new selector but
+logs missing Fortnite MCPConfig Localhost for service fortnite, host unconfigured,
+environment GameDev, override Localhost and invalid-backend rejection. Unlike the
+MCPCONFIG experiment, this does alter selection; it still cannot route to a
+private backend. No service/authentication/certificate changes were made. The
+supervisor ended the runtime at 35 seconds and completed cleanup, with no observed
+EAC/BattlEye. Automatic log capture preserved 141314 bytes. The original
+context-only Proton sign-in baseline remains available without this opt-in.
+
+Next: surface these exact engine/backend/startup observations in structured
+diagnostics, with evidence locations and no false gameplay or crash claim. A
+game-side private-service configuration contract remains unresolved.

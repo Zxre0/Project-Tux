@@ -273,9 +273,12 @@ log preservation/controlled-stop reporting, not additional gameplay behavior.
 
 The supplied binary contains MCPCONFIG=, McpConfigOverride and backend-selection
 diagnostics. These strings suggested testing the built-in option, not assuming
-that it is a working private-backend API. An explicit --local-backend-probe adds
-only `-MCPCONFIG=localhost` to the context probe. It is restricted to this profile
-and requires both context and network-isolation opt-ins. No backend is started.
+that it is a working private-backend API. The first --local-backend-probe revision
+added only `-MCPCONFIG=localhost` to the context probe. It is restricted to this
+profile and requires both context and network-isolation opt-ins. No backend is
+started. The current experiment instead uses `-epicapp=Localhost`: the binary
+explicitly contains an epicapp-override diagnostic and a Localhost entry next to
+its named backends. These are distinct experiments, not equivalent spellings.
 
 Session `2026-09-29_18-46-46_f124f659`, Experimental host script, 35 seconds:
 the engine's filtered command line includes the new argument, but its backend
@@ -289,3 +292,18 @@ Automatic capture saved 287026 bytes of game log. The supervisor requested the
 timeout stop, recorded 598 process samples (max 13, no PID 0/1), observed no
 EAC/BattlEye process/module and left no owned processes. This is a negative routing
 finding, not a new startup failure, login success or host compatibility result.
+
+Follow-up session `2026-09-29_18-53-34_b7a20b71` tests the distinct
+`-epicapp=Localhost` selector with the same Experimental runtime and 35-second
+bound. It is recognized: the game selects backend Localhost, environment GameDev,
+override Localhost, but reports host `<unconfigured>`, a missing Fortnite MCPConfig
+for service fortnite, then `Invalid backend requested! Exiting.` It does not reach
+the prior manual-sign-in log marker. Thus this build recognizes the selector but
+does not supply the corresponding usable service configuration. No backend was
+started and no authentication or certificate behavior was modified. This does not
+prove that a supported configuration mechanism cannot exist; it rules out this
+argument alone as a functional private path.
+
+Automatic capture preserved 141314 bytes. The runtime remained until the bounded
+supervisor stop (not proof that the game exited itself despite its log message).
+No EAC/BattlEye process/module was observed and owned-process cleanup completed.

@@ -622,7 +622,7 @@ int main(int argc, char **argv) {
                 check(backendPlan["status"] == "planned; not executed" &&
                           backendPlan["local_backend_probe"].toBool() &&
                           backendPlan["command"].toString().contains(
-                              "'-epicportal' '-MCPCONFIG=localhost'") &&
+                              "'-epicportal' '-epicapp=Localhost'") &&
                           backendPlan["command"].toString().contains("'--net'"),
                       "local backend selection is explicit and retains network isolation");
             }

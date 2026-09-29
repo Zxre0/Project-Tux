@@ -6,7 +6,7 @@ arguments = ["-log", "-d3d11"]
 # Opt-in isolated diagnostic only; never part of the baseline or authorization evidence.
 launcher_context_arguments = ["-epicportal"]
 # Discovery probe, not a validated backend interface or authentication implementation.
-local_backend_arguments = ["-MCPCONFIG=localhost"]
+local_backend_arguments = ["-epicapp=Localhost"]
 launch_profile = "private-development"
 eac_policy = "must-not-start"
 linux_status = "diagnostic-only-unverified"
