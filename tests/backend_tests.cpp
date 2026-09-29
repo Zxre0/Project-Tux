@@ -104,6 +104,55 @@ int main(int argc, char **argv) {
             1002);
         check(external.status == 200 && external.array && external.array->isEmpty(),
               "local account has no external auth bindings");
+        const auto platformPath =
+            "/fortnite/api/game/v2/tryPlayOnPlatform/account/" + identity.accountId;
+        check(
+            service.handle("POST", platformPath, {}, {}, 1002, QUrlQuery("platform=WIN")).status ==
+                401,
+            "local platform policy requires authentication");
+        const auto platform =
+            service.handle("POST", platformPath, auth, {}, 1002, QUrlQuery("platform=PC"));
+        check(platform.status == 200 && platform.boolean && *platform.boolean,
+              "local player may use Windows components on the private service");
+        const auto lowerPlatform =
+            service.handle("POST", platformPath, auth, {}, 1002, QUrlQuery("platform=win"));
+        check(lowerPlatform.status == 200 && lowerPlatform.boolean && !*lowerPlatform.boolean,
+              "unobserved Windows label does not silently grant platform access");
+        const auto epicPcPlatform =
+            service.handle("POST", platformPath, auth, {}, 1002, QUrlQuery("platform=EpicPC"));
+        check(epicPcPlatform.status == 200 && epicPcPlatform.boolean && !*epicPcPlatform.boolean &&
+                  epicPcPlatform.event == "local-platform-denied" &&
+                  epicPcPlatform.platformDiagnostic == "EpicPC",
+              "profile metadata label is not confused with the observed platform label");
+        const auto longTag = service.handle("POST", platformPath, auth, {}, 1002,
+                                            QUrlQuery("platform=0123456789abcdef0123456789abcdef"));
+        const auto invalidTag = service.handle("POST", platformPath, auth, {}, 1002,
+                                               QUrlQuery("platform=user%40localhost"));
+        check(longTag.platformDiagnostic.isEmpty() && invalidTag.platformDiagnostic.isEmpty(),
+              "platform diagnostics exclude credential-shaped and arbitrary query values");
+        const auto unsupported =
+            service.handle("POST", platformPath, auth, {}, 1002, QUrlQuery("platform=unknown"));
+        check(unsupported.status == 200 && unsupported.boolean && !*unsupported.boolean,
+              "unknown platforms are not granted private access");
+        check(service.handle("POST", platformPath, auth, {}, 1002,
+                             QUrlQuery("platform=WIN&platform=unknown"))
+                      .status == 400,
+              "ambiguous platform rejected");
+        check(service.handle("POST", platformPath + "-other", auth, {}, 1002,
+                             QUrlQuery("platform=WIN"))
+                      .status == 404,
+              "local policy does not grant access to another account");
+        QUrlQuery accountQuery;
+        accountQuery.addQueryItem("accountId", identity.accountId);
+        accountQuery.addQueryItem("accountId", "unknown-local-account");
+        const auto accounts =
+            service.handle("GET", "/account/api/public/account", auth, {}, 1002, accountQuery);
+        check(accounts.status == 200 && accounts.array && accounts.array->size() == 1 &&
+                  accounts.array->at(0).toObject()["id"] == identity.accountId,
+              "account list returns only an existing local identity");
+        check(service.handle("GET", "/account/api/public/account", {}, {}, 1002, accountQuery)
+                      .status == 401,
+              "account list requires player authentication");
         check(service.handle("GET", "/account/api/oauth/verify", auth, {}, 4600).status == 401,
               "expired access rejected");
         const auto refresh = player.json["refresh_token"].toString().toLatin1();

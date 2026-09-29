@@ -37,25 +37,32 @@ void HttpServer::acceptConnections() {
             if (state->done)
                 return;
             state->done = true;
-            const auto body = response.status == 204
-                                  ? QByteArray{}
-                                  : (response.array ? QJsonDocument(*response.array)
-                                                    : QJsonDocument(response.json))
-                                        .toJson(QJsonDocument::Compact);
+            const auto body = response.status == 204 ? QByteArray{}
+                              : response.boolean ? QByteArray(*response.boolean ? "true" : "false")
+                                                 : (response.array ? QJsonDocument(*response.array)
+                                                                   : QJsonDocument(response.json))
+                                                       .toJson(QJsonDocument::Compact);
             const auto wire =
-                "HTTP/1.1 " + QByteArray::number(response.status) +
-                " Response\r\nContent-Type: application/json\r\nConnection: close\r\n"
+                "HTTP/1.1 " + QByteArray::number(response.status) + " Response\r\nContent-Type: " +
+                (response.boolean ? QByteArray("text/plain") : QByteArray("application/json")) +
+                "\r\nConnection: close\r\n"
                 "Cache-Control: no-store\r\nDate: " +
                 QLocale::c()
                     .toString(QDateTime::currentDateTimeUtc(), "ddd, dd MMM yyyy HH:mm:ss 'GMT'")
                     .toLatin1() +
                 "\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body;
-            // Fixed categories/status only. Never log URLs, headers, bodies or tokens.
-            if (log)
-                log({{"component", "backend"},
-                     {"event", response.event},
-                     {"status", response.status},
-                     {"timestamp", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}});
+            // Never log raw URLs, headers, bodies or tokens. The one optional
+            // protocol field is a validated short platform tag from the service.
+            if (log) {
+                QJsonObject entry{
+                    {"component", "backend"},
+                    {"event", response.event},
+                    {"status", response.status},
+                    {"timestamp", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}};
+                if (!response.platformDiagnostic.isEmpty())
+                    entry["platform"] = response.platformDiagnostic;
+                log(entry);
+            }
             if (socket->write(wire) != wire.size())
                 socket->abort();
             else

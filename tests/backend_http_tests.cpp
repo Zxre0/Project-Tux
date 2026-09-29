@@ -32,7 +32,9 @@ int main(int argc, char **argv) {
         network.setProxy(QNetworkProxy::NoProxy);
         const auto request = [&](const QString &path, const QByteArray &body,
                                  const QByteArray &token = QByteArray{},
-                                 const QByteArray &method = QByteArray{}) {
+                                 const QByteArray &method = QByteArray{},
+                                 QByteArray *responseBody = nullptr,
+                                 QByteArray *responseType = nullptr) {
             QNetworkRequest input(
                 QUrl("http://127.0.0.1:" + QString::number(server.serverPort()) + path));
             if (!token.isEmpty())
@@ -51,7 +53,12 @@ int main(int argc, char **argv) {
             loop.exec();
             check(reply->isFinished(), "HTTP response deadline");
             const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-            const auto result = QJsonDocument::fromJson(reply->readAll()).object();
+            const auto bytes = reply->readAll();
+            if (responseBody)
+                *responseBody = bytes;
+            if (responseType)
+                *responseType = reply->rawHeader("Content-Type");
+            const auto result = QJsonDocument::fromJson(bytes).object();
             reply->deleteLater();
             return qMakePair(status, result);
         };
@@ -85,6 +92,23 @@ int main(int argc, char **argv) {
               "HTTP unsupported kill mode does not become a logout");
         check(request("/account/api/oauth/verify", {}, token).first == 200,
               "HTTP invalid kill mode preserves caller token");
+        QByteArray responseBody, responseType;
+        const auto platformPath =
+            "/fortnite/api/game/v2/tryPlayOnPlatform/account/" + identity.accountId;
+        check(
+            request(platformPath + "?platform=PC", {}, token, "POST", &responseBody, &responseType)
+                        .first == 200 &&
+                responseBody == "true" && responseType == "text/plain",
+            "HTTP platform policy returns the expected plain-text boolean");
+        check(request(platformPath + "?platform=unknown", {}, token, "POST", &responseBody).first ==
+                      200 &&
+                  responseBody == "false",
+              "HTTP unsupported platform serializes false");
+        check(request("/account/api/public/account?accountId=" + identity.accountId, {}, token,
+                      "GET", &responseBody)
+                          .first == 200 &&
+                  QJsonDocument::fromJson(responseBody).array().size() == 1,
+              "HTTP bulk account query produces an array");
         QTcpSocket malformed;
         QEventLoop loop;
         QObject::connect(&malformed, &QTcpSocket::connected, &loop, [&] {

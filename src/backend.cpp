@@ -208,6 +208,38 @@ Response Service::handle(const QByteArray &method, const QString &path,
         revoke(token);
         return {204, {}, "local-session-revoked"};
     }
+    if (method == "POST" &&
+        path == "/fortnite/api/game/v2/tryPlayOnPlatform/account/" + identity.accountId) {
+        if (!authorized || !found->player)
+            return failure(401, "player_authentication_required");
+        const auto platforms = query.allQueryItemValues("platform");
+        if (platforms.size() != 1)
+            return failure(400, "one_platform_required");
+        // This is this private service's policy for its own local account, not
+        // an Epic entitlement or an assertion about production platform access.
+        // Observed from the actual 12.50 request, not inferred from profile metadata.
+        const bool allowed = platforms[0] == "PC";
+        static const QRegularExpression platformTag("\\A[A-Za-z][A-Za-z0-9_-]{0,15}\\z");
+        return {200,
+                {},
+                allowed ? "local-platform-allowed" : "local-platform-denied",
+                std::nullopt,
+                allowed,
+                platformTag.match(platforms[0]).hasMatch() ? platforms[0] : QString{}};
+    }
+    if (method == "GET" && path == "/account/api/public/account") {
+        if (!authorized || !found->player)
+            return failure(401, "player_authentication_required");
+        const auto requested = query.allQueryItemValues("accountId");
+        if (requested.isEmpty() || requested.size() > 100)
+            return failure(400, "invalid_account_query");
+        QJsonArray accounts;
+        if (requested.contains(identity.accountId))
+            accounts.append(QJsonObject{{"id", identity.accountId},
+                                        {"displayName", identity.displayName},
+                                        {"externalAuths", QJsonObject{}}});
+        return {200, {}, "local-account-list", accounts};
+    }
     if (method == "GET" &&
         path == "/account/api/public/account/" + identity.accountId + "/externalAuths") {
         if (!authorized || !found->player)

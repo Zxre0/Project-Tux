@@ -20,8 +20,9 @@ CachyOS/Hyprland with NVIDIA. This is not authenticated login, private gameplay,
 An experimental [native private backend](docs/BACKEND.md) now receives the real
 12.50 client's application-token and generated local-password requests inside an
 isolated namespace. The game received a player token, then exposed a session
-revocation bug. Its fix passes service tests but needs a game retest: **successful
-Fortnite login is not yet verified**. The backend is not the Project Reboot game server.
+revocation bug. Its fix now passes a real account-authentication retest, but the
+overall login then aborts at a later backend stage: **completed Fortnite login
+is not yet verified**. The backend is not the Project Reboot game server.
 
 ## Build
 

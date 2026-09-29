@@ -13,7 +13,11 @@ the generated local password and received a **player** token. Its subsequent
 kill-other-sessions request exposed a backend bug: the HTTP query was discarded
 and the current token was revoked. The fix preserves the caller's token and
 revokes other local player sessions, including refresh tokens. It passes service
-tests; the corrected flow still requires an actual game retest.
+tests and now passes the actual account-login stage: the game logs
+`Successfully logged in user` and `LoggedIn`. The actual game also accepts bulk
+account lookup and the local PC platform policy (text/plain boolean). The next
+missing contract is Lightswitch service status. No stable logged-in menu or
+gameplay has been verified.
 Other backend contracts, XMPP, profiles and gameplay remain incomplete.
 The real client accepts the private version-check and empty cloud-storage index.
 **Successful player login in the game is not yet verified.**
@@ -77,7 +81,8 @@ checks, exit behavior and game files are not patched.
 
 Transport bounds headers/body/connections/timeouts, requires a loopback Host header,
 rejects duplicate headers and unsupported chunking/pipelining, and sends no-store
-responses. Logs contain fixed categories/status/session/PID, not raw requests,
+responses. Logs contain fixed categories/status/session/PID and, on the platform
+policy route, a validated short platform tag (1-16 ASCII characters), not raw requests,
 passwords, tokens or response bodies. This is an experimental local service, not
 a production authentication service or a reviewed Internet-facing server.
 

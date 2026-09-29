@@ -19,6 +19,8 @@ struct Response {
     QJsonObject json;
     QString event; // Fixed diagnostic category; never a request body or token.
     std::optional<QJsonArray> array = std::nullopt;
+    std::optional<bool> boolean = std::nullopt;
+    QString platformDiagnostic = {}; // Only a validated short tag; never a raw query.
 };
 class Service {
     struct Session {

@@ -1606,3 +1606,71 @@ login evidence, and capture the actual game window during the run. Preserve
 generated local credentials and keep them out of output/Git. Push the accumulated
 local commits without force when GitHub connectivity returns. No successful
 login, gameplay or screenshot is claimed by this checkpoint.
+
+### Execution access restored; actual account authentication advances (2026-09-29)
+
+After permission changes, fresh diagnostics verify local IPC and both GPU devices
+working again. Full CTest passes11/11 in25.23s, including the new session-query
+HTTP regression. Pushed 7aa17b0,49d86b1,62cccee successfully; CI run36636128108 for
+62cccee passes. The previous environment blocker no longer applies.
+
+Actual session2026-09-29_21-52-24_cc0f8549 repeats the documented120s command.
+Backend events verify player-token200, kill-others204, account-read200 and
+external-auth-list200. The game logs `Successfully logged in user` and
+LoginStatus=LoggedIn for Local Player, proving the prior session fix works for
+account authentication. It subsequently aborts at CheckPlatformPlayAllowed,
+result28, because our next service route returns404. This is not a stable,
+completed game login or menu/gameplay success.
+
+Captured and visually inspected the actual game window at about28s. It shows
+"Fortnite was not started correctly and needs to be closed", not a logged-in
+menu. Kept it outside Git as game-startup-error.png in that session. The game
+also still logs the UAC direct-launch warning; no client check was patched.
+Scoped cleanup completed, no EAC/BattlEye observed during sampled monitoring.
+
+Inspected Reboot Launcher user.js account-list/tryPlayOnPlatform routes and the
+supplied executable's matching endpoint strings. Added authenticated local
+account-list responses and a platform policy only for the configured local
+account's Windows client. Unknown platforms deny, other accounts are not granted
+access, and the query must name exactly one platform. This is our private
+service's policy, not an Epic entitlement or production access decision.
+
+Session2026-09-29_21-54-50_e7a54578 verifies account-list200, then exposes an
+incorrect wire format: primitive boolean with application/json produces the
+game's "Open Curly or Square Brace token expected" parse error. Upstream's
+explicit text/plain header had not been reflected. Corrected it, made the two
+Windows labels case-insensitive, and added an HTTP content-type regression.
+40 authentication checks and29 HTTP checks pass. Third actual test is running;
+its result must be recorded before claiming that platform-stage handling works.
+
+Third test2026-09-29_21-56-27_2b2ad9d5 confirms the text/plain fix: no JSON parse
+error, and the client reads our false policy result, aborting with result19
+instead of28. Inspected the executable's strings and upstream profile metadata:
+both contain the PC platform label EpicPC. Added that exact local policy label
+with a fixed `local-platform-epicpc-allowed` event to verify whether it matches
+the real request, rather than logging raw query values. Other unknown platforms
+remain denied.41 backend checks and29 HTTP checks pass; fourth game test pending.
+
+Fourth session2026-09-29_21-58-19_abc65f2a still receives the denied policy result,
+so EpicPC was not the observed request label. Do not treat that hypothesis as a
+finding. Added a protocol diagnostic restricted to a platform tag of1-16 ASCII
+letters/digits/underscore/hyphen starting with a letter; credential-shaped32-byte
+hex and account-address values are excluded. It does not log the raw query.
+The first build caught an omitted aggregate default under -Werror; explicitly
+initialized the optional diagnostic.42 backend and29 HTTP checks now pass.
+The next run will reveal the short platform label if valid; no other labels were
+silently authorized. No client-side launch/security check has been changed.
+
+Session2026-09-29_22-00-03_b63ca9bb gives authoritative protocol evidence:
+`platform=PC`. Removed inferred WIN/Windows/EpicPC allow labels; policy now allows
+only the observed PC label for the authenticated local account. Regression tests
+explicitly deny those unobserved labels and retain bounded diagnostics.42 backend
+checks and29 HTTP checks pass. Full regression before this final policy adjustment
+passed11/11 in25.30s; the final-policy regression and game retest are underway.
+
+Session2026-09-29_22-01-35_80a6bdf0 confirms `local-platform-allowed` with PC and
+the game logs "play IS allowed on this platform". Login advances to
+CheckServiceAvailability, then aborts because Lightswitch is not implemented.
+Account authentication, account-list and platform policy are now verified with
+the actual game; overall login still fails. Final regression11/11 in25.67s.
+Next: implement the authenticated local service-status contract, test and rerun.

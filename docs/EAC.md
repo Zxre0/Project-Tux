@@ -71,3 +71,11 @@ launch and possible false-positive kicks: game-internal checking is present,
 and this run must not be described as disabling all anti-cheat logic. No such
 check was patched. Production endpoints named by the game remained unreachable
 through the isolated network namespace. No credentials were supplied.
+
+The later local-password run `2026-09-29_21-52-24_cc0f8549` reaches authenticated
+local-account state in the game log before a missing backend route aborts login.
+A real screenshot shows the separate "Fortnite was not started correctly" dialog;
+the game still reports its UAC direct-launch warning. No EAC/BattlEye process was
+observed by sampled monitoring, but this does not establish the absence of
+in-process checks. No check or exit behavior has been patched. The screenshot is
+startup-failure evidence, not a successful private-login screenshot.
