@@ -42,3 +42,9 @@ and no owned processes remaining. Logging-only trace/engine-output options did
 not identify the exit cause. These results do not establish an authorized
 private gameplay path or prove an anti-cheat requirement. See
 [12.50 evidence](FORTNITE_12_50.md) for exact sessions and argument differences.
+
+Session `2026-09-29_17-54-32_619a143a` observed an unsuccessful
+`HKLM\Software\Classes\com.epicgames.launcher` lookup before exit 1. This narrows
+startup investigation to include launcher discovery; it does not prove an EAC or
+authentication failure. No fake launcher registration, Epic-launched flag, paused
+process stand-in or security patch was used to get past the lookup.

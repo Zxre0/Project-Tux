@@ -46,7 +46,7 @@ failure, and graphics warnings must not be assumed causal without more evidence.
 
 Targeted trace command:
 `fortnite-linux launch 12.50 --offline-probe --trace-startup --timeout 35`.
-This adds Wine `msgbox`, `debugstr`, `process` and `exec` channels; executable and
+This adds Wine `msgbox`, `debugstr`, `process`, `exec` and `reg` channels; executable and
 game arguments are unchanged. Wine's [message-box implementation](https://raw.githubusercontent.com/wine-mirror/wine/master/dlls/user32/msgbox.c)
 contains a dedicated text trace, allowing a hidden/transient dialog to be recorded.
 It does not install a hook or bypass a launch requirement.
@@ -88,6 +88,30 @@ authentication requirement. The exact exit cause is still unknown.
 A subsequent direct bundled-Wine comparison fixed an experimental-prefix missing
 VKD3D dependency, then reached the same exit-1 engine shutdown. It is not a full
 Proton integration test; see [runtime comparison](RUNTIME_COMPARISON.md).
+
+## Launcher-discovery observation
+
+Session `2026-09-29_17-54-32_619a143a` added Wine's `reg` channel to the system-Wine
+baseline. It captured a failed lookup immediately before engine shutdown:
+
+```text
+NtOpenKeyEx (0xac,L"com.epicgames.launcher",20019,...)
+NtOpenKeyEx <- (nil)
+```
+
+The preceding same-thread trace identifies handle `0xac` as
+`\Registry\Machine\Software\Classes`. This is a failed discovery lookup for the
+Epic launcher registration, not just a module-teardown name. Exit remains 1,
+without timeout/Unix crash, observed anti-cheat or owned processes remaining.
+Wine's [registry implementation](https://raw.githubusercontent.com/wine-mirror/wine/master/dlls/ntdll/unix/registry.c)
+traces key-open arguments and the returned handle through `reg`.
+
+The temporal association is **not causal proof**, an authorization verdict, or
+evidence that EAC is fundamentally required. No registration was fabricated, no
+Epic-launched identity flag added, and no protected check patched. The probe
+does not establish a supported private/offline path. Further integration needs
+evidence of an authorized development launch contract, not a fake launcher entry.
+The trace option remains opt-in; raw registry logs stay outside Git.
 
 ## Local manifest verification
 

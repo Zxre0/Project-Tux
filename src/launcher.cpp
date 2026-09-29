@@ -89,7 +89,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                          {"VKD3D_LOG_FILE", directory + "/vkd3d.log"},
                                          {"WINEDLLOVERRIDES", "winemenubuilder.exe=d"}};
         if (traceStartup)
-            overrides["WINEDEBUG"] += ",+msgbox,+debugstr,+process,+exec";
+            overrides["WINEDEBUG"] += ",+msgbox,+debugstr,+process,+exec,+reg";
         // A bundled Wine may require its own DLL/library search directories.
         // Preserve and record these specific inherited settings in the command;
         // do not dump the entire environment, which may contain credentials.

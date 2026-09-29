@@ -522,7 +522,8 @@ int main(int argc, char **argv) {
                   "offline plan includes managed environment");
             auto traced = fol::launch(paths, "12.61", true, true, 5, true);
             check(traced["startup_trace"].toBool() &&
-                      traced["command"].toString().contains("+msgbox,+debugstr,+process,+exec") &&
+                      traced["command"].toString().contains(
+                          "+msgbox,+debugstr,+process,+exec,+reg") &&
                       !planned["command"].toString().contains("+msgbox"),
                   "startup trace is explicit and preserves baseline command");
             auto engineLogging = fol::launch(paths, "12.61", true, true, 5, true, true);

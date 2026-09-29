@@ -39,7 +39,8 @@ int main(int argc, char **argv) {
          {"proton", "Project-imported Proton runtime ID (runtime test-proton only)", "id"},
          {"print-command", "Plan only; never execute"},
          {"offline-probe", "Network-isolated, unmodified direct startup diagnostic"},
-         {"trace-startup", "Capture Wine message-box, debug-string, process and shell traces"},
+         {"trace-startup",
+          "Capture Wine message-box, debug-string, process, shell and registry traces"},
          {"engine-stdout",
           "Request engine stdout logging and flushing; support is build-dependent"},
          {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});

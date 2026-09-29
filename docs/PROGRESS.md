@@ -35,8 +35,10 @@ noninteractive UDisks mount attempt was denied with `NotAuthorizedCanObtain`.
 It was not mounted or inspected, and no filesystem repair/write was attempted.
 It may contain the missing game files; their presence/version is unknown.
 
-Next: investigate early file-access/initialization evidence or compare an isolated
-runtime without changing game authorization requirements. Do not blindly repeat
+Latest startup lead: an unsuccessful Epic launcher-registration lookup immediately
+before exit in a registry trace. Causality and any protection requirement remain
+unproven. Next: inspect authorized development-launch requirements and complete
+runtime preparation without changing game authorization requirements. Do not blindly repeat
 the same exit-1 configuration. Do not start authentication modules,
 paused EAC stand-ins, protected services, or security-bypass experiments. Remaining
 graphics-stack LeakSanitizer findings are documented below, not suppressed.
@@ -726,3 +728,29 @@ CTest each pass 7/7 (sanitizer leak detection explicitly disabled). See
 Next: investigate early initialization further or validate the complete Proton
 path before making any comparative runtime-support claim. Do not fabricate an
 authorization failure or relax the no-bypass boundary to force progress.
+
+### Registry tracing narrows the startup lead
+
+Runtime-path receipt fix and comparison evidence committed/pushed as `d962257`.
+Added opt-in Wine `reg` tracing after inspecting Wine's registry implementation.
+System-Wine session `2026-09-29_17-54-32_619a143a` captures, on the game main thread,
+creation/opening of `\Registry\Machine\Software\Classes`, then an attempt to open
+`com.epicgames.launcher` that returns a null handle. The game then tears down
+LauncherPlatform/LauncherCheck/Solaris and exits 1. Unlike the earlier teardown
+names alone, this is direct evidence of an unsuccessful launcher-discovery lookup.
+It is not enough to claim that the lookup causes exit or that authentication/EAC
+is required. No fake registry entry, Epic-origin argument or bypass was attempted.
+
+The session retains the network namespace and original game arguments; no
+anti-cheat observed, no timeout/Unix crash, and no owned processes left. Log size
+about 1.5 MiB, stored privately under the session, not committed. Kept the useful
+registry channel in explicit `--trace-startup`, updated help/docs/regression
+expectations, and preserved the default non-tracing command. Attempts to consult
+additional Epic API documentation returned tool HTTP 404; no claims are based
+on those unavailable pages. Wine source and observed local logs support the
+narrow finding above. The primary game-startup objective remains unachieved.
+Final release rebuild passes all seven CTest targets, formatting/diff checks pass,
+and the original 12.50 prefix again reports zero active processes. Ordinary
+Shipping SHA-256 still matches the previously recorded value. Next experiment
+must distinguish a supported development launch requirement from runtime behavior;
+do not interpret a missing launcher key as permission to spoof it.
