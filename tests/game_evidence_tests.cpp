@@ -76,6 +76,43 @@ int main(int argc, char **argv) {
         check(fol::analyzeGameLog(loginAbort + fixture)["interpretation"] ==
                   "backend rejection logged; inspect configuration",
               "backend configuration rejection retains precedence");
+        const QByteArray keychainFailure =
+            "[2026.09.29-22.25.21:678][132]LogKeychainHelper: [FMcpKeychainHelper] Unable to "
+            "parse json, failed download\r\n"
+            "LogKeychainHelper: Warning: Unable to refresh keychain: Failure "
+            "ErrorCode=UnableToParseJson, Message=, Raw=UnableToParseJson (HTTP 200)\n";
+        auto keychainAbort = loginAbort;
+        keychainAbort.replace("CurrentLoginStep=LoggingIn", "CurrentLoginStep=QueryKeychain");
+        keychainAbort.replace("LoginResult=13", "LoginResult=37");
+        const auto keychain = fol::analyzeGameLog(keychainFailure + keychainAbort);
+        check(keychain["asset_keychain_parse_failure_logged"].toBool() &&
+                  keychain["asset_keychain_http_200_parse_failure_logged"].toBool() &&
+                  keychain["last_logged_login_failure"].toObject()["result"] == 37 &&
+                  keychain["evidence"].toArray()[1].toObject()["line"] == 2,
+              "actual keychain diagnostics preserve bounded evidence and source lines");
+        check(keychain["interpretation"] ==
+                  "asset-keychain login abort logged; parser requirement unresolved",
+              "keychain failure is not attributed to a bad password or a proven key requirement");
+        check(!fol::analyzeGameLog(keychainFailure)["login_aborted_logged"].toBool() &&
+                  !empty["asset_keychain_parse_failure_logged"].toBool() &&
+                  !empty["asset_keychain_http_200_parse_failure_logged"].toBool(),
+              "parse observation alone does not establish login abort or HTTP status");
+        check(fol::analyzeGameLog(keychainFailure + keychainAbort + loginAbort)["interpretation"] ==
+                  "login abort logged; successful login unverified",
+              "historical keychain failure does not override the most recent abort stage");
+        check(fol::analyzeGameLog(keychainFailure + keychainAbort + fixture)["interpretation"] ==
+                  "backend rejection logged; inspect configuration",
+              "backend configuration rejection still takes precedence over keychain abort");
+        auto keychainSpoof = keychainFailure;
+        keychainSpoof.replace("LogKeychainHelper:", "chat: LogKeychainHelper:");
+        check(fol::analyzeGameLog(keychainSpoof)["evidence"].toArray().isEmpty(),
+              "embedded keychain diagnostic strings are not recognized");
+        auto privateKeychainError = keychainFailure;
+        privateKeychainError.replace("Message=,", "Message=synthetic-private-payload,");
+        const auto privateKeychain = fol::analyzeGameLog(privateKeychainError);
+        check(!privateKeychain["asset_keychain_http_200_parse_failure_logged"].toBool() &&
+                  !QJsonDocument(privateKeychain).toJson().contains("synthetic-private-payload"),
+              "unrecognized keychain error payloads are not echoed or given an HTTP status");
         auto spoof = fol::analyzeGameLog(
             "LogInit: Command Line: LogFortLogin: Focusing widget SignIn_Credentials\n"
             "chat: LogOnlineGame: Error: Invalid backend requested! Exiting.\n"

@@ -1814,3 +1814,30 @@ diff whitespace checks pass. The profile milestone is verified independently of
 the unresolved keychain/startup failures; no keychain compatibility success is
 claimed. Next investigation should establish the accepted keychain contract or
 document an authorized-input blocker, without guessing key material.
+
+### Keychain reference comparison and actionable diagnostics (2026-09-29)
+
+Resumed on clean main at6ace3f7; origin matches the canonical repository. Its
+GitHub Actions run36639691990 completed successfully. Re-read pinned Reboot
+Launcher storefront.js: this route serves a bundled string array directly.
+Repository-wide Project Reboot3.0 text search found no keychain/UnableToParseJson
+handling. Independent API declarations agree on a string-array response but do
+not explain the empty-array failure. No upstream data imported, game modified,
+or keys synthesized. Whitespace hypothesis remains disproved; no repeated game
+launch is warranted by this research alone.
+
+Added exact-line, allowlisted keychain parse/HTTP200 observations to historical
+log analysis and automatic session capture. Last logged QueryKeychain abort is
+distinguished from bad-password/configuration failures without inventing a root
+cause. Seven new regression checks cover source lines, absent evidence, spoofed
+substrings, private error payload exclusion and precedence across repeated login
+attempts. Updated stale troubleshooting text: session preservation was verified
+in real runs; current failure is later.
+
+Build/full regression passed12/12 in25.41s;27 game-evidence checks pass. The
+historical-log CLI correctly identifies actual session1dabb94e source lines2829
+and2830 and QueryKeychain/result37 without echoing error payloads. Formatting and
+diff whitespace checks pass. No new game launch or screenshot was made: no
+response/runtime change justifies repeating the same experiment. Next task still
+requires evidence of the exact compatible keychain contract; a nonempty upstream
+list alone is not proof of what is necessary or permission to redistribute it.

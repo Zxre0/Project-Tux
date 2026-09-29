@@ -22,6 +22,7 @@ QJsonObject analyzeGameLog(const QByteArray &data) {
     QJsonArray evidence;
     int matches = 0, skipped = 0, lineNumber = 0;
     bool missingLogged = false, rejected = false, signIn = false, loginAborted = false;
+    bool keychainParseFailed = false, keychainHttp200Failed = false;
     qsizetype offset = 0;
     while (offset < data.size()) {
         auto end = data.indexOf('\n', offset);
@@ -65,6 +66,17 @@ QJsonObject analyzeGameLog(const QByteArray &data) {
         } else if (line == "LogOnlineGame: Error: Invalid backend requested! Exiting.") {
             rejected = true;
             entry["kind"] = "backend_rejected";
+        } else if (line == "LogKeychainHelper: [FMcpKeychainHelper] Unable to parse json, failed "
+                           "download") {
+            keychainParseFailed = true;
+            entry["kind"] = "asset_keychain_parse_failure";
+        } else if (line == "LogKeychainHelper: Warning: Unable to refresh keychain: Failure "
+                           "ErrorCode=UnableToParseJson, Message=, Raw=UnableToParseJson (HTTP "
+                           "200)") {
+            // This is the client's observation, not independent verification of
+            // the response bytes or evidence that specific asset keys are needed.
+            keychainHttp200Failed = true;
+            entry["kind"] = "asset_keychain_http_200_parse_failure";
         } else if ((match = loginAbort.match(line)).hasMatch()) {
             loginAborted = true;
             // Error strings can contain arbitrary backend payloads or credentials.
@@ -90,10 +102,16 @@ QJsonObject analyzeGameLog(const QByteArray &data) {
     result["backend_rejected_logged"] = rejected;
     result["manual_sign_in_logged"] = signIn;
     result["login_aborted_logged"] = loginAborted;
-    result["interpretation"] = rejected       ? "backend rejection logged; inspect configuration"
-                               : loginAborted ? "login abort logged; successful login unverified"
-                               : signIn       ? "manual sign-in logged; login/gameplay unverified"
-                                              : "no recognized terminal startup observation";
+    result["asset_keychain_parse_failure_logged"] = keychainParseFailed;
+    result["asset_keychain_http_200_parse_failure_logged"] = keychainHttp200Failed;
+    const bool keychainAbort =
+        loginAborted && result["last_logged_login_failure"].toObject()["stage"] == "QueryKeychain";
+    result["interpretation"] =
+        rejected        ? "backend rejection logged; inspect configuration"
+        : keychainAbort ? "asset-keychain login abort logged; parser requirement unresolved"
+        : loginAborted  ? "login abort logged; successful login unverified"
+        : signIn        ? "manual sign-in logged; login/gameplay unverified"
+                        : "no recognized terminal startup observation";
     result["evidence"] = evidence;
     result["matched_lines"] = matches;
     result["evidence_truncated"] = matches > evidence.size();

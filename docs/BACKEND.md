@@ -106,3 +106,28 @@ cloudstorage.js were read
 for interface shapes. Their hardcoded tokens, permissive password behavior, global
 account state and request-body logging were not copied. All implementation here is
 original; GPL source was not imported.
+
+## Reference comparison: current keychain blocker
+
+At Reboot Launcher revision `c6f82298b167ef2076bb59dc621f13dc5bd8d390`,
+`auth_backend/structure/storefront.js` serves
+`/fortnite/api/storefront/v2/keychain` with Express `res.json(keychain)`, where
+the value comes from its bundled `responses/keychain.json`. Only the root shape
+was inspected: an array of strings. The data was not copied or served here.
+A repository-wide text search of Project Reboot 3.0 revision
+`3f6417ee6b07063bb6f83902ad3971f998888bab` found no `keychain` or
+`UnableToParseJson` matches. This contract belongs to the companion backend,
+not an identified gameplay-server workaround.
+
+An independent [API declaration](https://gist.github.com/Amrsatrio/20d2174583354ae4f0a24cf63764049f)
+also describes a string-array response. These references establish the broad
+shape, not a 12.50-compatible minimal response or authorization to redistribute
+asset keys. No Epic requests, key extraction, placeholder keys or client-check
+changes are part of this investigation.
+
+Session `2026-09-29_22-21-13_39cd6d5a` rejects compact `[]`; session
+`2026-09-29_22-24-56_1dabb94e` rejects the same empty array with whitespace.
+Both log `UnableToParseJson` with HTTP200 and abort at QueryKeychain/result37.
+The exact parser requirement remains unproven. A successful backend account
+authentication is not a completed game login, and the independent startup-error
+dialog still needs resolution. There is no genuine successful-login screenshot.

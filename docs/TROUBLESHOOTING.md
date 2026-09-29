@@ -95,5 +95,16 @@ not copy DisplayError/DetailedError text, which can contain private payloads.
 These are historical observations: a player-token HTTP200 or subsequent manual
 sign-in screen does not establish successful in-game authentication. For example,
 the first real local-password attempt logged stage `LoggingIn`, result13 after
-the backend erroneously revoked the current session. The session fix still needs
-a real game retest; do not infer that it succeeded from diagnostic unit tests.
+the backend erroneously revoked the current session. Subsequent real-game tests
+verified that fix and advanced through account/platform checks and profile queries;
+the current failure is later in QueryKeychain, not password authentication.
+
+The analyzer now separately reports `asset_keychain_parse_failure_logged` and
+`asset_keychain_http_200_parse_failure_logged` for the exact observed diagnostic
+lines. These are client-log observations, not independent HTTP verification.
+The last abort stage remains authoritative when a log contains multiple attempts.
+Neither marker proves malformed JSON on the wire or establishes a requirement for
+particular keys. The tested response was a valid empty JSON array; changing its
+whitespace did not fix the actual client failure. Do not reset credentials or
+prefixes, invent keys, or repeat the unchanged launch as a remediation for this
+observation. Preserve the session and investigate the compatible response contract.
