@@ -838,3 +838,32 @@ in FORTNITE_12_50.md without inferring launch flags, causality or a protection b
 The implementation goal remains active and incomplete: real startup stops early
 across the measured runtimes, and a legitimate private execution contract has not
 been established. UI work or another identical retry would not resolve this gap.
+
+### Development-launch prerequisite audit (2026-09-29)
+
+Repository remained clean at `8f8c403`; the permissions-response turn verified
+GitHub connectivity and a successful `git push origin HEAD` reporting everything
+up to date. That was a status/access verification, not game-startup progress.
+This turn re-read current launcher classification, the real Experimental trace,
+the recorded upstream launcher chain, and supplied loose configuration filenames.
+The game Wine PID's exit-1 trace remains distinct from Proton/helper exits; no
+new root cause was established. Baseline prefix status reports zero active
+processes. No matching Fortnite log/CrashContext/UE4Minidump filenames were found
+in the supplied game directory or baseline Wine/Experimental Proton prefixes.
+Search scope does not justify asserting that all possible diagnostics are absent.
+
+New primary-source evidence rules out assuming that Epic Games Launcher's offline
+mode is a supported Fortnite launch option: Epic's 2019 announcement explicitly
+excludes Fortnite, and the current Fortnite support answer says no offline mode.
+Sources and applicability limits are recorded in FORTNITE_12_50.md. This changes
+the next action: do not install/invoke that launcher as a speculative offline
+workaround. It does not prove a 12.50 authentication/EAC failure or rule out a
+separately authorized development executable and interface.
+
+No justified runtime/game fix follows from the current evidence. Further startup
+advancement needs a verifiable, non-bypass development launch contract/build or
+new diagnostic evidence that supports a different in-scope compatibility fix.
+No new game launch, protection modification, asset write, prefix reset or driver
+change was performed. The goal remains incomplete; this is a prerequisite audit,
+not a milestone or gameplay claim. Changes are documentation only, so validation
+is source/link inspection and Git diff checking, not another game or build test.

@@ -120,6 +120,36 @@ role, not the implementation or supported command line of Fortnite 12.50. The
 current API page does not establish a version-specific private/offline contract;
 no launch-origin flags are inferred or added from it.
 
+## Offline-mode prerequisite check
+
+On 2026-09-29, rechecked the supplied loose configuration/documentation filenames
+and the project-owned baseline Wine and Experimental Proton prefixes. No separate
+development-launch instructions were identified among those supplied files. A
+filename search found no `*Fortnite*.log`, `*CrashContext*.xml` or `*UE4Minidump*`
+in the installation or those two prefixes; this does not exclude differently
+named diagnostics or information inside packaged assets. No assets were unpacked
+or modified, and no account data was accessed.
+
+Installing the real Epic Games Launcher just to use its offline mode is not an
+evidence-backed route to this project's target. Epic's
+[2019 offline-mode announcement](https://store.epicgames.com/news/launcher-offline-mode?lang=no)
+explicitly excludes Fortnite from games that work offline. Its current
+[Fortnite offline-mode support answer](https://www.epicgames.com/help/c-34254770/c-33726977/a14084939)
+also says offline play is unavailable. The announcement predates 12.50, whereas
+the current support answer is not a version-specific specification. Neither is
+proof of the observed exit's cause, an EAC requirement, or the impossibility of
+an independently authorized private development build.
+
+The missing prerequisite is a verifiable 12.50 development execution contract:
+which authorized executable/build accepts private operation, its supported
+arguments, its backend/server interface, and how it avoids starting anti-cheat
+without replacing authentication or bypassing checks. A retail installation,
+generic Unreal API documentation, or a Reboot launcher chain that starts paused
+EAC/authentication replacement components does not supply that contract. Do not
+invent registry entries or launcher-origin assertions to make this prerequisite
+appear satisfied. Until new evidence provides an in-scope experiment, retain the
+captured exit-1 result rather than retrying unchanged runtimes or changing drivers.
+
 ## Local manifest verification
 
 The supplied `.egstore/EA2F274841C3E0693C3E06BFD2CBA2DE.manifest` reports
