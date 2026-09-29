@@ -1,5 +1,6 @@
 #include "fol/core.h"
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -39,13 +40,17 @@ QString classifyFailure(const QString &text) {
 }
 QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup, bool engineStdout,
-                   const QString &protonId, bool launcherContextProbe, BackendProbe backendProbe) {
+                   const QString &protonId, bool launcherContextProbe, BackendProbe backendProbe,
+                   const QString &httpProbeHelper) {
     const bool localBackendProbe = backendProbe != BackendProbe::None;
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
                    QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
     auto directory = paths.state + "/logs/sessions/" + session;
     require(QDir().mkpath(directory), "Cannot create session directory");
+    require(QFile::setPermissions(directory, QFileDevice::ReadOwner | QFileDevice::WriteOwner |
+                                                 QFileDevice::ExeOwner),
+            "Cannot restrict session directory permissions");
     QJsonObject result{{"session_id", session},
                        {"logs", directory},
                        {"component", "launcher"},
@@ -62,6 +67,10 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                     : "none"},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(
+            httpProbeHelper.isEmpty() ||
+                (offlineProbe && launcherContextProbe && !localBackendProbe),
+            "HTTP interface probe requires isolated launcher context and no backend experiment");
         require(!localBackendProbe || (offlineProbe && launcherContextProbe),
                 "Local-backend experiment requires --offline-probe and --launcher-context-probe");
         require(!launcherContextProbe || offlineProbe,
@@ -72,6 +81,23 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         auto selectedProfile = Profile::forVersion(build.version);
         require(selectedProfile.has_value(), "Unsupported build: " + build.version);
         auto profile = *selectedProfile;
+        QString helper;
+        if (!httpProbeHelper.isEmpty()) {
+            require(profile.httpInterfaceProbeAllowed,
+                    "HTTP interface probe is not enabled for this build");
+            helper = QFileInfo(httpProbeHelper).canonicalFilePath();
+            const auto pe = inspectPe(helper);
+            require(pe.valid && pe.x64 && !pe.dll,
+                    "HTTP probe helper must be a valid x64 PE executable");
+            result["http_interface_probe"] = QJsonObject{
+                {"helper", helper},
+                {"sha256",
+                 QString::fromLatin1(QCryptographicHash::hash(readFile(helper, 8 * 1024 * 1024),
+                                                              QCryptographicHash::Sha256)
+                                         .toHex())},
+                {"scope", "trusted supplied helper; owned-child read-only interface discovery; "
+                          "no route or login is established by a candidate"}};
+        }
         const auto backendArguments = backendProbe == BackendProbe::ServiceIni
                                           ? profile.serviceIniArguments
                                           : profile.localBackendArguments;
@@ -121,7 +147,21 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         QStringList args{"--user", "--map-root-user", "--net", "--", runtime};
         if (proton)
             args.append("run");
-        args.append(executable);
+        if (helper.isEmpty()) {
+            args.append(executable);
+        } else {
+            require(
+                QFileInfo(prefixPath + "/dosdevices/z:").symLinkTarget() == "/",
+                "HTTP interface probe requires initialized prefix with standard Z drive mapping");
+            QString target = "Z:" + executable;
+            target.replace('/', '\\');
+            args.append({helper, target});
+            result["exit_code_scope"] =
+                "Runtime wrapper around HTTP probe helper; inspect mandatory helper report";
+            QString reportPath = "Z:" + directory + "/http-probe.jsonl";
+            reportPath.replace('/', '\\');
+            overrides["FOL_HTTP_PROBE_LOG"] = reportPath;
+        }
         args.append(profile.arguments);
         if (launcherContextProbe)
             args.append(profile.launcherContextArguments);
@@ -231,6 +271,19 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                 result["error"] = outcome.error;
             else if (outcome.remaining)
                 result["error"] = "Owned processes remain after scoped cleanup";
+            if (!helper.isEmpty()) {
+                QFile receipt(directory + "/http-probe.jsonl");
+                const auto evidence = analyzeHttpProbe(
+                    receipt.open(QIODevice::ReadOnly) ? receipt.read(65537) : QByteArray{},
+                    session);
+                result["http_probe_report"] = evidence;
+                if (!evidence["complete"].toBool() || !evidence["candidate_observed"].toBool()) {
+                    if (!result.contains("error"))
+                        result["error"] = evidence.contains("error")
+                                              ? evidence["error"]
+                                              : QJsonValue("HTTP interface candidate not found");
+                }
+            }
             QFile log(directory + "/wine.log");
             if (log.open(QIODevice::ReadOnly)) {
                 log.seek(qMax(qint64(0), log.size() - 1024 * 1024));

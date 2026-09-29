@@ -14,5 +14,6 @@ eac_policy = "must-not-start"
 linux_status = "diagnostic-only-unverified"
 reboot_status = "unverified; 12.61-specific behavior must not be applied"
 private_path_verified = false
+http_interface_probe_allowed = true
 runtime_recommendation = "Baseline exits early; opt-in Wine 11.18 launcher-context probe reaches logged sign-in stage with WineD3D errors. See docs/FORTNITE_12_50.md"
 graphics = "D3D11 diagnostic baseline; no component modifications"

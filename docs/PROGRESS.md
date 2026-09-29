@@ -1188,3 +1188,59 @@ Next work toward the actual login goal: review a strictly local, routing-only
 adapter and its required ABI/toolchain, then prove requests reach an isolated
 backend before testing a development account. Do not claim the login goal achieved
 from these negative configuration experiments or the existing sign-in screenshot.
+
+### Read-only HTTP interface candidate established (2026-09-29)
+
+Current milestone remains actual private-backend login, not the existing sign-in
+screen. Previous screenshot-only goal turn made no implementation progress; resumed
+by validating the unfinished helper against authoritative logs and source.
+
+Added an original, optional Windows PE helper built by local Clang 22.1.8/LLD with
+Wine's existing headers/kernel32 import library. Native launcher remains Qt/C++ ELF.
+No upstream code or security/exit patches are copied. The helper creates only its
+own ordinary Shipping child (or a synthetic fixture), assigns a kill-on-close job,
+then reads that child's image. It reports a stat-marker reference, PE exception
+function bounds and pointer-reference RVAs; no arbitrary PID attachment, remote
+writes, injection, authentication, certificate changes or routes are implemented.
+12.50-only launch gating preserves network isolation, scoped supervision and
+anti-cheat observation. The 12.61 profile remains untouched/unverified.
+
+Build investigations: Wine MSVCRT headers satisfy the Windows-header dependencies;
+a local freestanding memset avoids CRT linkage. Header ordering needs windows.h
+before tlhelp32.h. Fixture unwind metadata was absent until -funwind-tables was
+enabled; no bounds-validation relaxation was used. A large automatic report-path
+buffer initially required unavailable ___chkstk_ms, fixed by static storage.
+Reproducible linker timestamps use /timestamp:0. Initial quoted/unquoted target
+handling and fixture prefix-ownership setup were corrected and retested. Fixture
+paths with spaces passed in http-fixture-4238f020-2949-428f-8510-2b95198681d7.
+
+First real probe 2026-09-29_19-31-45_f7970472 loaded both helper and Shipping under
+Proton Experimental 11.0-20260924 but yielded no stdout report, despite wrapper
+exit zero. This was insufficient evidence of helper success. Its reliance on the
+console handle was replaced with a CREATE_NEW session report, an explicit completion
+record and a bounded session-checking native parser. Wrapper exit is now labeled
+as wrapper scope, and missing/failed receipts produce a launcher error. Session
+directories are owner-only. No backend was started during these probes.
+
+New asset-free Wine fixture http-fixture-f4a11c05-9917-4b6e-a041-0ef0221910bb passes
+with the report-file path, exact fixture candidate and scoped cleanup. The native
+release suite passes all eight CTest targets (25.21 seconds), including seven new
+receipt cases for valid, missing, mismatched, truncated, duplicate, oversized and
+completed-without-candidate outcomes (197 core checks in total).
+
+Real command: env -u OPENSSL_ia32cap ./build/fortnite-linux launch 12.50
+--offline-probe --launcher-context-probe --proton experimental-20260924 --timeout 60
+--http-probe-helper build/windows/fol-http-probe.exe.
+Session 2026-09-29_19-39-02_27490309 produced a complete matching receipt. First two
+scans found the marker but no executable reference; the third found exactly one:
+xref RVA59236044, function [59236016,59236476), pointer RVA107847656. Helper SHA256
+74fdd76e723896345f822fc2f5d112160e86db138f7f0a48446681ecdced97ef.
+The Windows child PID was336. Native supervision reports no remaining owned
+processes and no observed EAC/BattlEye. The helper deliberately ends its child after
+discovery, so the older engine log was correctly rejected as stale. This is not a
+game crash, a backend request, authenticated login or established callable ABI.
+
+Next: validate whether the pointer belongs to the expected request interface and
+establish the 12.50 method/string ownership contract before a local-only adapter.
+Static bytes at the runtime function RVA do not decode as that runtime function;
+do not infer ABI from those on-disk bytes or hardcode nearby-version hook guesses.

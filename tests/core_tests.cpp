@@ -47,6 +47,28 @@ int main(int argc, char **argv) {
     try {
         QTemporaryDir temp;
         check(temp.isValid(), "temporary directory");
+        const QByteArray receipt =
+            "FOL_HTTP_PROBE {\"event\":\"started\",\"session_id\":\"test\"}\n"
+            "FOL_HTTP_PROBE {\"event\":\"owned_child_started\",\"value\":42}\n"
+            "FOL_HTTP_PROBE {\"event\":\"interface_candidate_observed\",\"value\":1}\n"
+            "FOL_HTTP_PROBE {\"event\":\"completed\",\"value\":0}\n";
+        const auto receiptOk = fol::analyzeHttpProbe(receipt, "test");
+        check(receiptOk["complete"].toBool() && receiptOk["candidate_observed"].toBool(),
+              "session-bound helper completion receipt");
+        check(fol::analyzeHttpProbe({}, "test").contains("error"), "missing helper receipt");
+        check(fol::analyzeHttpProbe(receipt, "other").contains("error"), "stale helper receipt");
+        check(fol::analyzeHttpProbe(receipt.chopped(1), "test").contains("error"),
+              "truncated helper receipt");
+        check(fol::analyzeHttpProbe(receipt + receipt, "test").contains("error"),
+              "duplicate helper completion");
+        check(fol::analyzeHttpProbe(QByteArray(65537, 'x'), "test").contains("error"),
+              "oversized helper receipt");
+        auto absent = receipt;
+        absent.replace("observed\",\"value\":1", "observed\",\"value\":0");
+        absent.replace("completed\",\"value\":0", "completed\",\"value\":67");
+        const auto noCandidate = fol::analyzeHttpProbe(absent, "test");
+        check(noCandidate["complete"].toBool() && !noCandidate["candidate_observed"].toBool(),
+              "completed discovery can find no candidate");
         auto root = temp.path() + "/game with spaces";
         auto profile = fol::Profile::load();
         check(profile.version == "12.61", "12.61 remains default profile");
@@ -260,6 +282,20 @@ int main(int argc, char **argv) {
                                           fol::BackendProbe::ServiceIni);
         check(iniNoIsolation["error"].toString().contains("requires --offline-probe and"),
               "service INI experiment requires network isolation");
+        const auto helperPath = temp.path() + "/http helper.exe";
+        fol::writeFile(helperPath, syntheticPe());
+        auto helperOnline = fol::launch(paths, "12.61", true, false, 1, false, false, {}, true,
+                                        fol::BackendProbe::None, helperPath);
+        check(helperOnline["error"].toString().contains("requires isolated launcher context"),
+              "HTTP helper requires network isolation");
+        auto helperWrongBuild = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true,
+                                            fol::BackendProbe::None, helperPath);
+        check(helperWrongBuild["error"].toString().contains("not enabled for this build"),
+              "HTTP helper must be enabled by the detected build profile");
+        auto helperMixed = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true,
+                                       fol::BackendProbe::ServiceIni, helperPath);
+        check(helperMixed["error"].toString().contains("no backend experiment"),
+              "read-only helper is separate from routing experiments");
         fol::writeFile(temp.path() + "/module.dll", syntheticPe(true));
         check(fol::moduleReport(temp.path() + "/module.dll", {})["status"] == "unverified",
               "architecture is not module compatibility");
@@ -648,6 +684,30 @@ int main(int argc, char **argv) {
                           iniPlan["command"].toString().contains("'--net'") &&
                           !iniPlan["command"].toString().contains("epicapp=Localhost"),
                       "service INI routing is a separate isolated experiment on both runtimes");
+                const QString helperId = runtimeId.isEmpty() ? "12.61" : "http-probe";
+                QString helperPrefix = contextPlan["prefix"].toObject()["path"].toString();
+                if (!runtimeId.isEmpty()) {
+                    registry.add(helperId, root);
+                    auto prepared =
+                        fol::prepareProtonSession(paths, helperId, runtimeId, "fixture-http",
+                                                  temp.path() + "/http-logs", true);
+                    helperPrefix = prepared.prefix;
+                }
+                QDir().mkpath(helperPrefix + "/dosdevices");
+                check(QFile::link("/", helperPrefix + "/dosdevices/z:"),
+                      "fixture-only Z drive mapping");
+                auto helperPlan = fol::launch(paths, helperId, true, true, 5, false, false,
+                                              runtimeId, true, fol::BackendProbe::None, helperPath);
+                check(helperPlan["status"] == "planned; not executed" &&
+                          helperPlan["http_interface_probe"].toObject()["helper"] == helperPath &&
+                          helperPlan["command"].toString().contains(fol::quote(helperPath)) &&
+                          helperPlan["command"].toString().contains("'Z:\\") &&
+                          helperPlan["command"].toString().contains("'--net'") &&
+                          helperPlan["exit_code_scope"].toString().contains("HTTP probe helper"),
+                      (QByteArray(
+                           "read-only helper plan retains isolation, target and exit scope: ") +
+                       QJsonDocument(helperPlan).toJson())
+                          .constData());
             }
             auto contextBaseline = fol::launch(paths, "12.61", true, true, 5);
             check(!contextBaseline["command"].toString().contains("epicportal") &&

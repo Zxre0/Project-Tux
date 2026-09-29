@@ -94,7 +94,8 @@ std::optional<Profile> Profile::forVersion(const QString &version) {
               {},
               {},
               {},
-              table["private_path_verified"].value_or(false)};
+              table["private_path_verified"].value_or(false),
+              table["http_interface_probe_allowed"].value_or(false)};
     for (auto &arg : *table["arguments"].as_array())
         p.arguments.append(QString::fromStdString(arg.value_or("")));
     if (auto arguments = table["launcher_context_arguments"].as_array())

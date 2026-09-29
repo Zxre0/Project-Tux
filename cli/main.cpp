@@ -49,6 +49,10 @@ int main(int argc, char **argv) {
                                  "launcher-context probes"},
          {"backend-probe-method", "Local backend experiment: selector or service-ini", "method",
           "selector"},
+         {"http-probe-helper",
+          "Trusted locally built read-only Windows interface probe; "
+          "requires isolated context probe",
+          "exe"},
          {"timeout", "Startup probe timeout in seconds (1-3600)", "seconds", "60"}});
     parser.process(app);
     auto args = parser.positionalArguments();
@@ -171,10 +175,11 @@ int main(int argc, char **argv) {
             const auto backendProbe = !parser.isSet("local-backend-probe") ? fol::BackendProbe::None
                                       : method == "service-ini" ? fol::BackendProbe::ServiceIni
                                                                 : fol::BackendProbe::Selector;
-            result = fol::launch(
-                paths, args[1], parser.isSet("print-command"), parser.isSet("offline-probe"),
-                timeout, parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
-                parser.value("proton"), parser.isSet("launcher-context-probe"), backendProbe);
+            result = fol::launch(paths, args[1], parser.isSet("print-command"),
+                                 parser.isSet("offline-probe"), timeout,
+                                 parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
+                                 parser.value("proton"), parser.isSet("launcher-context-probe"),
+                                 backendProbe, parser.value("http-probe-helper"));
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||

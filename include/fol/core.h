@@ -35,7 +35,7 @@ CommandResult run(const QString &program, const QStringList &args, int timeout =
 struct Profile {
     QString version, executable, workingDirectory, rebootStatus;
     QStringList arguments, launcherContextArguments, localBackendArguments, serviceIniArguments;
-    bool privatePathVerified;
+    bool privatePathVerified, httpInterfaceProbeAllowed;
     static Profile load();
     static std::optional<Profile> forVersion(const QString &version);
 };
@@ -131,8 +131,10 @@ enum class BackendProbe { None, Selector, ServiceIni };
 QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup = false, bool engineStdout = false,
                    const QString &protonId = {}, bool launcherContextProbe = false,
-                   BackendProbe backendProbe = BackendProbe::None);
+                   BackendProbe backendProbe = BackendProbe::None,
+                   const QString &httpProbeHelper = {});
 QString classifyFailure(const QString &text);
+QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session);
 QJsonObject analyzeGameLog(const QByteArray &data);
 QJsonObject captureGameLogs(const QString &prefix, const QString &directory,
                             const QDateTime &notBefore);
