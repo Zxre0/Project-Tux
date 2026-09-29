@@ -153,6 +153,24 @@ int main(int argc, char **argv) {
         check(service.handle("GET", "/account/api/public/account", {}, {}, 1002, accountQuery)
                       .status == 401,
               "account list requires player authentication");
+        const auto servicePath = "/lightswitch/api/service/Fortnite/status";
+        check(service.handle("GET", servicePath, {}, {}, 1002).status == 401,
+              "local service status requires player authentication");
+        const auto availability = service.handle("GET", servicePath, auth, {}, 1002);
+        check(availability.status == 200 && availability.json["status"] == "UP" &&
+                  availability.json["overrideCatalogIds"].toArray().isEmpty() &&
+                  !availability.json["allowedActions"].toArray().contains("DOWNLOAD"),
+              "private service status makes no production catalogue or download claims");
+        const auto bulkAvailability =
+            service.handle("GET", "/lightswitch/api/service/bulk/status", auth, {}, 1002,
+                           QUrlQuery("serviceId=Fortnite&serviceId=unknown"));
+        check(bulkAvailability.status == 200 && bulkAvailability.array &&
+                  bulkAvailability.array->size() == 1,
+              "bulk status reports only the implemented private service");
+        check(
+            service.handle("GET", "/lightswitch/api/service/Other/status", auth, {}, 1002).status ==
+                404,
+            "unknown service does not report online");
         check(service.handle("GET", "/account/api/oauth/verify", auth, {}, 4600).status == 401,
               "expired access rejected");
         const auto refresh = player.json["refresh_token"].toString().toLatin1();

@@ -1674,3 +1674,20 @@ CheckServiceAvailability, then aborts because Lightswitch is not implemented.
 Account authentication, account-list and platform policy are now verified with
 the actual game; overall login still fails. Final regression11/11 in25.67s.
 Next: implement the authenticated local service-status contract, test and rerun.
+
+Committed/pushed9e026d0 with account/platform contracts and all findings. Inspected
+Reboot Launcher's lightswitch.js for object/array response shapes (no source
+copied). Implemented player-authenticated single/bulk local service availability,
+reporting only this running backend, no production catalogue overrides/downloads
+or game-server readiness. Unknown services are not reported online.46 backend
+checks and29 HTTP checks pass; real-client validation and full regression running.
+
+Session2026-09-29_22-03-24_8a8c7fea verifies local-service-status-list200; the game
+advances through CheckServiceAvailability to CheckEntitledToPlay. It then logs
+GrantAccess_HttpRequestComplete route_not_implemented404 and aborts with result20,
+EntitlementError. A preceding Fortnite-service404 also needs identification.
+No entitlement/grant-access implementation has been added in this checkpoint.
+Before implementing admission, distinguish our generated account's private-server
+membership from any Epic purchase/production entitlement: do not fabricate the
+latter, copy upstream permissive grants, or patch client checks. The separate
+startup-error dialog/UAC warning remains unresolved. Full regression11/11 in25.29s.

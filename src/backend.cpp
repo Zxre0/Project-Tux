@@ -227,6 +227,33 @@ Response Service::handle(const QByteArray &method, const QString &path,
                 allowed,
                 platformTag.match(platforms[0]).hasMatch() ? platforms[0] : QString{}};
     }
+    if (method == "GET" && (path == "/lightswitch/api/service/Fortnite/status" ||
+                            path == "/lightswitch/api/service/bulk/status")) {
+        if (!authorized || !found->player)
+            return failure(401, "player_authentication_required");
+        // Availability of this running private backend only. No production
+        // entitlement, catalogue override, download or game-server readiness.
+        const QJsonObject status{{"serviceInstanceId", "fortnite"},
+                                 {"status", "UP"},
+                                 {"message", "Private development backend; gameplay unverified"},
+                                 {"maintenanceUri", QJsonValue::Null},
+                                 {"overrideCatalogIds", QJsonArray{}},
+                                 {"allowedActions", QJsonArray{"PLAY"}},
+                                 {"banned", false}};
+        if (path.endsWith("/bulk/status")) {
+            const auto requested = query.allQueryItemValues("serviceId");
+            if (requested.isEmpty() || requested.size() > 16)
+                return failure(400, "invalid_service_query");
+            QJsonArray services;
+            for (const auto &service : requested)
+                if (service.compare("Fortnite", Qt::CaseInsensitive) == 0) {
+                    services.append(status);
+                    break;
+                }
+            return {200, {}, "local-service-status-list", services};
+        }
+        return {200, status, "local-service-status"};
+    }
     if (method == "GET" && path == "/account/api/public/account") {
         if (!authorized || !found->player)
             return failure(401, "player_authentication_required");

@@ -15,9 +15,10 @@ and the current token was revoked. The fix preserves the caller's token and
 revokes other local player sessions, including refresh tokens. It passes service
 tests and now passes the actual account-login stage: the game logs
 `Successfully logged in user` and `LoggedIn`. The actual game also accepts bulk
-account lookup and the local PC platform policy (text/plain boolean). The next
-missing contract is Lightswitch service status. No stable logged-in menu or
-gameplay has been verified.
+account lookup, the local PC platform policy (text/plain boolean), and private
+Lightswitch service status. The next failure is the unimplemented GrantAccess
+request during CheckEntitledToPlay. No stable logged-in menu or gameplay has been
+verified; no Epic entitlement or client-protection override is implemented.
 Other backend contracts, XMPP, profiles and gameplay remain incomplete.
 The real client accepts the private version-check and empty cloud-storage index.
 **Successful player login in the game is not yet verified.**
@@ -76,6 +77,9 @@ checks, exit behavior and game files are not patched.
 - Private account lookup requires a player token, not an application token.
 - Empty external-auth bindings for the local account; no external credentials.
 - Authenticated empty system-cloud index: no private hotfix files are configured.
+- Authenticated local account lookup/list and PC platform policy.
+- Private backend availability, without catalogue overrides or download claims;
+  this is not proof that a gameplay server is ready.
 - Health and local version-check policy; no game updates are distributed.
 - Unsupported services fail with explicit errors, never silent success.
 
