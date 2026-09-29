@@ -208,6 +208,17 @@ Response Service::handle(const QByteArray &method, const QString &path,
         revoke(token);
         return {204, {}, "local-session-revoked"};
     }
+    if (method == "GET" && path == "/fortnite/api/game/v2/enabled_features") {
+        if (!authorized || !found->player)
+            return failure(401, "player_authentication_required");
+        return {200, {}, "local-enabled-features", QJsonArray{}};
+    }
+    if (method == "GET" && path == "/fortnite/api/cloudstorage/user/" + identity.accountId) {
+        if (!authorized || !found->player)
+            return failure(401, "player_authentication_required");
+        // No cloud settings have been uploaded for this local account.
+        return {200, {}, "local-cloud-user-index", QJsonArray{}};
+    }
     if (method == "POST" &&
         path == "/fortnite/api/game/v2/tryPlayOnPlatform/account/" + identity.accountId) {
         if (!authorized || !found->player)
@@ -286,6 +297,23 @@ Response Service::handle(const QByteArray &method, const QString &path,
                 "local-account-read"};
     }
     auto missing = failure(404, "route_not_implemented");
+    if (path.startsWith("/fortnite/api/")) {
+        const QStringList knownSegments{
+            "fortnite",         "api",     "game",   "v2",          "grant_access",
+            "enabled_features", "account", "client", "profile",     "QueryProfile",
+            "cloudstorage",     "user",    "verify", "profileToken"};
+        QStringList segments;
+        for (const auto &part : path.split('/'))
+            segments.append(part == identity.accountId     ? ":local-account"
+                            : part.isEmpty()               ? ""
+                            : knownSegments.contains(part) ? part
+                                                           : ":redacted");
+        missing.event = path == "/fortnite/api/game/v2/enabled_features"
+                            ? "unimplemented-enabled-features"
+                            : "unimplemented-fortnite";
+        missing.routeDiagnostic = QString::fromLatin1(method) + " " + segments.join('/');
+        return missing;
+    }
     const QMap<QString, QString> categories{{"/account/api/", "account"},
                                             {"/fortnite/api/", "fortnite"},
                                             {"/lightswitch/api/", "lightswitch"},

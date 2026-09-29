@@ -92,6 +92,10 @@ int main(int argc, char **argv) {
               "HTTP unsupported kill mode does not become a logout");
         check(request("/account/api/oauth/verify", {}, token).first == 200,
               "HTTP invalid kill mode preserves caller token");
+        const auto cloudPath = "/fortnite/api/cloudstorage/user/" + identity.accountId;
+        check(request(cloudPath, {}, token).first == 200, "HTTP authenticated user cloud index");
+        check(request(cloudPath, {}).first == 401,
+              "HTTP unauthenticated user cloud index rejected");
         QByteArray responseBody, responseType;
         const auto platformPath =
             "/fortnite/api/game/v2/tryPlayOnPlatform/account/" + identity.accountId;

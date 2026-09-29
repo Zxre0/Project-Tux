@@ -21,6 +21,7 @@ struct Response {
     std::optional<QJsonArray> array = std::nullopt;
     std::optional<bool> boolean = std::nullopt;
     QString platformDiagnostic = {}; // Only a validated short tag; never a raw query.
+    QString routeDiagnostic = {};    // Fixed segments and redacted account placeholders only.
 };
 class Service {
     struct Session {

@@ -61,6 +61,8 @@ void HttpServer::acceptConnections() {
                     {"timestamp", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}};
                 if (!response.platformDiagnostic.isEmpty())
                     entry["platform"] = response.platformDiagnostic;
+                if (!response.routeDiagnostic.isEmpty())
+                    entry["route_template"] = response.routeDiagnostic;
                 log(entry);
             }
             if (socket->write(wire) != wire.size())

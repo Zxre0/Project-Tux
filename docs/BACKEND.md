@@ -16,8 +16,10 @@ revokes other local player sessions, including refresh tokens. It passes service
 tests and now passes the actual account-login stage: the game logs
 `Successfully logged in user` and `LoggedIn`. The actual game also accepts bulk
 account lookup, the local PC platform policy (text/plain boolean), and private
-Lightswitch service status. The next failure is the unimplemented GrantAccess
-request during CheckEntitledToPlay. No stable logged-in menu or gameplay has been
+Lightswitch service status. An empty configured-feature list and authenticated
+user-cloud index now advance it to QueryProfile. The current failures are missing
+common_public/common_core profiles; a profile-token verification failure was also
+observed in the preceding run. No stable logged-in menu or gameplay has been
 verified; no Epic entitlement or client-protection override is implemented.
 Other backend contracts, XMPP, profiles and gameplay remain incomplete.
 The real client accepts the private version-check and empty cloud-storage index.
@@ -77,6 +79,8 @@ checks, exit behavior and game files are not patched.
 - Private account lookup requires a player token, not an application token.
 - Empty external-auth bindings for the local account; no external credentials.
 - Authenticated empty system-cloud index: no private hotfix files are configured.
+- Authenticated empty user-cloud index and optional-feature list. Uploads and
+  cloud-file persistence are not implemented; no fake settings files are served.
 - Authenticated local account lookup/list and PC platform policy.
 - Private backend availability, without catalogue overrides or download claims;
   this is not proof that a gameplay server is ready.
@@ -89,6 +93,8 @@ responses. Logs contain fixed categories/status/session/PID and, on the platform
 policy route, a validated short platform tag (1-16 ASCII characters), not raw requests,
 passwords, tokens or response bodies. This is an experimental local service, not
 a production authentication service or a reviewed Internet-facing server.
+Unimplemented Fortnite routes also report a fixed-word path template: account
+identifiers and unknown segments are replaced, and query strings are excluded.
 
 Upstream Reboot Launcher auth_backend/structure/user.js, version.js and
 cloudstorage.js were read

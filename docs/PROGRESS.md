@@ -1691,3 +1691,65 @@ Before implementing admission, distinguish our generated account's private-serve
 membership from any Epic purchase/production entitlement: do not fabricate the
 latter, copy upstream permissive grants, or patch client checks. The separate
 startup-error dialog/UAC warning remains unresolved. Full regression11/11 in25.29s.
+
+### Private admission contract investigation (2026-09-29)
+
+Previous turn made progress through real account/platform/service-status tests
+and pushed4628902; its CI run36637391134 now passes. Worktree was clean on resume.
+Reviewed the upstream grant_access wildcard's empty-object response, but did not
+copy its unauthenticated wildcard acceptance. Added an exact local-account POST
+handler requiring a live player token. This admits only the operator-created
+account to this private backend; it creates no items, purchases or production
+rights. Unit and HTTP tests cover no token, a live application-only token, an
+expired token, another account, and the correct authenticated local account.
+
+Actual session2026-09-29_22-06-28_b64dd636 still reports GrantAccess404: the assumed
+path/method does not match the game. It also identifies the prior nonfatal404 as
+enabled_features. Added a narrowly scoped redacted method/path diagnostic for
+unmatched grant_access requests: local account ID becomes :local-account, unknown
+segments become :redacted, query/body are never included. Tests verify redaction.
+The second actual diagnostic run is underway; do not claim admission works with
+the game until it produces evidence. Existing client startup-check behavior is
+unchanged.
+
+Session2026-09-29_22-08-15_598aa782 confirms the grant request does not even use the
+upstream example's /game/v2/grant_access/ prefix. Expanded redacted route templates
+to unimplemented Fortnite API requests. Session2026-09-29_22-09-46_54055ed4 reports
+POST /fortnite/api/:redacted/:redacted/:redacted/:local-account. Account target is
+correct but route words differ. Enabled_features GET is independently confirmed;
+added an authenticated empty feature array because none are configured locally.
+For the next diagnostic run only, bounded short lowercase route words may be
+retained while account IDs/generated credentials/tokens and queries stay excluded;
+freeze the identified words into the fixed allowlist after inspection.56 backend
+checks and33 HTTP checks pass. No broad admission wildcard has been introduced.
+
+Session2026-09-29_22-11-38_61e60215 changes the hypothesis: after a valid empty
+enabled_features response, the game passes CheckEntitledToPlay without invoking
+the assumed admission handler. It advances through VerifyAgeGateRequirements to
+DownloadingClientSettings. The handler therefore had no verified role and was
+removed before committing; a negative regression keeps it unimplemented.
+No entitlement/purchase grant is being shipped.
+
+New observed GET /fortnite/api/cloudstorage/user/:local-account returns404. Read
+the upstream cloudstorage.js list contract and implemented a player-authenticated
+empty array because no local cloud files exist. Other accounts, expired tokens,
+and application tokens cannot read it. The client later reports
+VerifyProfileToken_HttpRequestComplete404; this verification remains unimplemented
+pending understanding of its requirements, not replaced with blanket success.
+Restored fixed route-word allowlisting after the diagnostic capture, adding only
+cloudstorage/user/verify/profileToken identifiers; unknown values remain redacted.
+57 backend checks and33 HTTP checks pass. Next real run tests cloud settings and
+captures the actual game window at24/26/28 seconds if it is still active.
+
+Session2026-09-29_22-14-09_a0782e4f verifies enabled-features200 and user-cloud200,
+then reaches QueryProfile. The real client requests common_public and common_core
+with rvn=-1; both currently return404, producing login result36. Next work is a
+minimal original local profile store/read contract, not copied upstream inventories,
+purchases, currency or cosmetics. Inspected upstream mcp.js envelope keys and
+common_public/common_core metadata keys only; no profile contents were copied.
+
+Captured actual1920x1080 frames in the session directory. game-loading.png shows
+the loading artwork; game-startup-error-26s.png shows the unchanged startup error.
+Neither is evidence of completed login. Full regression11/11 in25.40s;57 backend
+and33 HTTP checks pass. Cleanup reports no owned processes remaining and no
+anti-cheat observed during sampled monitoring. Current goal remains incomplete.

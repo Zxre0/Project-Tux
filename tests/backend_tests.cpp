@@ -171,6 +171,48 @@ int main(int argc, char **argv) {
             service.handle("GET", "/lightswitch/api/service/Other/status", auth, {}, 1002).status ==
                 404,
             "unknown service does not report online");
+        const auto features =
+            service.handle("GET", "/fortnite/api/game/v2/enabled_features", auth, {}, 1002);
+        check(features.status == 200 && features.array && features.array->isEmpty(),
+              "private backend has no optional features configured");
+        check(
+            service.handle("GET", "/fortnite/api/game/v2/enabled_features", {}, {}, 1002).status ==
+                401,
+            "feature list requires authenticated player");
+        const auto cloudPath = "/fortnite/api/cloudstorage/user/" + identity.accountId;
+        check(service.handle("GET", cloudPath, {}, {}, 1002).status == 401,
+              "user cloud index requires a valid player session");
+        const auto cloudApplication = post("grant_type=client_credentials", 1002);
+        const QMap<QByteArray, QByteArray> applicationAuth{
+            {"authorization",
+             "Bearer " + cloudApplication.json["access_token"].toString().toLatin1()}};
+        check(
+            service.handle("GET", "/account/api/oauth/verify", applicationAuth, {}, 1002).status ==
+                200,
+            "cloud authorization test uses a live application token");
+        check(service.handle("GET", cloudPath, applicationAuth, {}, 1002).status == 401,
+              "public application token cannot read user cloud storage");
+        const auto userCloud = service.handle("GET", cloudPath, auth, {}, 1002);
+        check(userCloud.status == 200 && userCloud.array && userCloud.array->isEmpty(),
+              "user with no uploaded settings has an empty cloud index");
+        check(service.handle("GET", cloudPath + "-other", auth, {}, 1002).status == 404,
+              "user cloud read cannot target another account");
+        const auto admissionPath = "/fortnite/api/game/v2/grant_access/" + identity.accountId;
+        check(service.handle("POST", admissionPath, auth, {}, 1002).status == 404,
+              "unobserved admission handler is not implemented");
+        const auto wrongMethod = service.handle("GET", admissionPath, auth, {}, 1002);
+        check(wrongMethod.status == 404 &&
+                  wrongMethod.routeDiagnostic ==
+                      "GET /fortnite/api/game/v2/grant_access/:local-account" &&
+                  !wrongMethod.routeDiagnostic.contains(identity.accountId),
+              "unmatched admission diagnostic substitutes the account identifier");
+        const auto otherPath = service.handle(
+            "POST", "/fortnite/api/game/v2/grant_access/synthetic-secret", auth, {}, 1002);
+        check(otherPath.routeDiagnostic.endsWith("/:redacted") &&
+                  !otherPath.routeDiagnostic.contains("synthetic-secret"),
+              "unmatched admission diagnostic never echoes unknown path components");
+        check(service.handle("GET", cloudPath, auth, {}, 4600).status == 401,
+              "expired session cannot read user cloud storage");
         check(service.handle("GET", "/account/api/oauth/verify", auth, {}, 4600).status == 401,
               "expired access rejected");
         const auto refresh = player.json["refresh_token"].toString().toLatin1();
