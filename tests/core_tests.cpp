@@ -418,26 +418,37 @@ int main(int argc, char **argv) {
                       QStringList{"-epicapp=Fortnite", "-epicenv=Prod", "-epiclocale=en-us"} &&
                   fol::Profile::forVersion("12.61")->launcherIdentityArguments.isEmpty(),
               "application identity experiment is specific to supplied 12.50 profile");
-        auto identityWithoutIsolation = fol::launch(paths, "missing", true, false, 1, false, false,
-                                                    {}, true, fol::BackendProbe::None, "helper.exe",
-                                                    "module.dll", true, false, {}, false, true);
+        auto identityWithoutIsolation = fol::launch(
+            paths, "missing", true, false, 1, false, false, {}, true, fol::BackendProbe::None,
+            "helper.exe", "module.dll", true, false, {}, {.identity = true});
         check(identityWithoutIsolation["error"].toString().contains("Launcher identity requires"),
               "application identity cannot omit network isolation");
         auto identityConflictingBackend = fol::launch(
             paths, "missing", true, true, 1, false, false, {}, true, fol::BackendProbe::Selector,
-            "helper.exe", "module.dll", true, false, {}, false, true);
+            "helper.exe", "module.dll", true, false, {}, {.identity = true});
         check(identityConflictingBackend["error"].toString().contains("Launcher identity requires"),
               "application identity cannot conflict with backend selector");
-        auto presenceWithoutIsolation =
-            fol::launch(paths, "missing", true, false, 1, false, false, {}, true,
-                        fol::BackendProbe::None, "helper.exe", "module.dll", true, false, {}, true);
+        auto presenceWithoutIsolation = fol::launch(
+            paths, "missing", true, false, 1, false, false, {}, true, fol::BackendProbe::None,
+            "helper.exe", "module.dll", true, false, {}, {.presence = true});
         check(presenceWithoutIsolation["error"].toString().contains("Launcher presence requires"),
               "launcher presence cannot omit network isolation");
         auto presenceWithoutBootstrap =
             fol::launch(paths, "missing", true, true, 1, false, false, {}, true,
-                        fol::BackendProbe::None, {}, {}, true, false, {}, true);
+                        fol::BackendProbe::None, {}, {}, true, false, {}, {.presence = true});
         check(presenceWithoutBootstrap["error"].toString().contains("Launcher presence requires"),
               "launcher presence cannot omit owned helper");
+        auto rebootWithoutIsolation =
+            fol::launch(paths, "missing", true, false, 1, false, false, {}, true,
+                        fol::BackendProbe::None, "helper.exe", "module.dll", true, false, {},
+                        {.identity = true, .rebootBootstrap = true});
+        check(rebootWithoutIsolation["error"].toString().contains(
+                  "Reboot bootstrap context requires"),
+              "bootstrap context cannot omit network isolation");
+        check(identityProfile->rebootBootstrapArguments.size() == 4 &&
+                  identityProfile->rebootBootstrapArguments.contains("-fromfl=eac") &&
+                  fol::Profile::forVersion("12.61")->rebootBootstrapArguments.isEmpty(),
+              "bootstrap context is explicit and not inherited by 12.61");
         auto lawinWithoutPrivate =
             fol::launch(paths, "missing", true, true, 1, false, false, {}, false,
                         fol::BackendProbe::None, {}, {}, false, false, "/example/lawin.json");

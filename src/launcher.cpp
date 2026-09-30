@@ -42,8 +42,9 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                    int timeoutSeconds, bool traceStartup, bool engineStdout,
                    const QString &protonId, bool launcherContextProbe, BackendProbe backendProbe,
                    const QString &httpProbeHelper, const QString &httpModule, bool privateBackend,
-                   bool developmentLogin, const QString &lawinConfig, bool launcherPresenceProbe,
-                   bool launcherIdentityProbe) {
+                   bool developmentLogin, const QString &lawinConfig,
+                   const LauncherContextExperiments &context) {
+    const bool launcherPresenceProbe = context.presence, launcherIdentityProbe = context.identity;
     const bool localBackendProbe = backendProbe != BackendProbe::None;
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
     auto session = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd_HH-mm-ss") + "_" +
@@ -64,6 +65,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                        {"launcher_context_probe", launcherContextProbe},
                        {"launcher_presence_probe", launcherPresenceProbe},
                        {"launcher_identity_probe", launcherIdentityProbe},
+                       {"reboot_bootstrap_context_probe", context.rebootBootstrap},
                        {"local_backend_probe", localBackendProbe},
                        {"backend_probe_method", backendProbe == BackendProbe::ServiceIni
                                                     ? "service-ini"
@@ -71,6 +73,10 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                     : "none"},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(!context.rebootBootstrap ||
+                    (offlineProbe && launcherContextProbe && privateBackend && context.identity &&
+                     !localBackendProbe),
+                "Reboot bootstrap context requires isolated private backend and identity probe");
         require(!launcherIdentityProbe ||
                     (offlineProbe && launcherContextProbe && privateBackend && !localBackendProbe),
                 "Launcher identity requires isolated launcher context and private backend, "
@@ -102,6 +108,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         auto profile = *selectedProfile;
         require(!launcherIdentityProbe || !profile.launcherIdentityArguments.isEmpty(),
                 "No launcher identity experiment is defined for this build");
+        require(!context.rebootBootstrap || !profile.rebootBootstrapArguments.isEmpty(),
+                "No Reboot bootstrap context experiment is defined for this build");
         QString helper, checkedModule;
         bool requestObserver = false, moduleBootstrap = false, moduleObserver = false,
              moduleRouter = false;
@@ -346,6 +354,13 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             args.append(profile.launcherIdentityArguments);
             result["launcher_identity_arguments"] =
                 QJsonArray::fromStringList(profile.launcherIdentityArguments);
+        }
+        if (context.rebootBootstrap) {
+            args.append(profile.rebootBootstrapArguments);
+            result["reboot_bootstrap_context"] = QJsonObject{
+                {"arguments", QJsonArray::fromStringList(profile.rebootBootstrapArguments)},
+                {"scope", "public upstream command-line context; EAC is not started; "
+                          "not genuine Epic authorization"}};
         }
         if (localBackendProbe)
             args.append(backendArguments);

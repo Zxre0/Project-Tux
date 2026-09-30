@@ -159,3 +159,17 @@ name/environment/locale arguments. It also requires the isolated private backend
 `Prod` is an input label under investigation, not permission for production access.
 Both presence alone and presence plus identity still produced AppES closing code1
 in actual tests. Neither establishes the underlying rejection condition.
+
+`--reboot-bootstrap-context-probe` additionally tests the public bootstrap
+argument group from [pinned Reboot Launcher](https://github.com/Auties00/Reboot-Launcher/blob/c6f82298b167ef2076bb59dc621f13dc5bd8d390/common/lib/src/game/game_metadata.dart).
+It explicitly declares an EAC-origin context **without starting EAC**, so this is
+spoofing, not authentic launcher authorization or a verified legitimate offline
+entry point. The fixed upstream launcher token is not an Epic user's credential.
+Network isolation, checked local module, private backend and process/module guards
+remain mandatory. No integrity, authentication or exit-handler code is patched by
+this option. Do not use it with protected production services.
+
+The first real test with this argument group did not reproduce AppES closing code1
+and stayed alive through the145s module-observation window. The game rendered the
+initial settings prompt; input/lobby functionality remains unverified. Individual
+argument necessity and whether suspended launcher presence is needed remain open.

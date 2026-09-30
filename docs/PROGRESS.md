@@ -2178,3 +2178,36 @@ AppES closing1 at23:58:46.692, verify501 response23:58:46.717, RequestExit0 at
 23:59:06.692. No EAC observed in samples; scoped cleanup left no owned processes.
 Identity arguments therefore did not remove the failure. Both experiments remain
 opt-in negative controls, not working-lobby claims or default launch changes.
+
+### Reboot bootstrap-context progress
+
+Source comparison found four additional public argument values in Reboot
+Launcher c6f82298 common/lib/src/game/game_metadata.dart: patch-check selection,
+no-BattlEye selection, a declared EAC bootstrap origin, and its fixed public
+launcher token. Added --reboot-bootstrap-context-probe to test that argument
+contract under mandatory private network isolation and identity opt-in. The
+token is an upstream constant, not a user's credential or genuine authorization.
+EAC is neither started nor modified. These are explicit spoofed-context semantics,
+not the original no-spoofing policy; the user authorized this scope change.
+Grouped new context experiments into a typed options struct instead of adding
+another positional boolean. Native build/all13 CTest targets pass25.21s.
+
+Real session2026-09-30_00-01-35_7843041c used the previous command plus
+--reboot-bootstrap-context-probe and timeout180. **No AppES closing marker or
+profile-token verification request occurred.** Local login/party succeeded; game
+remained alive through the145s module observation window, module restored its
+URL interception, helper returned0, suspended launcher cleanup succeeded, and no
+owned processes remained. EAC was not observed in samples. This isolates progress
+to the added argument group; it does not yet identify the necessary individual
+argument(s), prove launcher presence is required, or establish a functional lobby.
+
+Game-only screenshots show the Find Best Settings prompt. Attempted XTest click,
+Hyprland-targeted Escape/Return and compositor mouse input did not visibly dismiss
+it. An earlier commentary that said Decline was clicked described input delivery,
+not a verified UI transition; screenshot comparison disproves dismissal. Hyprland
+Lua dispatch syntax was checked against its official dispatcher documentation.
+Input is not yet verified. Read-only inspection found InitialBenchmarkState=-1 in
+the owned prefix's GameUserSettings.ini and SkipInitialBenchmark in Shipping
+strings. Next: test the built-in prompt-skip option and remove unnecessary launcher
+presence in a separately documented comparison. No game assets or settings file
+were edited in this session.

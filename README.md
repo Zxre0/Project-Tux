@@ -207,3 +207,9 @@ The CLI prints JSON and returns nonzero on validation or launch failure.
 See [progress](docs/PROGRESS.md), [architecture](docs/ARCHITECTURE.md),
 [12.61 research](docs/REBOOT_12_61.md), [compatibility matrix](docs/TEST_MATRIX.md),
 and [troubleshooting](docs/TROUBLESHOOTING.md).
+
+Latest supplied-12.50 experiment: the isolated Lawin login/party path with explicit
+Reboot bootstrap-context arguments stayed alive past the previous AppES rejection
+and rendered the initial settings prompt. This is an opt-in spoofed-context
+experiment, not an authenticated Epic launch, functional lobby, gameplay result or
+12.61 verification. See [scope and evidence](docs/EAC.md).

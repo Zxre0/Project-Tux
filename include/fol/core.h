@@ -37,7 +37,7 @@ CommandResult run(const QString &program, const QStringList &args, int timeout =
 struct Profile {
     QString version, executable, workingDirectory, rebootStatus;
     QStringList arguments, launcherContextArguments, launcherIdentityArguments,
-        localBackendArguments, serviceIniArguments;
+        rebootBootstrapArguments, localBackendArguments, serviceIniArguments;
     bool privatePathVerified, httpInterfaceProbeAllowed;
     QString httpObserverHash, httpObserverLayout, httpRouterLayout;
     static Profile load();
@@ -133,14 +133,18 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
                                    const QString &outputName, int timeoutMs,
                                    const SupervisionOptions &options = {});
 enum class BackendProbe { None, Selector, ServiceIni };
+struct LauncherContextExperiments {
+    bool presence = false;
+    bool identity = false;
+    bool rebootBootstrap = false;
+};
 QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup = false, bool engineStdout = false,
                    const QString &protonId = {}, bool launcherContextProbe = false,
                    BackendProbe backendProbe = BackendProbe::None,
                    const QString &httpProbeHelper = {}, const QString &httpModule = {},
                    bool privateBackend = false, bool developmentLogin = false,
-                   const QString &lawinConfig = {}, bool launcherPresenceProbe = false,
-                   bool launcherIdentityProbe = false);
+                   const QString &lawinConfig = {}, const LauncherContextExperiments &context = {});
 QString classifyFailure(const QString &text);
 QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session);
 QJsonObject analyzeModuleReceipt(const QByteArray &report, const QString &session, qint64 childPid);

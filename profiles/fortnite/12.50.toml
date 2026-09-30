@@ -7,6 +7,9 @@ arguments = ["-log", "-d3d11"]
 launcher_context_arguments = ["-epicportal"]
 # Explicit application-identity experiment only; network isolation remains mandatory.
 launcher_identity_arguments = ["-epicapp=Fortnite", "-epicenv=Prod", "-epiclocale=en-us"]
+# Pinned Reboot Launcher c6f82298 argument contract, not a real user's credential.
+# Explicit spoofed-context experiment; never starts EAC or enables production networking.
+reboot_bootstrap_arguments = ["-skippatchcheck", "-nobe", "-fromfl=eac", "-fltoken=3db3ba5dcbd2e16703f3978d"]
 # Discovery probe, not a validated backend interface or authentication implementation.
 local_backend_arguments = ["-epicapp=Localhost"]
 # Separate routing experiment; no certificate/authentication settings are changed.

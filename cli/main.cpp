@@ -49,6 +49,9 @@ int main(int argc, char **argv) {
           "Hold the supplied FortniteLauncher suspended in the owned isolated diagnostic job"},
          {"launcher-identity-probe",
           "Test profile-defined application identity arguments against the isolated backend"},
+         {"reboot-bootstrap-context-probe",
+          "Test public Reboot bootstrap argument contract; requires isolated identity probe; "
+          "does not start EAC"},
          {"local-backend-probe", "Probe built-in localhost backend selection; requires offline and "
                                  "launcher-context probes"},
          {"backend-probe-method", "Local backend experiment: selector or service-ini", "method",
@@ -194,8 +197,10 @@ int main(int argc, char **argv) {
                 parser.value("proton"), parser.isSet("launcher-context-probe"), backendProbe,
                 parser.value("http-probe-helper"), parser.value("http-module"),
                 parser.isSet("private-backend"), parser.isSet("development-login"),
-                parser.value("lawin-config"), parser.isSet("launcher-presence-probe"),
-                parser.isSet("launcher-identity-probe"));
+                parser.value("lawin-config"),
+                {.presence = parser.isSet("launcher-presence-probe"),
+                 .identity = parser.isSet("launcher-identity-probe"),
+                 .rebootBootstrap = parser.isSet("reboot-bootstrap-context-probe")});
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||
