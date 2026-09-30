@@ -60,3 +60,10 @@ lld-link /entry:fixture_entry /subsystem:console /nodefaultlib /machine:x64 /tim
     /out:build/windows/fol-http-fixture.exe build/windows/http_fixture.obj \
     /usr/lib/wine/x86_64-windows/libkernel32.a
 file build/windows/fol-http-fixture.exe
+clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
+    -I/usr/include/wine/windows -I/usr/include/wine/msvcrt -Wall -Wextra -Werror -O1 \
+    -c helpers/windows/ui_input_probe.c -o build/windows/ui_input_probe.obj
+lld-link /entry:probe_entry /subsystem:console /nodefaultlib /machine:x64 /timestamp:0 \
+    /out:build/windows/fol-ui-input-probe.exe build/windows/ui_input_probe.obj \
+    /usr/lib/wine/x86_64-windows/libkernel32.a /usr/lib/wine/x86_64-windows/libuser32.a
+file build/windows/fol-ui-input-probe.exe

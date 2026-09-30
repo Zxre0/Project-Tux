@@ -307,3 +307,15 @@ argument alone as a functional private path.
 Automatic capture preserved 141314 bytes. The runtime remained until the bounded
 supervisor stop (not proof that the game exited itself despite its log message).
 No EAC/BattlEye process/module was observed and owned-process cleanup completed.
+
+## Later local Lawin lobby milestone (2026-09-30)
+
+The earlier backend-selector experiments above remain negative controls. The
+separate checked local-router/Lawin deployment with explicit Reboot bootstrap
+arguments now reaches a rendered 12.50 Athena lobby. Local auth/XMPP/party and
+Locker/Play navigation were observed in repeated runs. Suspended launcher
+presence was not required. See [the tested command and limitations](BACKEND.md#verified-supplied-1250-lawin-lobby-2026-09-30)
+and [session evidence](PROGRESS.md). This is a spoofed-context, isolated experiment,
+not authentic Epic authorization or protected online compatibility. Empty local
+outfit inventory means no character is rendered; private gameplay and12.61 remain
+unverified.

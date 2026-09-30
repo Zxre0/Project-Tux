@@ -1,5 +1,36 @@
 # Windows HTTP interface diagnostics
 
+## Manual owned-window input diagnostic
+
+`fol-ui-input-probe.exe` is a standalone UI test helper, not an injected module.
+It uses ordinary Win32 foreground/cursor/SendInput APIs. It accepts only the
+session's live Shipping executable PID, one visible unowned top-level window,
+and the observed 1920x1080 client layout. `FOL_UI_ACTION` must be one of
+`select-br`, `enter-br`, `skip-intro`, `locker`, or `play-tab`. The last action
+selects the lobby tab, **not** its matchmaking button. There is no matchmaking,
+purchase, authentication or protection-patching action.
+
+The native operator must first verify session ownership and read current Linux
+and Windows PIDs from that session's process/HTTP-helper evidence. Do not reuse
+example PIDs or use an unrelated Wine prefix. Invoke the helper with the same
+bundled Wine runtime, WINEPREFIX and FOL_SESSION_ID inside the game's existing
+user/network namespace. On this host, `nsenter --target LINUX_GAME_PID --user
+--net --preserve-credentials -- env ...` is required; the default nsenter group
+reset fails because the user namespace denies setgroups.
+
+Required environment: `FOL_SESSION_ID`, numeric `FOL_GAME_WINDOWS_PID`, and
+explicit `FOL_UI_ACTION`. Exit64 rejects arguments,65 rejects an absent/dead
+process,66 rejects ambiguous window/layout,67 rejects focus/input operations,
+and68 rejects diagnostic output failure. Exit0 only means input was submitted;
+a screenshot or game-log state transition must independently show UI response.
+This helper is not a general-purpose input API or unattended launcher default.
+
+In the 2026-09-30 local 12.50 tests, XTest/compositor synthetic input and direct
+posted messages did not visibly navigate the menu. Foreground Win32 SendInput
+did: Battle Royale selection, entering the frontend, skipping the intro overlay,
+and Locker/Play tab navigation were observed. Physical mouse/keyboard usability
+is not established by this automation result.
+
 The default `fol-http-probe.exe` is read-only. The debugger observer and the
 explicit module-bootstrap variant below are separate experiments, not normal launch.
 

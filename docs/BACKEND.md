@@ -175,3 +175,55 @@ The real client still reported `UnableToParseJson`, then QueryKeychain/result37
 nonempty. It does not distinguish entry validation from response handling, or
 prove a need for real asset keys. Reverted the temporary response immediately.
 Owned-process cleanup completed; no EAC observed during sampled monitoring.
+
+## Verified supplied-12.50 Lawin lobby (2026-09-30)
+
+This supersedes the earlier unsuccessful-login experiments above. The isolated
+Lawin V2 integration now reaches the Chapter2 Season2 lobby with the generated
+Local Player account. Battle Royale selection and Locker/Play navigation were
+verified using ordinary Windows input. There is no loaded outfit in the test
+profile, so the player character is absent. Matchmaking, private game-server
+joining and 12.61 support are **not** established by this result.
+
+Prerequisites remain the registered legitimate12.50 installation, prepared owned
+Experimental prefix/runtime, checked locally built modules and isolated Lawin
+deployment described in [the integration guide](../integrations/lawin/README.md).
+From the repository root, the tested command is:
+
+```sh
+env -u OPENSSL_ia32cap ./build/fortnite-linux launch 12.50 \
+  --offline-probe --launcher-context-probe \
+  --proton experimental-20260924 --timeout 360 \
+  --http-probe-helper build/windows/fol-module-bootstrap.exe \
+  --http-module build/windows/fol-http-local-router.dll \
+  --private-backend --development-login \
+  --lawin-config /path/to/owned/backend/lawin.json \
+  --launcher-identity-probe --reboot-bootstrap-context-probe
+```
+
+This is an explicit spoofed bootstrap-context experiment: see [EAC scope](EAC.md).
+The command-line contract declares an EAC origin but does not launch EAC. It must
+remain network isolated. No Epic account is used. A suspended FortniteLauncher
+is not needed in the tested path; omit `--launcher-presence-probe`.
+
+For the first-run benchmark prompt, `-SkipInitialBenchmark` did not work in this
+Shipping build. The tested prefix-only workaround was to back up
+`pfx/drive_c/users/steamuser/AppData/Local/FortniteGame/Saved/Config/WindowsClient/GameUserSettings.ini`
+while idle, then change the existing `InitialBenchmarkState=-1` to `1` in its
+FortGameUserSettings section. Do not apply this to an unrelated prefix or overwrite
+other preferences. It skips the prompt; it does not run or validate a benchmark.
+
+Select Battle Royale, then Play on its expanded game-mode tile. The initial intro
+overlay rendered black on this host; its visible bottom-right skip arrow worked.
+The next run remembered that choice and reached the lobby without another skip.
+Synthetic compositor/XTest events did not visibly operate this game, whereas
+Win32 foreground/cursor/SendInput did. The tightly scoped manual diagnostic is
+documented in [Windows helper notes](../helpers/windows/README.md). Physical input
+and other resolutions still require testing.
+
+The command is a bounded diagnostic session, not a permanent launcher mode.
+Module observation is capped at300s; afterwards the helper restores its local URL
+interception and closes its owned job, then the native supervisor cleans up the
+backend and prefix processes. Helper exit0 does not establish graceful game exit
+or gameplay. Session results, real screenshots and the exact tested runtime are
+recorded in [PROGRESS.md](PROGRESS.md); screenshots and game assets stay out of Git.

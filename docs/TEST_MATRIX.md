@@ -64,3 +64,15 @@ unchanged; a 12.50 sign-in screenshot is not private gameplay compatibility.
 The second experiment was repeated once to validate automatic structured game-log
 reporting. Both runs cleaned up and had no observed EAC/BattlEye process/module.
 No backend service, credentials, private login or server connection was tested.
+
+## Isolated Lawin lobby verification (2026-09-30)
+
+| Tested environment | Verified | Not established |
+| --- | --- | --- |
+| CachyOS, NVIDIA4070SUPER, Hyprland/XWayland, supplied12.50, Proton Experimental20260924 host script (Wine11.0), isolated Lawin V2 | Local password login, XMPP/party, rendered Athena lobby, Win32 synthetic Battle Royale and Locker/Play navigation, no AppES marker through300s module window, scoped process cleanup | Outfit/character (test inventory empty), physical input, audio, game-server join/hosting, long-running stability, KDE/AMD/other distributions,12.61 |
+
+The bootstrap-context options explicitly spoof the launch origin; see EAC.md.
+No suspended launcher was needed in the two final tests. EAC/BattlEye was not
+observed during sampling, not proven universally absent. The diagnostic helper
+ends its owned game job at the observation bound; this is not a graceful user exit
+test. Session a58bd11b provides the repeated menu-transition screenshots and logs.

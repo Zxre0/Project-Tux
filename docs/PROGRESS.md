@@ -2211,3 +2211,84 @@ the owned prefix's GameUserSettings.ini and SkipInitialBenchmark in Shipping
 strings. Next: test the built-in prompt-skip option and remove unnecessary launcher
 presence in a separately documented comparison. No game assets or settings file
 were edited in this session.
+
+### Initial settings and input investigation
+
+Tested an explicit -SkipInitialBenchmark argument in real session
+2026-09-30_00-07-37_40369676. Native build/all13 tests passed25.17s, but the flag
+did not suppress the prompt. Removed this ineffective uncommitted option from
+CLI/profile/core, rebuilt back to642398e, and retained the negative finding here.
+The game again stayed alive through the145s diagnostic window with helper exit0,
+no sampled EAC and no owned processes remaining.
+
+Backed up the owned Experimental prefix's GameUserSettings.ini to that session's
+owner-only log directory, then changed only InitialBenchmarkState from-1 to1
+(line endings normalized by the text edit; a normalized diff verifies one setting
+change). This is a launcher-owned prefix preference, not a game asset or binary
+change. Real session2026-09-30_00-10-57_c9a44cc6 with otherwise unchanged bootstrap
+context reached UI.State.Startup.SubgameSelect. Captured genuine screenshots of
+Signed in as: Local Player and the three game modes. No AppES marker, helper
+exit0, and clean scoped cleanup. This is a real rendered sign-in milestone,
+**not yet a functional lobby**. The benchmark preference remains1 in this prefix;
+the original file is recoverable from the session backup.
+
+Hyprland/explicit X11 focus checks showed the game focused. XTest and compositor
+synthetic input still did not visibly select Battle Royale. Added a standalone
+Windows UI input diagnostic to distinguish delivery into Wine from compositor
+input; it validates the reported game's PID/executable, selects its unique visible
+unowned top-level window and posts ordinary mouse messages, without hooks. Exit0
+means messages queued only, not UI interaction success. The first attempted use
+after building missed the bounded session's lifetime and nsenter correctly failed
+because that PID had exited. No fallback process or unrelated prefix was used.
+Next real comparison removes suspended launcher presence and tests UI delivery
+inside the active owned user/network namespace.
+
+### Rendered Lawin lobby and repeatable menu interaction
+
+Session2026-09-30_00-14-36_da938be2 removed --launcher-presence-probe, retained
+identity/bootstrap-context options and the owned InitialBenchmarkState=1 setting,
+and used timeout300. No suspended launcher was created. Local sign-in reached
+game-mode selection. The first live nsenter attempt failed setgroups; using
+--preserve-credentials joined only the owned existing user/network namespace.
+Direct posted mouse messages still produced no transition. The helper's
+Win32 foreground/cursor/SendInput path selected Battle Royale and entered
+UI.State.Athena.Frontend at00:17:04.756. Clicking the intro overlay's visible skip
+arrow revealed the actual Chapter2 Season2 lobby at00:18:15, Local Player and
+LawinServer V2 label visible. Game-only screenshot after-skip-intro.png is stored
+in the owner-only session directory, not Git. The outfit is empty; no character
+is rendered. This is not a game-server join or gameplay test.
+
+The game survived the265s observation window with no AppES marker, helper exit0,
+module restoration and no owned processes remaining. No EAC process/module was
+observed in sampled monitoring. Suspended launcher presence is therefore not
+necessary for this tested local path; it remains an optional negative control.
+
+Repeat session2026-09-30_00-21-03_a58bd11b uses the same no-presence command,
+timeout360 (module window capped300s). Local sign-in/party and Battle Royale
+entry repeated; the intro no longer needed dismissal. Native input selected the
+Locker tab, which visibly shows an empty outfit, then returned to Play. Captured
+retest-frontend.png and retest-locker.png. Invalid/missing session, malformed PID,
+unknown action and missing action were each rejected with exit64 without input.
+The helper now requires explicit action, checks foreground and exact tested
+layout, reports input counts and fails on output/input errors. No protected
+matchmaking or purchase was attempted. Final session cleanup/test audit follows.
+
+Final repeat audit: a58bd11b reached Athena frontend00:21:55.289 and continued
+logging through00:26:05 before bounded cleanup. Locker and Play transitions were
+captured independently; lawin-lobby-verified.png shows the returned lobby after
+several minutes. Helper receipt confirms game live at the300s observation bound,
+module restored its interception with43 requests routed, helper exit0, no launch
+error and no owned processes remaining. No AppES closing marker or sampled EAC
+was present. Shipping SHA256 remains the original profile-pinned34a10af4...0190c.
+All13 final CTest targets pass25.26s; every Windows helper compiles with warnings
+as errors. The previous three pushed commits also passed GitHub CI.
+
+The narrow goal of a functional local Lawin lobby is now demonstrated by rendered
+screens, repeated local login and menu interaction. This does not complete the
+full FortniteOnLinux project: supplied12.50 only, empty outfit/absent character,
+physical input/audio not tested, diagnostic lifetime still bounded, hosting/private
+matches and12.61 unverified. Next engineering work: turn the verified opt-in path
+into an explicit longer-lived development session, isolate which bootstrap
+arguments are necessary, validate local loadout metadata and then game-server
+integration. No further identical startup retries are required to establish this
+lobby milestone.

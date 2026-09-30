@@ -173,3 +173,11 @@ The first real test with this argument group did not reproduce AppES closing cod
 and stayed alive through the145s module-observation window. The game rendered the
 initial settings prompt; input/lobby functionality remains unverified. Individual
 argument necessity and whether suspended launcher presence is needed remain open.
+
+Subsequent tests reached a rendered Lawin-backed 12.50 lobby **without** suspended
+launcher presence. Ordinary Windows input navigated Battle Royale and the
+Locker/Play tabs; the earlier AppES marker did not recur through bounded
+observation. Keep this distinction explicit: no EAC process/module was observed,
+but the command line declares a spoofed bootstrap origin. It is not evidence of
+authentic Epic authorization, production compatibility or 12.61 support. Full
+sessions, screenshots, limitations and cleanup are recorded in PROGRESS.md.
