@@ -9,8 +9,11 @@ the isolated [LawinServerV2 provider](integrations/lawin/README.md) reaches a
 rendered lobby on CachyOS/Hyprland/NVIDIA through Proton Experimental/DXVK.
 Character rendering, eight starter outfit thumbnails, outfit selection/save and
 persistence across a full game/backend restart are verified. Sessions remain
-bounded diagnostics; Project Reboot game-server integration and gameplay are
-not yet verified. No Fortnite assets or real Epic credentials are distributed.
+bounded diagnostics; BR Solo is now the local default, but joining a game and
+gameplay are not yet verified. Alternative game servers are under review: see
+[actual Play failure and build evidence](docs/GAMEPLAY_SERVERS.md) and
+[Project Nova analysis](docs/NOVA_ANALYSIS.md). No Fortnite assets or real Epic
+credentials are distributed.
 
 The tested path requires explicit isolated development options; it does not
 enable Epic production services or protected matchmaking. No EAC/BattlEye was

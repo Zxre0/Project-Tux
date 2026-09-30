@@ -14,14 +14,17 @@ The explicit isolated LawinServerV2 path reaches a rendered lobby on
 CachyOS/NVIDIA/Hyprland using Proton Experimental 20260924/DXVK. Local login,
 party/XMPP, starter outfits, outfit selection/save and persistence across a full
 game/backend restart have been tested. These are bounded diagnostics; private
-gameplay, Project Reboot game-server integration and hosting remain unverified.
+gameplay, game-server integration and hosting remain unverified. The local
+frontend now defaults to BR Solo; an actual Play request reaches a missing
+matchmaking-ticket route (404), not a running server. Erbium's Windows research
+DLL compiled/linked; Nova has been inspected, not built or loaded.
 Baseline startup and the earlier native-backend experiments are separate from
 this verified Lawin path. Steam Linux Runtime container integration is not
 implemented. No EAC was observed during sampled monitoring; this is not proof
 of universal absence.
 
 The target-retirement regression build passed all 13 CTest targets. Findings
-through b32067b are committed and pushed to canonical origin/main. Historical
+through 4e53145 are committed and pushed to canonical origin/main. Historical
 sanitizer results below apply only to their recorded revisions/settings.
 
 Installed native CLI: `/home/atlas/.local/bin/fortnite-linux`. Source checkout:
@@ -37,9 +40,9 @@ Project-owned Experimental and Hotfix copies passed isolated command execution
 and clean-shutdown tests using separate Proton compatibility data. Cancellation,
 timeout, missing-receipt and EAC-name handling have synthetic regression coverage.
 
-Current task: verify that active profiles, defaults, registrations and current
-documentation consistently target 12.50 only. Next launch milestone: prepare and
-validate a matching private Project Reboot game server for the supplied build;
+Current task: evaluate alternative gameplay servers for ordinary 12.50 BR Solo,
+record the observed Play failure, and verify a Linux-hosted Windows module build.
+Next launch milestone: prepare and validate a reviewed private game server;
 backend login alone does not establish gameplay compatibility. Missing 12.61
 files and historical partition-access findings are no longer project blockers.
 Do not treat frontend sign-in or a rendered lobby as private gameplay.
@@ -2419,3 +2422,94 @@ Reboot research into docs/history and clarified that its old blockers/profile
 are historical, not current requirements. Preserved chronological evidence,
 unsupported-version tests, all game files and existing prefix data. No game was
 launched or prefix reset for this documentation/scope check.
+
+### BR Solo frontend and real Play failure (2026-09-30)
+
+User requested gameplay and an alternative to Project Reboot, then added Nova as
+a reference. Retained 12.50 and ordinary BR Solo as the active scope. Added an
+original DefaultGame.ini with a single enabled/default Solo playlist and matching
+hashes/lengths; content pages likewise expose only Solo. No account-check hotfixes.
+Session 2026-09-30_01-33-19_7544db68 rendered SOLO with the persisted outfit;
+solo-mode-selected.png remains in its private log directory. The bounded run
+completed helper exit 0 with no error or remaining owned processes.
+
+Session 2026-09-30_01-37-58_b7a95cd1 identified an input delivery race: the first
+Play click preceded the queued cursor movement. Added a 200ms synchronization
+interval and verified GetCursorPos before input, retaining owned-process/window
+checks. The corrected click actually invoked matchmaking for
+12895384:0:NAE:playlist_defaultsolo. The ticket/player route returned 404: no
+matchmaking implementation or game server is running. The screenshot
+solo-play-after-cursor-sync.png shows the cannot-connect/unknown-error dialog.
+An independent profile-token request remains 501; no fabricated verification.
+The game exited before module observation completed, so helper exit 67 correctly
+reports incomplete diagnostics, despite game-process exit 0. Owned cleanup
+completed. No anti-cheat root cause can be inferred from these failures.
+
+Sessions 2026-09-30_01-44-16_4bbf4649 and
+2026-09-30_02-08-27_2ea5ccc5 identified and verified the party-preference fix:
+12.50 sends ALL/OPEN; the corresponding PATCH now returns 204 instead of 501.
+Allowlisted diagnostics log only known labels/bounded integers. Authorization,
+single-account membership and namespace isolation remain; no public discovery,
+remote joining or invitations. Both bounded runs returned helper exit 0, no
+launch error and no owned processes. No EAC observed during sampled monitoring
+in these runs or the Solo attempts; this is not proof of universal absence.
+
+Real isolated smoke checks pass in lawin-solo-smoke-4YwzJo and
+lawin-solo-smoke-tTXAhs: password/token authorization, preserved outfits, party,
+XMPP, Solo content and exact cloud hashes/bytes. Output explicitly reports
+game_server not-tested. Added asset-free Solo content/schema regression coverage.
+
+### Alternative game-server research and Linux-hosted Windows builds
+
+Inspected Erbium, MGS, Core and FortExternalServer primary sources. Erbium
+44568e08cbe411ba197d3e0e900685750d46afdc has a version range including 12.50,
+Solo defaults and listen/gameplay code, but runtime support is unverified.
+Initialization also includes generic return/exit/kick and encryption patches,
+requiring review before loading. Default cheats/siphon do not match ordinary Solo.
+No gameplay-server module was loaded into Fortnite.
+
+Provisioned user-local VS Build Tools 17.14.41, MSVC 19.44.35229 and Windows SDK
+10.0.26100.0 through msvc-wine 514f8ea34842cd6d831804d0e9658d3a32870ae1.
+Official payload hashes validated and the Microsoft license accepted locally.
+Compiler Wine uses a new compiler-only prefix in an offline namespace, not the
+game/default prefix. Native clang/lld 22.1.8 and user-local extraction tools are
+used. No global packages, drivers, boot configuration or game files changed.
+
+Added an original pinned Windows research build adapter. Native clang rejected
+Erbium's variadic macro/iterator constructs; the intended MSVC compiler compiled
+all sources. Link exposed the unused header-defined _Inits global; a narrow
+forced-include selectany macro coalesces only that symbol. No blanket duplicate
+suppression or game-signature/offset changes. Full rebuild/link succeeds, yielding
+a PE32+ x64 DLL with SHA256
+a448d5c8ceb78f9e9501e45646a2f76686e4d4f9e084ee3b2b2f2c07b2b1a8d6.
+It is not a native ELF server, has not been loaded and is not distributed.
+
+Historical Reboot sources also compiled/linked with native clang-cl and the
+Microsoft SDK/STL after generated case aliases, fmt compatibility selection,
+visible narrowing warnings and lowercase SDK libraries. Research DLL SHA256
+f1f2c346a0f66e8e2636dee5f6160a1596d45c2bbf062d387d22c41a5e916698.
+The original build-linux.sh was inspected first; MSBuild was not executed
+successfully or replaced upstream. This comparative artifact is not the user's
+selected alternative. Licensing notices accompany generated artifacts; sources
+and binaries remain ignored, and reference checkouts are not modified.
+
+Inspected requested projectnovafn/Nova b6ee4d3121e4d01846f7ce0cc00946237bea3837:
+vcxproj, DllMain/GuardedMain, UNova initialization, engine 4.25 branches, world,
+game-mode, dedicated-session, HTTP and MCP code. It is a Windows x64 DLL with
+developer-specific vcpkg paths, hardcoded Nova API endpoints and altered request
+identity/permission handling. No explicit 12.50/CL13137020 target match found.
+README's CC0 declaration separately warns of Epic-owned portions; redistribution
+cannot be assumed. No Nova build/run/API requests or source copied into Git.
+See docs/NOVA_ANALYSIS.md and docs/GAMEPLAY_SERVERS.md for the comparison.
+
+Regression: native build current, all 13 CTest targets passed in 25.45s, including
+the new Solo content tests. Real gameplay remains unverified. Next task: reviewed
+gameplay-only server initialization with actual readiness/admission, then
+authenticated local matchmaking; ticket 404 and profile-token verification are
+separate unresolved requirements, not permission to invent success.
+
+All optional Windows helpers rebuilt successfully with warnings-as-errors using
+`bash helpers/windows/build.sh` (the script is intentionally not executable).
+Erbium/Reboot artifact SHA256 and PE type were independently rechecked. Python
+AST, Node syntax and git diff checks pass. No client is left running. Preparing
+separate verified frontend and research checkpoint commits to canonical main.
