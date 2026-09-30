@@ -181,8 +181,10 @@ Owned-process cleanup completed; no EAC observed during sampled monitoring.
 This supersedes the earlier unsuccessful-login experiments above. The isolated
 Lawin V2 integration now reaches the Chapter2 Season2 lobby with the generated
 Local Player account. Battle Royale selection and Locker/Play navigation were
-verified using ordinary Windows input. There is no loaded outfit in the test
-profile, so the player character is absent. Matchmaking, private game-server
+verified using ordinary Windows input. The local starter profile now has a valid
+CosmeticLocker, eight original default outfits, pickaxe, glider and dance.
+The character renders in the lobby and Locker, and selecting/saving an alternate
+outfit through the game UI is verified. Matchmaking, private game-server
 joining and 12.61 support are **not** established by this result.
 
 Prerequisites remain the registered legitimate12.50 installation, prepared owned

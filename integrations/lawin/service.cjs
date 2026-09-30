@@ -43,6 +43,10 @@ async function main() {
       !await Friends.exists({accountId: user.accountId})) throw new Error('Incomplete local account');
   const repaired = await require('./profile-schema.cjs').repairEmptyInventories(Profile, user.accountId);
   process.send?.({event: 'profile-schema-checked', empty_inventories_restored: repaired});
+  stage = 'prepare-local-locker';
+  const locker = await require('./local-locker.cjs').prepare(Profile, user.accountId,
+    path.join(config.root, 'profile-backups'));
+  process.send?.({event: 'local-locker-prepared', ...locker});
   global.JWT_SECRET = crypto.randomBytes(32).toString('hex');
   global.accessTokens = [];
   global.refreshTokens = [];

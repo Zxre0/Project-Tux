@@ -64,7 +64,13 @@ Build the project normally, then append this to the existing isolated launch:
 The adapter validates private local credentials, initializes a separate MongoDB
 account with bcrypt, and refuses to overwrite an existing mismatching password.
 It uses the existing generated @localhost credentials, not Epic credentials.
-It creates empty inventories rather than importing the upstream full locker.
+It creates a small local starter locker rather than importing the upstream full
+catalog: eight original default outfits, default pickaxe, glider and dance.
+These are metadata references to assets in the user's installation, not Epic
+account entitlements. The recognized empty Athena profile is backed up under
+the owned deployment's `profile-backups/` (owner-only) before migration. Existing
+nonempty lockers and outfit choices are preserved; unfamiliar broken profiles
+are rejected rather than overwritten. Other inventories remain empty.
 An owner-only deployment receipt is required before starting MongoDB, preventing
 accidental use of an unrelated existing database directory.
 There is no Discord requirement. A deployment lock prevents two sessions from
@@ -96,7 +102,9 @@ game’s prefix log may contain the disposable local password.
 CTest runs it when Node is available; CI provisions Node22. The separate
 `smoke.cjs` requires a running isolated provider and checks wrong-password
 rejection, real password login, token verification, common_core and keychain
-transport. It never prints passwords, tokens or keychain contents.
+transport. It also verifies Athena starter references, outfit switching,
+unknown-outfit rejection and restoration of the original selection. It never
+prints passwords, tokens or keychain contents.
 Pass the private Lawin configuration as its second argument to also test a real
 WebSocket SASL login, resource binding and XMPP session.
 

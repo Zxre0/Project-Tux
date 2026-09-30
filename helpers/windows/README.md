@@ -6,8 +6,11 @@
 It uses ordinary Win32 foreground/cursor/SendInput APIs. It accepts only the
 session's live Shipping executable PID, one visible unowned top-level window,
 and the observed 1920x1080 client layout. `FOL_UI_ACTION` must be one of
-`select-br`, `enter-br`, `skip-intro`, `locker`, or `play-tab`. The last action
-selects the lobby tab, **not** its matchmaking button. There is no matchmaking,
+`select-br`, `enter-br`, `skip-intro`, `locker`, `play-tab`, `escape`,
+`outfit-slot`, `outfit-first`, or `outfit-save`. `play-tab` selects the lobby tab,
+**not** its matchmaking button. The outfit actions require the observed starter
+locker layout and operate its first outfit and Save and Exit controls. Verify
+each screen before sending the next action. There is no matchmaking,
 purchase, authentication or protection-patching action.
 
 The native operator must first verify session ownership and read current Linux

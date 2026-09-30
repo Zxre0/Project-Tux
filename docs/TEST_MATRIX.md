@@ -69,7 +69,7 @@ No backend service, credentials, private login or server connection was tested.
 
 | Tested environment | Verified | Not established |
 | --- | --- | --- |
-| CachyOS, NVIDIA4070SUPER, Hyprland/XWayland, supplied12.50, Proton Experimental20260924 host script (Wine11.0), isolated Lawin V2 | Local password login, XMPP/party, rendered Athena lobby, Win32 synthetic Battle Royale and Locker/Play navigation, no AppES marker through300s module window, scoped process cleanup | Outfit/character (test inventory empty), physical input, audio, game-server join/hosting, long-running stability, KDE/AMD/other distributions,12.61 |
+| CachyOS, NVIDIA4070SUPER, Hyprland/XWayland, supplied12.50, Proton Experimental20260924 host script (Wine11.0), isolated Lawin V2 | Local password login, XMPP/party, rendered Athena lobby, Win32 synthetic Battle Royale and Locker/Play navigation, eight starter outfit thumbnails, male/female character rendering, UI outfit equip/save, no AppES marker through300s module window, scoped process cleanup | Physical input, audio, game-server join/hosting, long-running stability, KDE/AMD/other distributions,12.61 |
 
 The bootstrap-context options explicitly spoof the launch origin; see EAC.md.
 No suspended launcher was needed in the two final tests. EAC/BattlEye was not

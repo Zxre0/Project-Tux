@@ -2292,3 +2292,47 @@ into an explicit longer-lived development session, isolate which bootstrap
 arguments are necessary, validate local loadout metadata and then game-server
 integration. No further identical startup retries are required to establish this
 lobby milestone.
+
+### Character/outfit setup goal (2026-09-30)
+
+Revalidated clean main7e30c9d and inspected the latest actual game log. The empty
+avatar is explained by Cosmetic locker item not found for id lawin-loadout and
+invalid loadout (nullptr Pickaxe), not yet a rendering-driver hypothesis. The
+local-account entry point deliberately emptied upstream inventories but retained
+stats.loadouts/last_applied_loadout references and default pickaxe/glider favorites.
+Read pinned Lawin athena profile and SetCosmeticLockerSlot/Equip handlers:12.50
+uses the CosmeticLocker item's slot metadata and commandRevision (>=12.20 branch).
+
+Added original local-locker metadata for eight original default outfits plus
+default pickaxe/glider/dance and a valid locker item. These are metadata references,
+not game assets or real-account entitlements. Setup only migrates the recognized
+empty local Athena state, backs it up owner0600, and uses account-scoped whole-
+snapshot comparison before replacement. Nonempty inventories/equipped selections
+are preserved; unfamiliar broken state is rejected instead of overwritten.
+Three unit tests cover references, idempotence/preservation and backup/concurrency.
+
+Real isolated smoke lawin-locker-smoke-KSyl7K created the starter once, then
+verified HTTP outfit switching, revision/persistence, unknown-outfit rejection
+and restoration of the previous choice. Existing auth/party/XMPP smoke passed.
+Backup: owned deployment profile-backups/athena-before-starter-b15240ce-e9e4-498c-88ae-86cbd6f0930c.json.
+Actual client rendering and locker UI switching remain to be verified; session
+2026-09-30_00-34-35_9b1557ab is the first rendering check.
+
+That session rendered the default male character in both lobby and Locker, and
+the outfit selector displayed all eight starter thumbnails. The missing-locker
+and nullptr-Pickaxe errors no longer occur. Captures: starter-locker.png,
+starter-locker-grid.png and outfit-selection.png in the private session directory.
+Bounded cleanup returned helper exit0 and no owned processes remaining; no EAC
+observed in sampled monitoring (not proof of absence).
+
+Repeat session2026-09-30_00-40-11_c8986fe2 preserved the starter profile. Win32
+input selected the first female default and Save and Exit. Lawin recorded
+SetCosmeticLockerSlot HTTP200 at00:41:53.410; alternate-equipped.png and
+alternate-lobby.png independently show the new character rendered in Locker and
+lobby. Added narrowly scoped escape/outfit-slot/outfit-first/outfit-save input
+actions for this observed1920x1080 layout. Restart persistence is the next check.
+
+Regression build: native Ninja build succeeds, all13 CTest targets pass25.29s,
+Windows helper cross-build succeeds with warnings-as-errors. Previous main7e30c9d
+GitHub workflows both passed. No game assets, profile databases, local credentials
+or screenshots are included in the repository changes.

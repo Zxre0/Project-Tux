@@ -212,6 +212,8 @@ Latest supplied-12.50 result: the isolated Lawin login/party path with explicit
 Reboot bootstrap-context arguments reaches a rendered lobby; Win32 input navigates
 Locker and Play tabs. No suspended launcher is required in the tested path. This
 is an opt-in spoofed-context experiment, not an authenticated Epic launch or
-12.61 verification. The test profile has no outfit, so the character is absent.
+12.61 verification. The local starter locker now renders a character and exposes
+eight original default outfits; selecting and saving another outfit works in the
+tested game UI. No game assets or real-account entitlements are distributed.
 Private matches, Reboot hosting and physical input remain unverified. See
 [scope and evidence](docs/EAC.md) and [reproduction notes](docs/BACKEND.md).

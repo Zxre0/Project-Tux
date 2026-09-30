@@ -16,7 +16,8 @@ async function main() {
   const authenticated = await grant(login.password);
   if (authenticated.status !== 200) throw new Error('password-grant-failed');
   const session = await authenticated.json();
-  const headers = {authorization: 'bearer ' + session.access_token};
+  const headers = {authorization: 'bearer ' + session.access_token,
+    'user-agent': 'Fortnite/++Fortnite+Release-12.50-CL-13137020 Windows/10.0.0.0.64bit'};
   const verified = await fetch(base + '/account/api/oauth/verify', {headers});
   if (verified.status !== 200) throw new Error('verify-failed');
   const profile = await fetch(base + '/fortnite/api/game/v2/profile/' + session.account_id +
@@ -28,6 +29,43 @@ async function main() {
   if (!snapshot || !Object.hasOwn(snapshot, 'items') || !snapshot.items ||
       typeof snapshot.items !== 'object' || Array.isArray(snapshot.items))
     throw new Error('profile-inventory-field-missing');
+  const {outfits, defaults} = require('./local-locker.cjs');
+  async function athenaCommand(operation, body = {}) {
+    return fetch(base + '/fortnite/api/game/v2/profile/' + session.account_id +
+      '/client/' + operation + '?profileId=athena&rvn=-1', {method: 'POST',
+        headers: {...headers, 'content-type': 'application/json'}, body: JSON.stringify(body)});
+  }
+  async function athena() {
+    const response = await athenaCommand('QueryProfile');
+    if (response.status !== 200) throw new Error('athena-query-failed');
+    const data = await response.json();
+    return data.profileChanges?.find(x => x.changeType === 'fullProfileUpdate')?.profile;
+  }
+  const beforeLocker = await athena();
+  const lockerId = beforeLocker?.stats.attributes.loadouts[beforeLocker.stats.attributes.active_loadout_index];
+  const slots = beforeLocker?.items[lockerId]?.attributes.locker_slots_data.slots;
+  if (!slots || !slots.Character.items[0] || !slots.Pickaxe.items[0] || !slots.Glider.items[0] ||
+      !outfits.every(id => beforeLocker.items[id]?.templateId === id) ||
+      !beforeLocker.items[defaults.Pickaxe] || !beforeLocker.items[defaults.Glider])
+    throw new Error('starter-locker-contract-failed');
+  const previousOutfit = slots.Character.items[0];
+  const alternate = outfits.find(id => id !== previousOutfit);
+  const equip = itemToSlot => athenaCommand('SetCosmeticLockerSlot',
+    {lockerItem: lockerId, category: 'Character', itemToSlot, slotIndex: 0, variantUpdates: []});
+  try {
+    if ((await equip(alternate)).status !== 200) throw new Error('outfit-equip-failed');
+    const equipped = await athena();
+    if (equipped.items[lockerId].attributes.locker_slots_data.slots.Character.items[0] !== alternate ||
+        equipped.rvn <= beforeLocker.rvn) throw new Error('outfit-equip-not-persisted');
+    if ((await equip('AthenaCharacter:fol_nonexistent')).status !== 400)
+      throw new Error('unknown-outfit-not-rejected');
+  } finally {
+    if ((await equip(previousOutfit)).status !== 200) throw new Error('original-outfit-restore-failed');
+  }
+  if ((await athena()).items[lockerId].attributes.locker_slots_data.slots.Character.items[0] !== previousOutfit)
+    throw new Error('original-outfit-not-persisted');
+  console.log(JSON.stringify({test: 'lawin-local-locker', outfits: outfits.length,
+    equip: 'persisted', unknown_outfit: 'rejected', original_outfit: 'restored'}));
   const keys = await fetch(base + '/fortnite/api/storefront/v2/keychain', {headers});
   const data = await keys.json();
   if (keys.status !== 200 || !Array.isArray(data) || !data.every(x => typeof x === 'string'))
