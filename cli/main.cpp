@@ -249,7 +249,7 @@ int main(int argc, char **argv) {
             result["scope"] = "readable /proc snapshot; names and ancestry only";
         } else if (command == "host") {
             throw fol::Error("Hosting blocked: no validated non-bypass Project Reboot integration "
-                             "or 12.61 runtime evidence yet");
+                             "or 12.50 game-server compatibility evidence yet");
         } else
             throw fol::Error("Unknown command; see --help");
         if (parser.isSet("output"))

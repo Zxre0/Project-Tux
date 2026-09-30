@@ -184,8 +184,9 @@ Local Player account. Battle Royale selection and Locker/Play navigation were
 verified using ordinary Windows input. The local starter profile now has a valid
 CosmeticLocker, eight original default outfits, pickaxe, glider and dance.
 The character renders in the lobby and Locker, and selecting/saving an alternate
-outfit through the game UI is verified. Matchmaking, private game-server
-joining and 12.61 support are **not** established by this result.
+outfit through the game UI is verified, including persistence after restarting
+both game and backend. Matchmaking, private game-server
+joining and gameplay are **not** established by this result.
 
 Prerequisites remain the registered legitimate12.50 installation, prepared owned
 Experimental prefix/runtime, checked locally built modules and isolated Lawin

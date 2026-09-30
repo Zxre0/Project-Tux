@@ -2336,3 +2336,43 @@ Regression build: native Ninja build succeeds, all13 CTest targets pass25.29s,
 Windows helper cross-build succeeds with warnings-as-errors. Previous main7e30c9d
 GitHub workflows both passed. No game assets, profile databases, local credentials
 or screenshots are included in the repository changes.
+
+Committed and pushed a42cb77 to canonical origin/main. Sessionc8986fe2 completed
+its300s module observation, restored the local router, returned helper exit0,
+reported no launch error and left no owned processes. No EAC was observed during
+sampling. Started a separate180s-bounded game/backend restart to verify the UI-
+saved outfit without changing the profile between runs.
+
+Restart session2026-09-30_00-45-41_0cb3aa74 reported existing-preserved during
+backend initialization and entered Athena frontend00:46:39.802. The same female
+default selected in the previous session rendered immediately, before any new
+outfit command. Captured outfit-persisted-after-restart.png. This verifies actual
+UI selection/save/render and cross-process persistence, not merely an HTTP200.
+Eight thumbnails and two full character models were inspected; rendering every
+outfit, gameplay,12.61 and unrestricted session duration remain unverified.
+
+Final outfit-session audit:0cb3aa74 returned helper exit0 with no launch error,
+router restored and no owned processes remaining. No EAC observed during sampled
+monitoring. outfit-persistence-verified.png shows the unobstructed persisted
+character. Shipping SHA256 is unchanged34a10af4...0190c. GitHub CI for a42cb77
+passed. The character/starter-outfit setup goal is complete; no gameplay claim.
+
+### Retarget exclusively to12.50 (2026-09-30)
+
+User chose to retire12.61 and continue only with the supplied12.50 installation.
+Removed12.61 from embedded resources and deleted its active TOML profile (Git
+history retains it). Default Profile::load and implicit module validation now
+select12.50. Updated current status, CLI examples, hosting error and compatibility
+matrix; archived the old status document under docs/history and labeled the
+upstream Season12 map as historical research. No game files, prefixes or local
+registrations were deleted or reset.
+
+Converted positive parser/registry/runtime/CLI fixtures to12.50 and retained
+explicit negative checks for retired-version detection, launch and module
+validation. The first regression run exposed an expected API-contract change:
+moduleReport rejects an unsupported requested target with an exception rather
+than returning invalid. Updated that test to assert rejection. Rebuild and all13
+CTest targets then passed25.08s. Real verify12.50 reports valid=true/profile12.50;
+the isolated Lawin print-command plan selects the existing12.50 Proton prefix
+without launching or altering its contents. Existing runtime/argument security
+gates were not relaxed by the target change.

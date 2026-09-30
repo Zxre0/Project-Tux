@@ -1,11 +1,12 @@
 # Compatibility matrix
 
-Results as of 2026-09-29. Synthetic tests do not count as game compatibility.
+Results as of 2026-09-30. Only12.50 is an active target.
+Synthetic tests do not count as game compatibility.
 
-| Environment | Native CLI | 64-bit Vulkan enumeration | 12.61 detection | Game/Reboot/join/host | Graphics/audio/input/fullscreen/EAC/shutdown |
+| Environment | Native CLI | 64-bit Vulkan enumeration | 12.50 detection | Game/Reboot/join/host | Graphics/audio/input/fullscreen/EAC/shutdown |
 | --- | --- | --- | --- | --- | --- |
-| CachyOS + NVIDIA RTX 4070 SUPER + Hyprland | Passed | Passed | Synthetic tests only | Blocked: no 12.61 files | Game behavior untested |
-| CachyOS + AMD iGPU + Hyprland | Same machine | Passed | Synthetic tests only | Blocked | Game behavior untested |
+| CachyOS + NVIDIA RTX 4070 SUPER + Hyprland | Passed | Passed | Supplied build verified | Lawin lobby/outfits verified; game server/join/host unverified | DXVK/XWayland and synthetic UI verified; audio untested; sampled EAC/cleanup evidence below |
+| CachyOS + AMD iGPU + Hyprland | Same machine | Passed | Same installation | GPU-specific game behavior untested | Game behavior untested |
 | CachyOS + NVIDIA + KDE Wayland | Untested | Untested | Untested | Untested | Untested |
 | Arch + NVIDIA | Untested | Untested | Untested | Untested | Untested |
 | Arch + AMD | Untested | Untested | Untested | Untested | Untested |
@@ -26,7 +27,7 @@ from those command-only tests. Later 12.50 rendering evidence is separated below
 
 These tests do not rank runtime performance or prove any Fortnite startup stage.
 
-## Supplied 12.50 startup diagnostics (not 12.61 compatibility)
+## Supplied 12.50 startup diagnostics (historical baselines)
 
 | Runtime experiment, CachyOS/Hyprland host | Startup result | Cleanup/anti-cheat observation | Scope |
 | --- | --- | --- | --- |
@@ -51,8 +52,8 @@ They remain isolated and cannot connect to production or a host private backend.
 
 Both ended at the supervisor timeout, with no owned processes remaining and no
 EAC/BattlEye process/module observed. Game-internal UAC checks remain present.
-See [12.50 evidence](FORTNITE_12_50.md). All 12.61 and other-desktop claims remain
-unchanged; a 12.50 sign-in screenshot is not private gameplay compatibility.
+See [12.50 evidence](FORTNITE_12_50.md). Other desktops remain untested;
+a sign-in screenshot is not private gameplay compatibility.
 
 ## Isolated 12.50 backend discovery
 
@@ -69,7 +70,7 @@ No backend service, credentials, private login or server connection was tested.
 
 | Tested environment | Verified | Not established |
 | --- | --- | --- |
-| CachyOS, NVIDIA4070SUPER, Hyprland/XWayland, supplied12.50, Proton Experimental20260924 host script (Wine11.0), isolated Lawin V2 | Local password login, XMPP/party, rendered Athena lobby, Win32 synthetic Battle Royale and Locker/Play navigation, eight starter outfit thumbnails, male/female character rendering, UI outfit equip/save, no AppES marker through300s module window, scoped process cleanup | Physical input, audio, game-server join/hosting, long-running stability, KDE/AMD/other distributions,12.61 |
+| CachyOS, NVIDIA4070SUPER, Hyprland/XWayland, supplied12.50, Proton Experimental20260924 host script (Wine11.0), isolated Lawin V2 | Local password login, XMPP/party, rendered Athena lobby, Win32 synthetic Battle Royale and Locker/Play navigation, eight starter outfit thumbnails, male/female character rendering, UI outfit equip/save and restart persistence, no AppES marker through300s module window, scoped process cleanup | Physical input, audio, game-server join/hosting, long-running stability, KDE/AMD/other distributions |
 
 The bootstrap-context options explicitly spoof the launch origin; see EAC.md.
 No suspended launcher was needed in the two final tests. EAC/BattlEye was not

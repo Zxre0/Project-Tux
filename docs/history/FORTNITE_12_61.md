@@ -1,4 +1,8 @@
-# Fortnite 12.61 status
+# Archived Fortnite 12.61 investigation
+
+Retired 2026-09-30 at the user's request. The active profile was removed;
+12.50 is now the sole supported target. The text below records historical
+findings and plans, not current requirements. See [current status](../FORTNITE_12_50.md).
 
 First-class embedded profile: `profiles/fortnite/12.61.toml`. Expected ordinary
 shipping executable is `FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe`.

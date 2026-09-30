@@ -1,7 +1,8 @@
 # EAC/private-development boundary
 
 No legitimate non-EAC private gameplay path has been verified. A supplied 12.50
-build is undergoing isolated diagnostics; 12.61 files remain unavailable.
+build is the sole development target. Isolated Lawin lobby and outfit persistence
+have been verified; that does not establish a private gameplay path.
 
 Expected upstream executable names are `FortniteClient-Win64-Shipping.exe`,
 `FortniteClient-Win64-Shipping_EAC.exe`, `FortniteLauncher.exe`, and
@@ -33,7 +34,7 @@ loaddll traces for EAC/BattlEye module-load evidence and stops on a match; this 
 not complete module attestation. Preflight without execution reports `not tested`.
 
 2026-09-29 baseline: no EAC-named processes observed; this is a system snapshot,
-not a Fortnite 12.61 result. The first launch request failed before execution due
+not a Fortnite execution result. The first launch request failed before execution due
 to missing build registration and has a persisted session result.
 
 Restored-access 12.50 traces on 2026-09-29 at 17:38, 17:39 and 17:41 UTC all
@@ -179,5 +180,5 @@ launcher presence. Ordinary Windows input navigated Battle Royale and the
 Locker/Play tabs; the earlier AppES marker did not recur through bounded
 observation. Keep this distinction explicit: no EAC process/module was observed,
 but the command line declares a spoofed bootstrap origin. It is not evidence of
-authentic Epic authorization, production compatibility or 12.61 support. Full
+authentic Epic authorization or production compatibility. Full
 sessions, screenshots, limitations and cleanup are recorded in PROGRESS.md.

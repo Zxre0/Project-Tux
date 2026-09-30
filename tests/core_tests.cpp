@@ -39,7 +39,7 @@ static QByteArray syntheticPe(bool dll = false) {
     qToLittleEndian<quint16>(0x20b, bytes.data() + 88);
     qToLittleEndian<quint32>(512, bytes.data() + 344);
     qToLittleEndian<quint32>(512, bytes.data() + 348);
-    bytes.replace(512, 46, "4.25.0-13498980+++Fortnite+Release-12.61-CL-13498");
+    bytes.replace(512, 46, "4.25.0-13137020+++Fortnite+Release-12.50-CL-13137");
     return bytes;
 }
 int main(int argc, char **argv) {
@@ -223,13 +223,14 @@ int main(int argc, char **argv) {
               "attach-only control cannot claim a captured request");
         auto root = temp.path() + "/game with spaces";
         auto profile = fol::Profile::load();
-        check(profile.version == "12.61", "12.61 remains default profile");
+        check(profile.version == "12.50", "12.50 is the sole supported default profile");
         auto diagnosticProfile = fol::Profile::forVersion("12.50");
         check(diagnosticProfile && diagnosticProfile->version == "12.50" &&
                   !diagnosticProfile->privatePathVerified,
-              "12.50 has separate diagnostic-only profile");
-        check(!fol::Profile::forVersion("12.60") && !fol::Profile::forVersion("../../12.61"),
-              "unknown and traversal profiles rejected");
+              "12.50 still requires explicit isolated diagnostic launch");
+        check(!fol::Profile::forVersion("12.61") && !fol::Profile::forVersion("12.60") &&
+                  !fol::Profile::forVersion("../../12.50"),
+              "retired, unknown and traversal profiles rejected");
         const auto logPrefix = temp.path() + "/log-prefix";
         const auto gameLog =
             logPrefix +
@@ -282,15 +283,15 @@ int main(int argc, char **argv) {
         QDir().mkpath(root + "/Engine");
         fol::writeFile(root + "/FortniteGame/Content/Paks/synthetic.pak", QByteArray(128, 'x'));
         auto build = fol::inspectBuild(root);
-        check(build.valid() && build.version == "12.61" && build.engine == "4.25.0",
+        check(build.valid() && build.version == "12.50" && build.engine == "4.25.0",
               "ASCII version metadata");
-        auto older = syntheticPe();
-        older.replace("Release-12.61", "Release-12.50");
-        fol::writeFile(exe, older);
-        auto olderBuild = fol::inspectBuild(root);
-        check(olderBuild.version == "12.50" &&
-                  olderBuild.json()["compatibility_profile"] == "12.50",
-              "12.50 is not aliased to 12.61");
+        auto unsupported = syntheticPe();
+        unsupported.replace("Release-12.50", "Release-12.61");
+        fol::writeFile(exe, unsupported);
+        auto unsupportedBuild = fol::inspectBuild(root);
+        check(unsupportedBuild.version == "12.61" &&
+                  unsupportedBuild.json()["compatibility_profile"] == "unsupported",
+              "retired version can be detected but never aliases the 12.50 profile");
         fol::writeFile(exe, syntheticPe());
         check(fol::discoverBuilds({temp.path()}).contains(root),
               "discovery finds structural build");
@@ -323,7 +324,7 @@ int main(int argc, char **argv) {
         check(!fol::inspectBuild(root).valid(), "wrong architecture rejected");
         pe = syntheticPe();
         pe.replace(512, 200, QByteArray(200, '\0'));
-        QString metadata = "4.25.0-13498980+++Fortnite+Release-12.61";
+        QString metadata = "4.25.0-13137020+++Fortnite+Release-12.50";
         QByteArray utf16;
         for (auto c : metadata) {
             utf16.append(char(c.unicode()));
@@ -331,15 +332,15 @@ int main(int argc, char **argv) {
         }
         pe.replace(512, utf16.size(), utf16);
         fol::writeFile(exe, pe);
-        check(fol::inspectBuild(root).version == "12.61", "UTF-16LE metadata");
+        check(fol::inspectBuild(root).version == "12.50", "UTF-16LE metadata");
         auto boundary = syntheticPe();
         boundary.replace(512, 200, QByteArray(200, '\0'));
         boundary.append(QByteArray(1024 * 1024 + 128 - boundary.size(), '\0'));
-        QByteArray release = "++Fortnite+Release-12.61-CL-13498980";
-        auto split = release.indexOf("61") + 1;
+        QByteArray release = "++Fortnite+Release-12.50-CL-13137020";
+        auto split = release.indexOf("50") + 1;
         boundary.replace(1024 * 1024 - split, release.size(), release);
         fol::writeFile(exe, boundary);
-        check(fol::inspectBuild(root).version == "12.61", "version split across read boundary");
+        check(fol::inspectBuild(root).version == "12.50", "version split across read boundary");
         fol::writeFile(exe, pe);
         fol::writeFile(root + "/Engine/Build/Build.version",
                        "{\"BranchName\":\"++Fortnite+Release-14.60\"}");
@@ -348,8 +349,8 @@ int main(int argc, char **argv) {
         fol::Paths paths{temp.path() + "/config", temp.path() + "/data", temp.path() + "/cache",
                          temp.path() + "/state"};
         fol::Registry registry(paths);
-        registry.add("12.61", root);
-        check(registry.resolve("12.61") == root, "registry roundtrip");
+        registry.add("12.50", root);
+        check(registry.resolve("12.50") == root, "registry roundtrip");
         registry.add("alternate", root);
         registry.remove("alternate");
         check(QFile::exists(exe), "unregister preserves files");
@@ -415,8 +416,7 @@ int main(int argc, char **argv) {
         const auto identityProfile = fol::Profile::forVersion("12.50");
         check(identityProfile &&
                   identityProfile->launcherIdentityArguments ==
-                      QStringList{"-epicapp=Fortnite", "-epicenv=Prod", "-epiclocale=en-us"} &&
-                  fol::Profile::forVersion("12.61")->launcherIdentityArguments.isEmpty(),
+                      QStringList{"-epicapp=Fortnite", "-epicenv=Prod", "-epiclocale=en-us"},
               "application identity experiment is specific to supplied 12.50 profile");
         auto identityWithoutIsolation = fol::launch(
             paths, "missing", true, false, 1, false, false, {}, true, fol::BackendProbe::None,
@@ -446,9 +446,8 @@ int main(int argc, char **argv) {
                   "Reboot bootstrap context requires"),
               "bootstrap context cannot omit network isolation");
         check(identityProfile->rebootBootstrapArguments.size() == 4 &&
-                  identityProfile->rebootBootstrapArguments.contains("-fromfl=eac") &&
-                  fol::Profile::forVersion("12.61")->rebootBootstrapArguments.isEmpty(),
-              "bootstrap context is explicit and not inherited by 12.61");
+                  identityProfile->rebootBootstrapArguments.contains("-fromfl=eac"),
+              "bootstrap context remains explicit in the supported profile");
         auto lawinWithoutPrivate =
             fol::launch(paths, "missing", true, true, 1, false, false, {}, false,
                         fol::BackendProbe::None, {}, {}, false, false, "/example/lawin.json");
@@ -461,70 +460,71 @@ int main(int argc, char **argv) {
         check(launch["status"] == "blocked" &&
                   QFile::exists(launch["logs"].toString() + "/result.json"),
               "failed launch persists session evidence");
-        auto blocked = fol::launch(paths, "12.61", false, false, 1);
+        auto blocked = fol::launch(paths, "12.50", false, false, 1);
         check(blocked["status"] == "blocked", "unverified private path blocked");
-        auto contextOnline = fol::launch(paths, "12.61", true, false, 1, false, false, {}, true);
+        auto contextOnline = fol::launch(paths, "12.50", true, false, 1, false, false, {}, true);
         check(contextOnline["error"].toString().contains("requires --offline-probe"),
               "launcher-context experiment cannot run without explicit network isolation");
-        auto contextUnknown = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true);
-        check(contextUnknown["error"].toString().contains("No launcher-context experiment"),
-              "12.50 launcher-context experiment does not silently apply to 12.61");
-        auto backendNoContext = fol::launch(paths, "12.61", true, true, 1, false, false, {}, false,
+        fol::writeFile(exe, unsupported);
+        auto contextUnknown = fol::launch(paths, "12.50", true, true, 1, false, false, {}, true);
+        check(contextUnknown["error"].toString().contains("Unsupported build: 12.61"),
+              "registration label cannot authorize a retired build's launch");
+        auto backendNoContext = fol::launch(paths, "12.50", true, true, 1, false, false, {}, false,
                                             fol::BackendProbe::Selector);
         check(backendNoContext["error"].toString().contains("requires --offline-probe and"),
               "local backend experiment requires explicit context and isolation");
-        auto backendNoIsolation = fol::launch(paths, "12.61", true, false, 1, false, false, {},
+        auto backendNoIsolation = fol::launch(paths, "12.50", true, false, 1, false, false, {},
                                               true, fol::BackendProbe::Selector);
         check(backendNoIsolation["error"].toString().contains("requires --offline-probe and"),
               "local backend experiment rejects non-isolated use");
-        auto backendWrongBuild = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true,
+        auto backendWrongBuild = fol::launch(paths, "12.50", true, true, 1, false, false, {}, true,
                                              fol::BackendProbe::Selector);
-        check(backendWrongBuild["error"].toString().contains("No local-backend experiment"),
-              "12.50 backend discovery does not silently apply to 12.61");
-        auto iniWrongBuild = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true,
+        check(backendWrongBuild["error"].toString().contains("Unsupported build: 12.61"),
+              "backend discovery does not silently apply to a retired build");
+        auto iniWrongBuild = fol::launch(paths, "12.50", true, true, 1, false, false, {}, true,
                                          fol::BackendProbe::ServiceIni);
-        check(iniWrongBuild["error"].toString().contains("No local-backend experiment"),
+        check(iniWrongBuild["error"].toString().contains("Unsupported build: 12.61"),
               "service INI experiment remains version scoped");
-        auto iniNoIsolation = fol::launch(paths, "12.61", true, false, 1, false, false, {}, true,
+        auto iniNoIsolation = fol::launch(paths, "12.50", true, false, 1, false, false, {}, true,
                                           fol::BackendProbe::ServiceIni);
         check(iniNoIsolation["error"].toString().contains("requires --offline-probe and"),
               "service INI experiment requires network isolation");
         const auto helperPath = temp.path() + "/http helper.exe";
         fol::writeFile(helperPath, syntheticPe());
-        auto helperOnline = fol::launch(paths, "12.61", true, false, 1, false, false, {}, true,
+        auto helperOnline = fol::launch(paths, "12.50", true, false, 1, false, false, {}, true,
                                         fol::BackendProbe::None, helperPath);
         check(helperOnline["error"].toString().contains("requires isolated launcher context"),
               "HTTP helper requires network isolation");
-        auto helperWrongBuild = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true,
+        auto helperWrongBuild = fol::launch(paths, "12.50", true, true, 1, false, false, {}, true,
                                             fol::BackendProbe::None, helperPath);
-        check(helperWrongBuild["error"].toString().contains("not enabled for this build"),
-              "HTTP helper must be enabled by the detected build profile");
-        auto helperMixed = fol::launch(paths, "12.61", true, true, 1, false, false, {}, true,
+        check(helperWrongBuild["error"].toString().contains("Unsupported build: 12.61"),
+              "HTTP helper cannot authorize an unsupported detected build");
+        auto helperMixed = fol::launch(paths, "12.50", true, true, 1, false, false, {}, true,
                                        fol::BackendProbe::ServiceIni, helperPath);
         check(helperMixed["error"].toString().contains("no backend experiment"),
               "read-only helper is separate from routing experiments");
+        fol::writeFile(exe, syntheticPe());
         fol::writeFile(temp.path() + "/module.dll", syntheticPe(true));
         check(fol::moduleReport(temp.path() + "/module.dll", {})["status"] == "unverified",
               "architecture is not module compatibility");
         auto checksum =
             QCryptographicHash::hash(syntheticPe(true), QCryptographicHash::Sha256).toHex();
         auto manifest = temp.path() + "/module.toml";
-        fol::writeFile(manifest, "fortnite_version = \"12.61\"\nsha256 = \"" + checksum + "\"\n");
+        fol::writeFile(manifest, "fortnite_version = \"12.50\"\nsha256 = \"" + checksum + "\"\n");
         check(fol::moduleReport(temp.path() + "/module.dll", manifest)["status"]
                   .toString()
                   .startsWith("manifest-matches"),
               "matching module manifest");
-        check(fol::moduleReport(temp.path() + "/module.dll", manifest, "12.50")["status"] ==
-                  "invalid",
-              "12.61 module manifest cannot authorize 12.50");
-        fol::writeFile(manifest, "fortnite_version = \"12.50\"\nsha256 = \"" + checksum + "\"\n");
+        rejects([&] { fol::moduleReport(temp.path() + "/module.dll", manifest, "12.61"); },
+                "retired version cannot be requested as a module target");
         check(fol::moduleReport(temp.path() + "/module.dll", manifest, "12.50")["status"]
                   .toString()
                   .startsWith("manifest-matches"),
-              "module manager accepts explicit 12.50 target without defaulting to 12.61");
-        check(fol::moduleReport(temp.path() + "/module.dll", manifest)["status"] == "invalid",
-              "default module validation still targets 12.61");
+              "module manager accepts explicit 12.50 target");
         fol::writeFile(manifest, "fortnite_version = \"12.61\"\nsha256 = \"" + checksum + "\"\n");
+        check(fol::moduleReport(temp.path() + "/module.dll", manifest)["status"] == "invalid",
+              "retired version manifest cannot authorize default 12.50 target");
+        fol::writeFile(manifest, "fortnite_version = \"12.50\"\nsha256 = \"" + checksum + "\"\n");
         auto changed = syntheticPe(true);
         changed[800] = 'x';
         fol::writeFile(temp.path() + "/module.dll", changed);
@@ -540,7 +540,7 @@ int main(int argc, char **argv) {
             return fol::run(cli, args, 5000, cliEnvironment);
         };
         auto added = invoke({"add", root, "--id", "test-build"});
-        check(added.exitCode == 0 && added.output.contains("12.61"), "CLI add with spaced path");
+        check(added.exitCode == 0 && added.output.contains("12.50"), "CLI add with spaced path");
         check(invoke({"verify", "test-build"}).exitCode == 0, "CLI verify registered build");
         check(invoke({"builds"}).output.contains("test-build"), "CLI list persists registration");
         check(invoke({"launch", "test-build"}).exitCode == 2,
@@ -756,7 +756,7 @@ int main(int argc, char **argv) {
         auto malformed = paths.config + "/builds.toml";
         fol::writeFile(malformed, "builds = 12\n");
         rejects([&] { registry.list(); }, "malformed registry schema rejected");
-        rejects([&] { registry.add("12.61", root); }, "mutation refuses malformed registry");
+        rejects([&] { registry.add("12.50", root); }, "mutation refuses malformed registry");
         check(fol::readFile(malformed) == "builds = 12\n", "malformed registry preserved");
 
         QList<fol::Process> graph{{1, 0, 1, "init", false},
@@ -856,12 +856,12 @@ int main(int argc, char **argv) {
         if (!app.arguments().contains("--skip-gpu") && namespaceProbe.exitCode == 0 &&
             fol::vulkanReport()["functional"].toBool()) {
             QFile::remove(malformed);
-            registry.add("12.61", root);
-            auto prefix = paths.prefix("12.61");
+            registry.add("12.50", root);
+            auto prefix = paths.prefix("12.50");
             fol::writeFile(
                 prefix + "/.fol-prefix.json",
                 QJsonDocument(
-                    QJsonObject{{"owner", "fortnite-on-linux"}, {"id", "12.61"}, {"path", prefix}})
+                    QJsonObject{{"owner", "fortnite-on-linux"}, {"id", "12.50"}, {"path", prefix}})
                     .toJson());
             fol::writeFile(prefix + "/system.reg", "synthetic test registry");
             QDir().mkpath(prefix + "/drive_c/windows");
@@ -872,20 +872,19 @@ int main(int argc, char **argv) {
                   "runtime fixture link");
             auto originalPath = qgetenv("PATH");
             qputenv("PATH", bin.toLocal8Bit() + ":" + originalPath);
-            auto planned = fol::launch(paths, "12.61", true, true, 5);
+            auto planned = fol::launch(paths, "12.50", true, true, 5);
             check(planned["status"] == "planned; not executed" &&
                       planned["command"].toString().contains("WINEDEBUG="),
                   "offline plan includes managed environment");
-            fol::writeFile(exe, older);
             for (const QString runtimeId : {QString{}, QString{"synthetic-second"}}) {
                 auto contextPlan =
-                    fol::launch(paths, "12.61", true, true, 5, false, false, runtimeId, true);
+                    fol::launch(paths, "12.50", true, true, 5, false, false, runtimeId, true);
                 check(contextPlan["status"] == "planned; not executed" &&
                           contextPlan["launcher_context_probe"].toBool() &&
                           contextPlan["command"].toString().contains("'-d3d11' '-epicportal'") &&
                           contextPlan["command"].toString().contains("'--net'"),
                       "12.50 opt-in context experiment retains isolation in Wine and Proton");
-                auto backendPlan = fol::launch(paths, "12.61", true, true, 5, false, false,
+                auto backendPlan = fol::launch(paths, "12.50", true, true, 5, false, false,
                                                runtimeId, true, fol::BackendProbe::Selector);
                 check(backendPlan["status"] == "planned; not executed" &&
                           backendPlan["local_backend_probe"].toBool() &&
@@ -893,7 +892,7 @@ int main(int argc, char **argv) {
                               "'-epicportal' '-epicapp=Localhost'") &&
                           backendPlan["command"].toString().contains("'--net'"),
                       "local backend selection is explicit and retains network isolation");
-                auto iniPlan = fol::launch(paths, "12.61", true, true, 5, false, false, runtimeId,
+                auto iniPlan = fol::launch(paths, "12.50", true, true, 5, false, false, runtimeId,
                                            true, fol::BackendProbe::ServiceIni);
                 check(iniPlan["status"] == "planned; not executed" &&
                           iniPlan["backend_probe_method"] == "service-ini" &&
@@ -902,7 +901,7 @@ int main(int argc, char **argv) {
                           iniPlan["command"].toString().contains("'--net'") &&
                           !iniPlan["command"].toString().contains("epicapp=Localhost"),
                       "service INI routing is a separate isolated experiment on both runtimes");
-                const QString helperId = runtimeId.isEmpty() ? "12.61" : "http-probe";
+                const QString helperId = runtimeId.isEmpty() ? "12.50" : "http-probe";
                 QString helperPrefix = contextPlan["prefix"].toObject()["path"].toString();
                 if (!runtimeId.isEmpty()) {
                     registry.add(helperId, root);
@@ -934,12 +933,12 @@ int main(int argc, char **argv) {
                        QJsonDocument(helperPlan).toJson())
                           .constData());
             }
-            auto contextBaseline = fol::launch(paths, "12.61", true, true, 5);
+            auto contextBaseline = fol::launch(paths, "12.50", true, true, 5);
             check(!contextBaseline["command"].toString().contains("epicportal") &&
                       !contextBaseline["launcher_context_probe"].toBool(),
                   "12.50 baseline does not acquire experimental launcher context");
             qputenv("FOL_FIXTURE_MODE", "trace-eac");
-            auto contextEac = fol::launch(paths, "12.61", false, true, 5, true, false, {}, true);
+            auto contextEac = fol::launch(paths, "12.50", false, true, 5, true, false, {}, true);
             qunsetenv("FOL_FIXTURE_MODE");
             check(contextEac["status"] == "stopped-anticheat-detected" &&
                       !contextEac["owned_processes_remaining"].toBool() &&
@@ -948,21 +947,21 @@ int main(int argc, char **argv) {
                           "launcher requested termination"),
                   "context experiment retains anti-cheat trace stop and scoped cleanup");
             fol::writeFile(exe, syntheticPe());
-            check(fol::launch(paths, "12.61", true, true, 5, true, false, "synthetic")["error"]
+            check(fol::launch(paths, "12.50", true, true, 5, true, false, "synthetic")["error"]
                       .toString()
                       .contains("digest"),
                   "Proton game launch rejects the previously corrupted runtime fixture");
             auto protonPlan =
-                fol::launch(paths, "12.61", true, true, 5, true, false, "synthetic-second");
+                fol::launch(paths, "12.50", true, true, 5, true, false, "synthetic-second");
             check(protonPlan["status"] == "planned; not executed" &&
                       protonPlan["command"].toString().contains("PROTON_LOG='0'") &&
                       protonPlan["command"].toString().contains("/proton' 'run'") &&
-                      !QDir(paths.data + "/proton-prefixes/12.61").exists(),
+                      !QDir(paths.data + "/proton-prefixes/12.50").exists(),
                   "Proton game plan uses script and visible Wine trace without creating prefix");
             auto interface = bin + "/steam-runtime-launcher-interface-0";
             check(QFile::link(fixture, interface), "synthetic Steam handoff interface link");
             auto handoff =
-                fol::launch(paths, "12.61", true, true, 5, true, false, "synthetic-second");
+                fol::launch(paths, "12.50", true, true, 5, true, false, "synthetic-second");
             check(handoff["error"].toString().contains("cannot hand off"),
                   "Proton probe rejects a service handoff outside its managed namespace");
             check(QFile::remove(interface), "remove owned synthetic handoff link");
@@ -970,7 +969,7 @@ int main(int argc, char **argv) {
             qputenv("PROTON_REMOTE_DEBUG_CMD", "must-not-execute");
             qputenv("FOL_FIXTURE_MODE", "proton-game");
             auto protonGame =
-                fol::launch(paths, "12.61", false, true, 5, true, false, "synthetic-second");
+                fol::launch(paths, "12.50", false, true, 5, true, false, "synthetic-second");
             qunsetenv("STEAM_COMPAT_MEDIA_PATH");
             qunsetenv("PROTON_REMOTE_DEBUG_CMD");
             qunsetenv("FOL_FIXTURE_MODE");
@@ -980,18 +979,18 @@ int main(int argc, char **argv) {
                   "Proton game probe scrubs foreign settings and supervises captured output");
             qputenv("FOL_FIXTURE_MODE", "trace-eac");
             auto protonModule =
-                fol::launch(paths, "12.61", false, true, 5, true, false, "synthetic-second");
+                fol::launch(paths, "12.50", false, true, 5, true, false, "synthetic-second");
             qunsetenv("FOL_FIXTURE_MODE");
             check(protonModule["status"] == "stopped-anticheat-detected" &&
                       !protonModule["owned_processes_remaining"].toBool(),
                   "Proton game probe retains anti-cheat module trace monitoring and cleanup");
-            auto traced = fol::launch(paths, "12.61", true, true, 5, true);
+            auto traced = fol::launch(paths, "12.50", true, true, 5, true);
             check(traced["startup_trace"].toBool() &&
                       traced["command"].toString().contains(
                           "+msgbox,+debugstr,+process,+exec,+reg") &&
                       !planned["command"].toString().contains("+msgbox"),
                   "startup trace is explicit and preserves baseline command");
-            auto engineLogging = fol::launch(paths, "12.61", true, true, 5, true, true);
+            auto engineLogging = fol::launch(paths, "12.50", true, true, 5, true, true);
             check(engineLogging["engine_stdout_requested"].toBool() &&
                       engineLogging["command"].toString().contains(
                           "'-log' '-d3d11' '-stdout' '-FullStdOutLogOutput' '-forcelogflush'") &&
@@ -1001,7 +1000,7 @@ int main(int argc, char **argv) {
             const auto originalDllPath = qgetenv("WINEDLLPATH");
             const bool hadDllPath = qEnvironmentVariableIsSet("WINEDLLPATH");
             qputenv("WINEDLLPATH", "/runtime with spaces/it's-vkd3d:/runtime/wine");
-            auto dllPlan = fol::launch(paths, "12.61", true, true, 5);
+            auto dllPlan = fol::launch(paths, "12.50", true, true, 5);
             check(dllPlan["inherited_runtime_environment"].toObject()["WINEDLLPATH"] ==
                           QString::fromUtf8(qgetenv("WINEDLLPATH")) &&
                       dllPlan["command"].toString().contains(
@@ -1015,7 +1014,7 @@ int main(int argc, char **argv) {
             const bool hadCpuMask = qEnvironmentVariableIsSet("OPENSSL_ia32cap");
             qputenv("OPENSSL_ia32cap", "~0x20000000");
             for (const QString runtimeId : {QString{}, QString{"synthetic-second"}}) {
-                auto maskPlan = fol::launch(paths, "12.61", true, true, 5, false, false, runtimeId);
+                auto maskPlan = fol::launch(paths, "12.50", true, true, 5, false, false, runtimeId);
                 check(maskPlan["status"] == "planned; not executed" &&
                           maskPlan["inherited_runtime_environment"].toObject()["OPENSSL_ia32cap"] ==
                               "~0x20000000" &&
@@ -1023,12 +1022,12 @@ int main(int argc, char **argv) {
                       "explicit OpenSSL diagnostic environment is recorded for Wine and Proton");
             }
             qunsetenv("OPENSSL_ia32cap");
-            auto noMaskPlan = fol::launch(paths, "12.61", true, true, 5);
+            auto noMaskPlan = fol::launch(paths, "12.50", true, true, 5);
             check(!noMaskPlan["command"].toString().contains("OPENSSL_ia32cap"),
                   "launcher does not enable an OpenSSL capability mask by default");
             if (hadCpuMask)
                 qputenv("OPENSSL_ia32cap", originalCpuMask);
-            auto failed = fol::launch(paths, "12.61", false, true, 5);
+            auto failed = fol::launch(paths, "12.50", false, true, 5);
             check(failed["exit_code"] == 53 && failed["likely_subsystem"] == "missing-library" &&
                       !failed["stop_requested"].toBool(),
                   "supervisor captures synthetic crash evidence");
@@ -1037,7 +1036,7 @@ int main(int argc, char **argv) {
             check(surviving.waitForStarted(),
                   "unrelated process starts before root-exit regression");
             qputenv("FOL_FIXTURE_MODE", "root-exits-first");
-            auto earlyExit = fol::launch(paths, "12.61", false, true, 5);
+            auto earlyExit = fol::launch(paths, "12.50", false, true, 5);
             qunsetenv("FOL_FIXTURE_MODE");
             check(
                 earlyExit["status"] == "exited; gameplay-unverified" &&
@@ -1048,7 +1047,7 @@ int main(int argc, char **argv) {
             surviving.terminate();
             check(surviving.waitForFinished(1000), "root-exit unrelated fixture cleanup");
             qputenv("FOL_FIXTURE_MODE", "eac-name");
-            auto eac = fol::launch(paths, "12.61", false, true, 5);
+            auto eac = fol::launch(paths, "12.50", false, true, 5);
             qunsetenv("FOL_FIXTURE_MODE");
             qputenv("PATH", originalPath);
             check(eac["status"] == "stopped-eac-detected",

@@ -1,32 +1,26 @@
 # FortniteOnLinux
 
-Native Linux CLI/core for investigating Fortnite **12.61** with legitimately
+Native Linux CLI/core for Fortnite **12.50** with legitimately
 obtained files and authorized local/private development infrastructure.
 Canonical repository: <https://github.com/Zxre0/FortniteOnLinux>.
 
-**Current status: experimental; 12.50 renders a sign-in screen in isolated Proton
-probes. Project Reboot integration and gameplay have not been verified.** No complete 12.61 installation
-was found on the development machine. A legitimate non-EAC private execution
-path has not been established. This project does not bypass authentication,
-DRM, SSL pinning or anti-cheat, and distributes no Fortnite assets.
+**12.50 is the sole supported development target.** Status remains experimental:
+the isolated [LawinServerV2 provider](integrations/lawin/README.md) reaches a
+rendered lobby on CachyOS/Hyprland/NVIDIA through Proton Experimental/DXVK.
+Character rendering, eight starter outfit thumbnails, outfit selection/save and
+persistence across a full game/backend restart are verified. Sessions remain
+bounded diagnostics; Project Reboot game-server integration and gameplay are
+not yet verified. No Fortnite assets or real Epic credentials are distributed.
 
-A supplied **12.50** build is now registered as a separate diagnostic-only target.
-It does not establish 12.61 compatibility. See [12.50 evidence](docs/FORTNITE_12_50.md).
-An opt-in, network-isolated launcher-context experiment reaches engine
-initialization and a visually verified sign-in screen through Proton/DXVK on
-CachyOS/Hyprland with NVIDIA. This is not authenticated login, private gameplay,
-12.61 compatibility or an anti-cheat bypass.
+The tested path requires explicit isolated development options; it does not
+enable Epic production services or protected matchmaking. No EAC/BattlEye was
+observed during sampled monitoring, which is not proof of universal absence.
+See [12.50 evidence](docs/FORTNITE_12_50.md), [launch instructions](docs/BACKEND.md)
+and [launch-context scope](docs/EAC.md).
 
-An experimental [native private backend](docs/BACKEND.md) now receives the real
-12.50 client's application-token and generated local-password requests inside an
-isolated namespace. The game received a player token, then exposed a session
-revocation bug. Its fix now passes a real account-authentication retest, but the
-native backend's login then aborts at QueryKeychain. An optional
-[LawinServerV2 provider](integrations/lawin/README.md) passes keychain processing
-and reaches the game's `Completed` login stage in actual12.50 runs. The separate
-startup-error dialog/profile-token failure persists and the game exits later:
-**a stable logged-in menu or gameplay is not yet verified**. Neither backend
-replaces the Project Reboot game server.
+The optional Lawin provider and the experimental native backend are separate
+from the Project Reboot game server. The native backend still stops at
+QueryKeychain; use the documented Lawin path for the verified lobby.
 
 ## Build
 
@@ -54,26 +48,26 @@ If using a separately provisioned Khronos header checkout, configure once with
 fortnite-linux discover /mnt/games
 fortnite-linux add /path/to/Fortnite
 fortnite-linux builds
-fortnite-linux verify 12.61
-fortnite-linux verify 12.61 --manifest /path/to/integrity.toml
+fortnite-linux verify 12.50
+fortnite-linux verify 12.50 --manifest /path/to/integrity.toml
 fortnite-linux manifest /path/to/build.manifest --installation /path/to/Fortnite --hash-files
 fortnite-linux imports /path/to/FortniteClient-Win64-Shipping.exe --dll-dir /path/to/prefix/drive_c/windows/system32
-fortnite-linux remove 12.61              # registration only; preserves files
+fortnite-linux remove 12.50              # registration only; preserves files
 fortnite-linux runtime list
 fortnite-linux runtime import-proton '/path/to/Proton - Experimental' --id experimental
 fortnite-linux runtime test-proton proton-smoke --proton experimental
-fortnite-linux runtime test 12.61        # after creating the prefix; no Fortnite execution
-fortnite-linux prefix create 12.61
-fortnite-linux prefix status 12.61
-fortnite-linux prefix stop 12.61         # only processes in this owned prefix
-fortnite-linux prefix backup 12.61       # copy; leaves active prefix in place
-fortnite-linux prefix backups 12.61      # list recovery tokens
-fortnite-linux prefix archive 12.61      # move aside without deleting files
-fortnite-linux prefix restore 12.61 BACKUP_TOKEN  # requires absent active prefix
-fortnite-linux prefix reset 12.61        # archive old prefix, then initialize new Wine prefix
+fortnite-linux runtime test 12.50        # after creating the prefix; no Fortnite execution
+fortnite-linux prefix create 12.50
+fortnite-linux prefix status 12.50
+fortnite-linux prefix stop 12.50         # only processes in this owned prefix
+fortnite-linux prefix backup 12.50       # copy; leaves active prefix in place
+fortnite-linux prefix backups 12.50      # list recovery tokens
+fortnite-linux prefix archive 12.50      # move aside without deleting files
+fortnite-linux prefix restore 12.50 BACKUP_TOKEN  # requires absent active prefix
+fortnite-linux prefix reset 12.50        # archive old prefix, then initialize new Wine prefix
 fortnite-linux diagnose --output system.json
-fortnite-linux launch 12.61 --offline-probe --print-command
-fortnite-linux launch 12.61 --offline-probe --timeout 60
+fortnite-linux launch 12.50 --offline-probe --print-command
+fortnite-linux launch 12.50 --offline-probe --timeout 60
 fortnite-linux launch 12.50 --offline-probe --trace-startup --timeout 35
 fortnite-linux launch 12.50 --offline-probe --trace-startup --engine-stdout --timeout 35
 fortnite-linux launch 12.50 --offline-probe --proton experimental --trace-startup --timeout 45
@@ -93,7 +87,7 @@ Optional integrity manifests contain a `[files]` table mapping quoted relative
 file paths to SHA-256 strings. Only listed files are checked; manifest provenance
 is not authenticated. Paths escaping the installation, including symlink escapes,
 are rejected. The same `--manifest` option on `module` expects `fortnite_version`
-and `sha256` fields instead. See [12.61 validation](docs/FORTNITE_12_61.md).
+and `sha256` fields instead. See [12.50 validation](docs/FORTNITE_12_50.md#optional-content-integrity-checks).
 
 `manifest PATH` independently reads supported legacy binary Epic manifests.
 Add `--installation ROOT` to check listed file presence/sizes, and `--hash-files`
@@ -205,15 +199,16 @@ requires the same opt-ins and does not imply successful routing or login.
 The CLI prints JSON and returns nonzero on validation or launch failure.
 
 See [progress](docs/PROGRESS.md), [architecture](docs/ARCHITECTURE.md),
-[12.61 research](docs/REBOOT_12_61.md), [compatibility matrix](docs/TEST_MATRIX.md),
+[compatibility matrix](docs/TEST_MATRIX.md),
 and [troubleshooting](docs/TROUBLESHOOTING.md).
 
 Latest supplied-12.50 result: the isolated Lawin login/party path with explicit
 Reboot bootstrap-context arguments reaches a rendered lobby; Win32 input navigates
 Locker and Play tabs. No suspended launcher is required in the tested path. This
-is an opt-in spoofed-context experiment, not an authenticated Epic launch or
-12.61 verification. The local starter locker now renders a character and exposes
+is an opt-in spoofed-context experiment, not an authenticated Epic launch.
+The local starter locker now renders a character and exposes
 eight original default outfits; selecting and saving another outfit works in the
-tested game UI. No game assets or real-account entitlements are distributed.
+tested game UI, and the selection survives a full game/backend restart. No game
+assets or real-account entitlements are distributed.
 Private matches, Reboot hosting and physical input remain unverified. See
 [scope and evidence](docs/EAC.md) and [reproduction notes](docs/BACKEND.md).

@@ -7,7 +7,8 @@ dedicated MongoDB and the upstream HTTP routes, gates game launch on readiness,
 and cleans up its owned service processes. CLI integration stays platform-native.
 See [integration scope and GPL notices](../integrations/lawin/README.md).
 
-2026-09-29. Priority: Fortnite 12.61 startup evidence on Linux. No gameplay success claimed.
+Updated 2026-09-30: Fortnite 12.50 is the sole supported development target.
+Local Lawin lobby/outfit persistence is verified; gameplay is not.
 
 | Option | Linux/process support | Packaging and maintenance | Decision |
 | --- | --- | --- | --- |
@@ -55,7 +56,7 @@ reports remaining members. It is serialized within a CLI
 process; future parallel GUI operations must use worker processes rather than
 competing process-wide signal handlers.
 
-The profile in `profiles/fortnite/12.61.toml` is embedded as a Qt resource, so an
+The sole profile in `profiles/fortnite/12.50.toml` is embedded as a Qt resource, so an
 installed binary does not depend on its original working directory. Native GUI,
 backend adapter, host manager and server browser will consume the same core when
 their prerequisites are verified. Windows implementation is explicitly deferred.
@@ -83,5 +84,6 @@ the HTTP layer handles framing and serialization. Snapshot revisions and creatio
 times are stable within one backend lifetime, but state is currently in memory.
 Profile writes and cross-restart persistence remain unimplemented. Empty inventory
 and local metadata are original; no upstream profile inventories are imported.
-The actual 12.50 client accepts these query envelopes. This is not a 12.61 or
-completed-game-login compatibility claim.
+The actual 12.50 client accepts these query envelopes. This native component is
+not a completed-game-login claim; the optional Lawin provider separately has
+verified lobby login and persistent local starter outfits.

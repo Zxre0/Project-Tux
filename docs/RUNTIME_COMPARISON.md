@@ -1,7 +1,7 @@
 # 12.50 runtime comparison evidence
 
 This is a startup diagnostic, not a performance benchmark or compatibility claim.
-The supplied game remains 12.50, not 12.61. All game commands retain a separate
+The sole development target is the supplied 12.50 build. All game commands retain a separate
 user/network namespace, ordinary Shipping, anti-cheat observation, bounded
 execution and identity-scoped cleanup. Baselines use `-log -d3d11`; the later
 explicit launcher-context experiments add one argument and are documented separately.

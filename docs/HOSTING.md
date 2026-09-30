@@ -1,6 +1,6 @@
 # Hosting
 
-`fortnite-linux host 12.61` currently returns an explicit integration blocker.
+`fortnite-linux host 12.50` currently returns an explicit integration blocker.
 No game server has been started. A module being PE x64 with matching manifest
 hash does not establish that loading it is authorized, safe, or compatible.
 No module injection or authentication replacement is implemented.

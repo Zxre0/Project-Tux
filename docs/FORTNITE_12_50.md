@@ -1,8 +1,11 @@
-# Fortnite 12.50 diagnostic target
+# Fortnite 12.50: sole supported development target
 
-This is a separately supplied diagnostic build, not a substitute for 12.61.
-The project's primary compatibility target remains 12.61. No private gameplay,
-Reboot module compatibility or non-EAC authorization path is established for 12.50.
+As of 2026-09-30, this is the project's only active compatibility profile and
+default module-validation target. The supplied build reaches the isolated Lawin
+lobby with a rendered character and persistent outfit selection. Private gameplay
+and Reboot game-server compatibility remain unverified. Sessions are still bounded
+diagnostics, not a completed launcher workflow. See [current reproduction](BACKEND.md).
+The earlier experiments below are historical evidence, not current lobby blockers.
 
 Supplied root: `/home/atlas/Documents/Fortnite/++Fortnite+Release-12`.
 Ordinary Shipping and CrashReportClient both contain `++Fortnite+Release-12.50`;
@@ -206,7 +209,7 @@ argument observed in upstream, without authentication fields/tokens, modules,
 launcher/EAC processes, registry fabrication or binary changes. This intentionally
 changes the launcher-context assertion, unlike the earlier baseline. It is not
 proof that an official launcher initiated this process or that private gameplay
-is authorized/supported. The baseline and 12.61 profile are unchanged.
+is authorized/supported. At the time, the baseline and now-retired profile were unchanged.
 
 System Wine 11.18 session `2026-09-29_18-28-07_e5588ee2` with the OpenSSL mask
 unset progressed beyond the prior exit-1 stage. A new FortniteGame.log records
@@ -316,6 +319,38 @@ arguments now reaches a rendered 12.50 Athena lobby. Local auth/XMPP/party and
 Locker/Play navigation were observed in repeated runs. Suspended launcher
 presence was not required. See [the tested command and limitations](BACKEND.md#verified-supplied-1250-lawin-lobby-2026-09-30)
 and [session evidence](PROGRESS.md). This is a spoofed-context, isolated experiment,
-not authentic Epic authorization or protected online compatibility. Empty local
-outfit inventory means no character is rendered; private gameplay and12.61 remain
-unverified.
+not authentic Epic authorization or protected online compatibility. The repaired
+starter locker renders male/female default characters, presents eight outfit
+thumbnails and preserves UI-selected outfits across a full game/backend restart.
+Private gameplay remains unverified.
+
+## Optional content-integrity checks
+
+Validation requires FortniteGame, Engine, readable content paks, a structurally
+valid x64 PE application with bounded section data and unambiguous release
+metadata. Shipping, CrashReportClient and Build.version are scanned in bounded
+chunks, including UTF-16LE strings. Engine version is reported only when detected;
+structural checks do not authenticate provenance or cover every asset.
+
+`verify 12.50 --manifest /path/to/integrity.toml` checks supplied SHA-256 values:
+
+```toml
+[files]
+"FortniteGame/Content/Paks/example.pak" = "<64 hex characters from a trusted local manifest>"
+```
+
+Replace the intentionally invalid placeholder. Files are streamed for hashing;
+empty manifests, malformed hashes, traversal and symlink escapes are rejected.
+Missing, unreadable, changed-during-check and mismatched files fail verification.
+A match covers only listed files and does not authenticate the supplied manifest.
+The launcher never rewrites game files in response to corruption.
+
+Module compatibility manifests use a separate schema:
+
+```toml
+fortnite_version = "12.50"
+sha256 = "<64 hex characters for the supplied module>"
+```
+
+Default module validation now targets12.50. A matching manifest still reports
+runtime compatibility as unverified; `module` validates metadata and bytes only.

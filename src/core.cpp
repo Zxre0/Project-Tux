@@ -75,7 +75,7 @@ CommandResult run(const QString &program, const QStringList &args, int timeout,
     return {process.exitStatus() == QProcess::CrashExit ? -1 : process.exitCode(), timedOut,
             QString::fromUtf8(process.readAll())};
 }
-Profile Profile::load() { return forVersion("12.61").value(); }
+Profile Profile::load() { return forVersion("12.50").value(); }
 std::optional<Profile> Profile::forVersion(const QString &version) {
     static const bool initialized = (initProfiles(), true);
     Q_UNUSED(initialized);
