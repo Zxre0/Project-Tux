@@ -106,6 +106,19 @@ int main(int argc, char **argv) {
         const auto receiptOk = fol::analyzeHttpProbe(receipt, "test");
         check(receiptOk["complete"].toBool() && receiptOk["candidate_observed"].toBool(),
               "session-bound helper completion receipt");
+        const QByteArray routerLoad = "FOL_HTTP_PROBE {\"event\":\"module_loaded\",\"value\":1}\n";
+        const QByteArray sdkLoad = "FOL_HTTP_PROBE {\"event\":\"sdk_probe_loaded\",\"value\":1}\n";
+        auto sdkHelperReceipt = receipt;
+        const auto completionPosition = receipt.indexOf("FOL_HTTP_PROBE {\"event\":\"completed");
+        sdkHelperReceipt.insert(completionPosition, routerLoad + sdkLoad);
+        check(fol::analyzeHttpProbe(sdkHelperReceipt, "test")["sdk_probe_loaded"].toBool(),
+              "SDK load receipt follows the owned child's local router");
+        for (const auto &load : {sdkLoad, sdkLoad + routerLoad, routerLoad + sdkLoad + sdkLoad}) {
+            auto invalid = receipt;
+            invalid.insert(completionPosition, load);
+            check(fol::analyzeHttpProbe(invalid, "test").contains("error"),
+                  "SDK load without router, out-of-order and duplicate receipts rejected");
+        }
         const QByteArray suspended =
             "FOL_HTTP_PROBE {\"event\":\"launcher_presence_suspended\",\"value\":43}\n";
         const QByteArray stopped =
@@ -426,6 +439,17 @@ int main(int argc, char **argv) {
         check(identityProfile->soloWorldUrl == "Apollo_Terrain" &&
                   identityProfile->soloListenUrl == "Apollo_Terrain?listen",
               "world feasibility probes use only the profile-defined Season 12 map");
+        const auto sdkWithoutIsolation = fol::launch(
+            paths, "missing", true, false, 1, false, false, {}, true, fol::BackendProbe::None,
+            "helper.exe", "module.dll", true, true, "/example/lawin.json", {.identity = true},
+            fol::WorldProbe::None, "fol-solo-sdk-probe.dll");
+        const auto sdkWithWorld = fol::launch(
+            paths, "missing", true, true, 1, false, false, {}, true, fol::BackendProbe::None,
+            "helper.exe", "module.dll", true, true, "/example/lawin.json", {.identity = true},
+            fol::WorldProbe::Listen, "fol-solo-sdk-probe.dll");
+        check(sdkWithoutIsolation["error"].toString().contains("SDK probe requires") &&
+                  sdkWithWorld["error"].toString().contains("SDK probe requires"),
+              "SDK probe cannot omit isolation or combine independent world experiments");
         for (auto mode : {fol::WorldProbe::Standalone, fol::WorldProbe::Listen}) {
             auto worldWithoutIsolation =
                 fol::launch(paths, "missing", true, false, 1, false, false, {}, true,

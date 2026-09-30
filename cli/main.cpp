@@ -68,6 +68,8 @@ int main(int argc, char **argv) {
           "Trusted diagnostic DLL with adjacent .dll.toml manifest; requires "
           "fol-module-bootstrap.exe and network isolation",
           "dll"},
+         {"sdk-probe-module", "Trusted SDK-only diagnostic DLL; isolated local Lawin login only",
+          "dll"},
          {"private-backend",
           "Start the local backend in the isolated game namespace; requires local router DLL"},
          {"development-login", "Use the generated @localhost identity; requires --private-backend"},
@@ -211,7 +213,7 @@ int main(int argc, char **argv) {
                 {.presence = parser.isSet("launcher-presence-probe"),
                  .identity = parser.isSet("launcher-identity-probe"),
                  .rebootBootstrap = parser.isSet("reboot-bootstrap-context-probe")},
-                worldProbe);
+                worldProbe, parser.value("sdk-probe-module"));
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||

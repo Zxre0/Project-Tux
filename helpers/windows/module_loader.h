@@ -1,19 +1,10 @@
 /* Load one explicitly supplied project DLL into the child created by this helper.
  * No arbitrary PID, debugger attachment, game-code patch or security override. */
 #include "module_window.h"
-static BOOL load_owned_module(PROCESS_INFORMATION *child) {
-    static wchar_t path[4096];
-    DWORD count = GetEnvironmentVariableW(L"FOL_HTTP_MODULE", path, 4096);
-    if (!count || count >= 4096)
-        return FALSE;
-    const wchar_t *name = path;
-    for (DWORD i = 0; i < count; ++i)
-        if (path[i] == L'\\' || path[i] == L'/')
-            name = path + i + 1;
-    BOOL observer =
-        equal(name, L"fol-http-request-observer.dll") || equal(name, L"fol-http-local-router.dll");
-    if ((!observer && !equal(name, L"fol-http-adapter.dll")) ||
-        image_base(child->dwProcessId, name)) {
+static BOOL inject_owned_module(PROCESS_INFORMATION *child, const wchar_t *path,
+                                const wchar_t *name, const char *loaded_event) {
+    DWORD count = (DWORD)length(path);
+    if (!count || count >= 4096 || image_base(child->dwProcessId, name)) {
         event("module_name_or_existing_load_rejected", 1);
         return FALSE;
     }
@@ -79,9 +70,39 @@ static BOOL load_owned_module(PROCESS_INFORMATION *child) {
         return FALSE;
     }
     BOOL loaded = image_base(child->dwProcessId, name) != 0;
-    event("module_loaded", loaded);
+    event(loaded_event, loaded);
+    return loaded;
+}
+static BOOL load_owned_module(PROCESS_INFORMATION *child) {
+    static wchar_t path[4096], sdk_path[4096];
+    DWORD count = GetEnvironmentVariableW(L"FOL_HTTP_MODULE", path, 4096);
+    if (!count || count >= 4096)
+        return FALSE;
+    const wchar_t *name = path;
+    for (DWORD i = 0; i < count; ++i)
+        if (path[i] == L'\\' || path[i] == L'/')
+            name = path + i + 1;
+    BOOL observer =
+        equal(name, L"fol-http-request-observer.dll") || equal(name, L"fol-http-local-router.dll");
+    if (!observer && !equal(name, L"fol-http-adapter.dll")) {
+        event("module_name_or_existing_load_rejected", 1);
+        return FALSE;
+    }
+    BOOL loaded = inject_owned_module(child, path, name, "module_loaded");
     if (!loaded)
         return FALSE;
+    count = GetEnvironmentVariableW(L"FOL_SOLO_SDK_MODULE", sdk_path, 4096);
+    if (count) {
+        if (count >= 4096 || !equal(name, L"fol-http-local-router.dll"))
+            return FALSE;
+        const wchar_t *sdk_name = sdk_path;
+        for (DWORD i = 0; i < count; ++i)
+            if (sdk_path[i] == L'\\' || sdk_path[i] == L'/')
+                sdk_name = sdk_path + i + 1;
+        if (!equal(sdk_name, L"fol-solo-sdk-probe.dll") ||
+            !inject_owned_module(child, sdk_path, sdk_name, "sdk_probe_loaded"))
+            return FALSE;
+    }
     DWORD window = module_window_ms();
     if (!window) {
         event("module_window_rejected", 1);

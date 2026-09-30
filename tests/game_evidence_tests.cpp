@@ -16,6 +16,74 @@ void check(bool value, const QString &message) {
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     try {
+        const QString sdkSession = "sdk-test-session";
+        const QStringList sdkStages{"started",
+                                    "sdk-init-started",
+                                    "sdk-init-completed",
+                                    "fortnite-version-times100",
+                                    "engine-version-times100",
+                                    "object-count",
+                                    "game-mode-class-found",
+                                    "net-driver-class-found",
+                                    "ready-to-start-function-found",
+                                    "process-event-vtable-slot",
+                                    "world-found",
+                                    "completed"};
+        const QList<int> sdkValues{1, 1, 1, 1250, 425, 50000, 1, 1, 1, 64, 1, 1};
+        QByteArray sdkReceipt;
+        for (int i = 0; i < sdkStages.size(); ++i)
+            sdkReceipt += QJsonDocument(QJsonObject{{"event", sdkStages[i]},
+                                                    {"session_id", sdkSession},
+                                                    {"process_id", 336},
+                                                    {"value", sdkValues[i]}})
+                              .toJson(QJsonDocument::Compact) +
+                          '\n';
+        check(fol::analyzeSdkProbe(sdkReceipt, sdkSession, 336)["complete"].toBool(),
+              "ordered SDK receipt establishes only reflection prerequisites");
+        check(!fol::analyzeSdkProbe(sdkReceipt, "other-session", 336)["complete"].toBool() &&
+                  !fol::analyzeSdkProbe(sdkReceipt, sdkSession, 337)["complete"].toBool(),
+              "SDK evidence must belong to the same owned child and session");
+        auto wrongVersion = sdkReceipt;
+        wrongVersion.replace("1250", "1261");
+        check(!fol::analyzeSdkProbe(wrongVersion, sdkSession, 336)["complete"].toBool(),
+              "SDK version mismatch never reports compatibility");
+        auto wrongOrder = sdkReceipt;
+        wrongOrder.replace("sdk-init-completed", "sdk-init-started");
+        check(!fol::analyzeSdkProbe(wrongOrder, sdkSession, 336)["complete"].toBool() &&
+                  !fol::analyzeSdkProbe(sdkReceipt + sdkReceipt, sdkSession, 336)["complete"]
+                       .toBool(),
+              "SDK duplicated stages and post-completion records rejected");
+        const auto partial = sdkReceipt.left(sdkReceipt.indexOf("{\"event\":\"sdk-init-completed"));
+        const auto partialResult = fol::analyzeSdkProbe(partial, sdkSession, 336);
+        check(!partialResult["complete"].toBool() &&
+                  partialResult["last_completed_stage"] == "sdk-init-started",
+              "interrupted SDK probe retains bounded last-stage evidence");
+        const auto failure = partial +
+                             QJsonDocument(QJsonObject{{"event", "structured-exception"},
+                                                       {"session_id", sdkSession},
+                                                       {"process_id", 336},
+                                                       {"value", 3221225477.0}})
+                                 .toJson(QJsonDocument::Compact) +
+                             '\n' +
+                             QJsonDocument(QJsonObject{{"event", "completed"},
+                                                       {"session_id", sdkSession},
+                                                       {"process_id", 336},
+                                                       {"value", 0}})
+                                 .toJson(QJsonDocument::Compact) +
+                             '\n';
+        check(fol::analyzeSdkProbe(failure, sdkSession, 336)["failure_code"] == 3221225477.0 &&
+                  !fol::analyzeSdkProbe(failure, sdkSession, 336)["complete"].toBool(),
+              "SDK access violation is evidence of failure, not compatibility");
+        auto untrusted = sdkReceipt;
+        untrusted.replace("\"value\":1}", "\"value\":1,\"secret\":\"private-test-payload\"}");
+        const auto untrustedResult = fol::analyzeSdkProbe(untrusted, sdkSession, 336);
+        check(
+            !untrustedResult["complete"].toBool() &&
+                !QJsonDocument(untrustedResult).toJson().contains("private-test-payload") &&
+                !fol::analyzeSdkProbe(sdkReceipt.chopped(1), sdkSession, 336)["complete"]
+                     .toBool() &&
+                !fol::analyzeSdkProbe(QByteArray(16385, 'x'), sdkSession, 336)["complete"].toBool(),
+            "SDK schema payloads, truncation and oversized input fail closed without echo");
         auto empty = fol::analyzeGameLog({});
         check(empty["engine_version"] == "unknown" && empty["evidence"].toArray().isEmpty() &&
                   !empty["manual_sign_in_logged"].toBool(),

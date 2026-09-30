@@ -71,9 +71,13 @@ QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session) {
                 require(candidate && discovered == 1 && !attached && record["value"].toInt() > 0,
                         "Invalid request-observer attachment record");
                 attached = true;
-            } else if (event == "module_loaded" || event == "module_control_child_live") {
+            } else if (event == "module_loaded" || event == "module_control_child_live" ||
+                       event == "sdk_probe_loaded") {
                 require(candidate && discovered == 1 && !attached && record["value"].toInt(-1) == 1,
                         "Module load or owned-child liveness check failed");
+                require(!result[event].toBool() &&
+                            (event != "sdk_probe_loaded" || result["module_loaded"].toBool()),
+                        "Duplicate module receipt or SDK loaded before local router");
                 result[event] = true;
             } else if (event == "observer_delay_ms") {
                 require(candidate && !attached && record["value"].toInt(-1) >= 0 &&

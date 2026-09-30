@@ -147,7 +147,8 @@ QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlin
                    const QString &httpProbeHelper = {}, const QString &httpModule = {},
                    bool privateBackend = false, bool developmentLogin = false,
                    const QString &lawinConfig = {}, const LauncherContextExperiments &context = {},
-                   WorldProbe worldProbe = WorldProbe::None);
+                   WorldProbe worldProbe = WorldProbe::None, const QString &sdkProbeModule = {});
+QJsonObject analyzeSdkProbe(const QByteArray &, const QString &session, qint64 childPid);
 QString classifyFailure(const QString &text);
 QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session);
 QJsonObject analyzeModuleReceipt(const QByteArray &report, const QString &session, qint64 childPid);

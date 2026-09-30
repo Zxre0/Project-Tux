@@ -54,3 +54,9 @@ Nova DLL were produced. Its runtime/service coupling still needs review; see
 No upstream source or generated DLL is tracked in this repository. Do
 not distribute or load the unreviewed research artifacts. See
 [gameplay status](../../docs/GAMEPLAY_SERVERS.md).
+
+`--provider erbium --sdk-probe` instead compiles exactly one original diagnostic
+translation unit using the pinned SDK headers, with no upstream server sources.
+The output has a dedicated `solo-sdk-probe` hash manifest. This explicit owned-
+child diagnostic has been tested on 12.50; it does not establish server support.
+See [scope, launch requirements and actual results](../../docs/SDK_PROBE.md).

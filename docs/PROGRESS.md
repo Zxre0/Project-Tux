@@ -42,12 +42,34 @@ Project-owned Experimental and Hotfix copies passed isolated command execution
 and clean-shutdown tests using separate Proton compatibility data. Cancellation,
 timeout, missing-receipt and EAC-name handling have synthetic regression coverage.
 
-Current task: evaluate alternative gameplay servers for ordinary 12.50 BR Solo,
-record the observed Play failure, and verify a Linux-hosted Windows module build.
+Current task: use verified 12.50 SDK reflection prerequisites to investigate
+game-thread-safe Apollo world travel, then reviewed server initialization.
+An SDK-only diagnostic (not the Erbium server DLL) has run successfully; see
+[SDK probe evidence](SDK_PROBE.md). Nova findings remain in [Nova analysis](NOVA_ANALYSIS.md).
 Next launch milestone: prepare and validate a reviewed private game server;
 backend login alone does not establish gameplay compatibility. Missing 12.61
 files and historical partition-access findings are no longer project blockers.
 Do not treat frontend sign-in or a rendered lobby as private gameplay.
+
+## 2026-09-30: isolated SDK prerequisite test and lookup correction
+
+Built an original GPL-3.0 SDK-only PE x64 probe with MSVC 19.44, using pinned
+Erbium headers but excluding all upstream server entry-point/hook sources.
+Added explicit hash/role/version validation, owned-child-only second module load,
+bounded redacted JSONL stage analysis and negative regression tests. No game
+files, security checks, offsets or unrelated processes were modified.
+
+Actual 180-second runs `2026-09-30_03-09-53_670abe91` and
+`2026-09-30_03-13-12_d1d88ae7` used the existing isolated Lawin/Proton Experimental
+20260924 path. First run found versions/world/classes but not ReadyToStartMatch;
+source showed our UClass lookup searched its metaclass. Corrected it to use the
+already-existing CDO and retested: all reflection prerequisites passed, slot 66,
+293896 objects. Both runs cleaned up owned processes, with no EAC observed during
+sampled monitoring. First helper exit zero still correctly reports probe failure.
+No listening, joining or spawning claimed. Exact hashes, environment, commands,
+scope and results are documented in SDK_PROBE.md. All 13 tests passed, 25.52s.
+Next task: test a fixed profile world-travel request on the actual game thread;
+do not issue arbitrary reflected calls from the probe worker.
 
 ## 2026-09-28/29: milestone 1, native core and evidence collection
 

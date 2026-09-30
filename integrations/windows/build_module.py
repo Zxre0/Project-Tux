@@ -54,9 +54,13 @@ def main():
     parser.add_argument("--source", help="Compile just one project source; do not link")
     parser.add_argument("--link-only", action="store_true",
                         help="Relink existing objects from this pinned research build")
+    parser.add_argument("--sdk-probe", action="store_true",
+                        help="Erbium SDK-only diagnostic; excludes upstream server code")
     args = parser.parse_args()
     if not 1 <= args.jobs <= 8:
         parser.error("--jobs must be between 1 and 8")
+    if args.sdk_probe and (args.provider != "erbium" or args.source or args.link_only):
+        parser.error("--sdk-probe requires erbium and cannot combine --source or --link-only")
     reference = args.reference.resolve(strict=True)
     toolchain = args.toolchain.resolve(strict=True)
     provider = PROVIDERS[args.provider]
@@ -120,6 +124,10 @@ def main():
     sources = [entry.attrib["Include"].replace("\\", "/")
                for entry in definition.findall(".//ms:ClCompile[@Include]", ns)
                if entry.attrib["Include"].endswith(".cpp")]
+    if args.sdk_probe:
+        shutil.copy2(REPO / "integrations/windows/solo_sdk_probe.cpp",
+                     project / "fol_solo_sdk_probe.cpp")
+        sources = ["fol_solo_sdk_probe.cpp"]
     if args.source:
         if args.source not in sources:
             parser.error("--source must name a .cpp in the pinned project")
@@ -134,6 +142,8 @@ def main():
              "/EHsc", "/MT", "/O2", "/utf-8", "/DNDEBUG", "/DUNICODE", "/D_UNICODE",
              "/D" + provider["export"], "/D_WINDOWS", "/D_USRDLL", "/I.", "/I../vendor"]
     flags += include_flags + ["/D" + value for value in provider.get("definitions", [])]
+    if args.sdk_probe:
+        flags.append("/I../SDK")
     if args.provider == "erbium":
         flags.append("/FI" + str(REPO / "integrations/windows/erbium_build_compat.h"))
     if args.compiler == "clang":
@@ -173,10 +183,10 @@ def main():
         compiled = list(pool.map(compile_one, sources))
     if args.source:
         return
-    output = root / (args.provider + "-research.dll")
+    output = root / ("fol-solo-sdk-probe.dll" if args.sdk_probe else args.provider + "-research.dll")
     libraries = provider["libraries"]
     command = ["lld-link", "/dll", "/machine:x64", "/subsystem:windows", "/opt:ref",
-               "/opt:icf", "/out:" + str(output), *map(str, compiled),
+               "/opt:icf", "/timestamp:0", "/out:" + str(output), *map(str, compiled),
                *[str(source / "vendor" / item) for item in libraries],
                "kernel32.lib", "user32.lib", "gdi32.lib", "winspool.lib", "comdlg32.lib",
                "advapi32.lib", "shell32.lib", "ole32.lib", "oleaut32.lib", "uuid.lib",
@@ -186,8 +196,14 @@ def main():
                "/nodefaultlib:Crypt32.lib", "/nodefaultlib:Normaliz.lib", "normaliz.lib"]
     with (logs / "link.log").open("w") as log:
         run(command, cwd=project, env=env, stdout=log, stderr=subprocess.STDOUT)
+    digest = hashlib.sha256(output.read_bytes()).hexdigest()
+    if args.sdk_probe:
+        output.with_suffix(".dll.toml").write_text(
+            'fortnite_version = "12.50"\nrole = "solo-sdk-probe"\n' +
+            f'sha256 = "{digest}"\nupstream_commit = "{pin}"\n' +
+            '# SDK observations only; no runtime compatibility or gameplay claim.\n')
     print(json.dumps({"artifact": str(output), "upstream_commit": pin,
-                      "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+                      "sha256": digest, "variant": "sdk-probe" if args.sdk_probe else "upstream-research",
                       "compiler": args.compiler, "source_count": len(compiled),
                       "runtime_compatibility": "unverified", "loaded": False}))
 

@@ -43,7 +43,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                    const QString &protonId, bool launcherContextProbe, BackendProbe backendProbe,
                    const QString &httpProbeHelper, const QString &httpModule, bool privateBackend,
                    bool developmentLogin, const QString &lawinConfig,
-                   const LauncherContextExperiments &context, WorldProbe worldProbe) {
+                   const LauncherContextExperiments &context, WorldProbe worldProbe,
+                   const QString &sdkProbeModule) {
     const bool launcherPresenceProbe = context.presence, launcherIdentityProbe = context.identity;
     const bool localBackendProbe = backendProbe != BackendProbe::None;
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
@@ -76,6 +77,11 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                     : "none"},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(sdkProbeModule.isEmpty() ||
+                    (worldProbe == WorldProbe::None && offlineProbe && launcherContextProbe &&
+                     privateBackend && developmentLogin && !lawinConfig.isEmpty() &&
+                     context.identity),
+                "SDK probe requires isolated local Lawin login/identity and excludes world probes");
         require(worldProbe == WorldProbe::None || worldProbe == WorldProbe::Standalone ||
                     worldProbe == WorldProbe::Listen,
                 "Unknown world probe");
@@ -183,6 +189,17 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         }
         require(!privateBackend || moduleRouter,
                 "Private backend requires the isolated local router module");
+        QString checkedSdk;
+        if (!sdkProbeModule.isEmpty()) {
+            checkedSdk = QFileInfo(sdkProbeModule).canonicalFilePath();
+            require(moduleRouter && QFileInfo(checkedSdk).fileName() == "fol-solo-sdk-probe.dll",
+                    "Only the built SDK-only diagnostic with the local router is supported");
+            const auto module = moduleReport(checkedSdk, checkedSdk + ".toml", build.version);
+            require(module["status"] == "manifest-matches; runtime-compatibility-unverified" &&
+                        module["role"] == "solo-sdk-probe",
+                    "SDK probe architecture, version, role or SHA-256 check failed");
+            result["sdk_probe_module"] = module;
+        }
         QString presenceLauncher;
         if (launcherPresenceProbe) {
             require(moduleBootstrap, "Launcher presence requires the owned module bootstrap");
@@ -372,6 +389,14 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         if (!worldUrl.isEmpty())
             args.append(worldUrl);
         args.append(profile.arguments);
+        if (!checkedSdk.isEmpty()) {
+            auto windowsPath = [](QString path) {
+                path.replace('/', '\\');
+                return "Z:" + path;
+            };
+            overrides["FOL_SOLO_SDK_MODULE"] = windowsPath(checkedSdk);
+            overrides["FOL_SOLO_SDK_REPORT"] = windowsPath(directory + "/solo-sdk-probe.jsonl");
+        }
         if (launcherContextProbe)
             args.append(profile.launcherContextArguments);
         if (launcherIdentityProbe) {
@@ -498,6 +523,17 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                     receipt.open(QIODevice::ReadOnly) ? receipt.read(65537) : QByteArray{},
                     session);
                 result["http_probe_report"] = evidence;
+                if (!checkedSdk.isEmpty()) {
+                    QFile sdkReceipt(directory + "/solo-sdk-probe.jsonl");
+                    const auto sdk = analyzeSdkProbe(
+                        sdkReceipt.open(QIODevice::ReadOnly) ? sdkReceipt.read(16385)
+                                                             : QByteArray{},
+                        session, evidence["child_windows_pid"].toInteger());
+                    result["sdk_probe_observation"] = sdk;
+                    if (!sdk["complete"].toBool() && !result.contains("error"))
+                        result["error"] = "SDK compatibility probe did not complete successfully; "
+                                          "inspect its receipt";
+                }
                 if (developmentLogin && !evidence["development_login_requested"].toBool() &&
                     !result.contains("error"))
                     result["error"] = "Helper did not confirm local development login arguments";
