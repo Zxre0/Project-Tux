@@ -123,6 +123,19 @@ int main(int argc, char **argv) {
         check(spoof["evidence"].toArray().isEmpty() &&
                   !QJsonDocument(spoof).toJson().contains("synthetic-secret"),
               "unrelated substrings, credential URLs and payloads excluded");
+        const auto maps = fol::analyzeGameLog(
+            "[2026.09.30-02.44.30:000][  0]LogLoad: LoadMap: "
+            "/Game/Maps/Frontend?Name=Player&token=private-map-option\n"
+            "[2026.09.30-02.44.30:001][  0]LogWorld: Bringing World /Game/Maps/Frontend.Frontend "
+            "up for play (max tick rate 0) at 2026.09.30-02.44.30\n"
+            "LogLoad: LoadMap: /Game/Athena/Apollo/Maps/Apollo_Terrain\n"
+            "LogInit: Command Line: LogWorld: Bringing World /Game/Maps/Fake up for play (max tick "
+            "rate 0) at 2026.09.30-02.44.30\n");
+        check(maps["worlds_brought_up"].toArray() == QJsonArray{"/Game/Maps/Frontend"},
+              "map requests and spoofed command lines do not establish a brought-up world");
+        check(maps["matched_lines"] == 3 &&
+                  !QJsonDocument(maps).toJson().contains("private-map-option"),
+              "world diagnostics discard all map URL options");
         auto repeated = fol::analyzeGameLog(signIn.repeated(150));
         check(repeated["evidence"].toArray().size() == 128 &&
                   repeated["evidence_truncated"].toBool() && repeated["matched_lines"] == 150,

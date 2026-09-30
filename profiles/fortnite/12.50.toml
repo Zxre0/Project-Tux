@@ -29,3 +29,7 @@ http_observer_layout = "59236016,107847520,104,17"
 http_router_layout = "59245424,10"
 runtime_recommendation = "Proton Experimental 20260924 host script (Wine 11.0) verified for bounded isolated Lawin lobby; no performance ranking. See docs/BACKEND.md"
 graphics = "D3D11 diagnostic baseline; no component modifications"
+# Unreal positional map-URL feasibility probes, not working private gameplay.
+# Erbium's Season 11+ map selection names Apollo_Terrain. No arbitrary URL input.
+solo_world_url = "Apollo_Terrain"
+solo_listen_url = "Apollo_Terrain?listen"

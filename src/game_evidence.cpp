@@ -15,10 +15,16 @@ QJsonObject analyzeGameLog(const QByteArray &data) {
         R"(^LogOnlineGame: Error: Did not find Fortnite MCPConfig ([A-Za-z0-9._-]{1,64}) for service ([A-Za-z0-9._-]{1,64})$)");
     static const QRegularExpression loginAbort(
         R"(^LogOnlineAccount: Warning: \[UOnlineAccountCommon::AbortLoggingIn\] Aborting OnlineAccountCommon login due to error \[CurrentLoginStep=([A-Za-z0-9_]{1,64})\] \[LoginResult=([0-9]{1,5})\] \[DisplayError=.*\] \[DetailedError=.*\]$)");
+    // Never propagate URL query parameters: map options can contain credentials.
+    static const QRegularExpression mapRequest(
+        R"(^LogLoad: LoadMap: (/Game/[A-Za-z0-9_/-]{1,240})(?:\?[^\r\n]{0,2048})?$)");
+    static const QRegularExpression worldReady(
+        R"(^LogWorld: Bringing World (/Game/[A-Za-z0-9_/-]{1,240})(?:\.[A-Za-z0-9_]{1,128})? up for play \(max tick rate [0-9.]{1,16}\) at [0-9.:-]{1,64}$)");
     QJsonObject result{{"scope", "recognized game-log observations; not proof of rendering, "
                                  "authentication, gameplay or network reachability"},
                        {"engine_version", "unknown"},
                        {"compatible_engine_version", "unknown"}};
+    QJsonArray worlds;
     QJsonArray evidence;
     int matches = 0, skipped = 0, lineNumber = 0;
     bool missingLogged = false, rejected = false, signIn = false, loginAborted = false;
@@ -50,6 +56,14 @@ QJsonObject analyzeGameLog(const QByteArray &data) {
             result[key] = match.captured(2);
             entry["kind"] = key;
             entry["value"] = match.captured(2);
+        } else if ((match = mapRequest.match(line)).hasMatch()) {
+            entry["kind"] = "map_load_requested";
+            entry["value"] = match.captured(1);
+        } else if ((match = worldReady.match(line)).hasMatch()) {
+            entry["kind"] = "world_brought_up";
+            entry["value"] = match.captured(1);
+            if (!worlds.contains(match.captured(1)) && worlds.size() < 128)
+                worlds.append(match.captured(1));
         } else if ((match = backend.match(line)).hasMatch()) {
             QJsonObject selection{{"name", match.captured(1)},
                                   {"host", match.captured(2)},
@@ -113,6 +127,7 @@ QJsonObject analyzeGameLog(const QByteArray &data) {
         : signIn        ? "manual sign-in logged; login/gameplay unverified"
                         : "no recognized terminal startup observation";
     result["evidence"] = evidence;
+    result["worlds_brought_up"] = worlds;
     result["matched_lines"] = matches;
     result["evidence_truncated"] = matches > evidence.size();
     result["oversized_lines_skipped"] = skipped;

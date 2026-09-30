@@ -2557,3 +2557,41 @@ Game startup/rendering did not regress; no private match or player spawn occurre
 Next gameplay requirement remains a reviewed 12.50-compatible server and actual
 private readiness/admission, not removal of security checks or manufactured
 matchmaking success. Nova's dependency failure does not resolve this requirement.
+
+### Ordinary engine world-URL feasibility (2026-09-30)
+
+Previous goal turn made verified progress: Solo/Play retests, Erbium build, Nova
+build limits and pushed checkpoints. Revalidated clean main5b47363 and no live
+Fortnite window. Its CI passed. This turn remains focused on real Solo gameplay.
+
+Reviewed Erbium SDK/server startup. Generic initialization includes return/exit,
+kick/encryption patches and MCP request-context changes; do not load it unchanged.
+Tested a smaller ordinary interface first: Epic UE4 docs describe positional map
+URLs and ?listen. Erbium's Season11+ selection supplies Apollo_Terrain as the
+12.50 candidate, not proof Fortnite exposes that engine command-line behavior.
+
+Added --world-probe standalone/listen with embedded profile URLs and strict
+existing namespace/local Lawin login/identity gates. Baseline unchanged; no
+arbitrary map/URL/console input or new security/game-module changes. Printed
+plan verifies the URL follows the owned Shipping executable.
+
+Standalone session2026-09-30_02-39-25_2713b673 brought up only
+/Game/Maps/Frontend and showed the signed-in mode chooser, not Apollo; saved
+standalone-url-state.png privately. Listen session2026-09-30_02-44-05_9a2375ce
+likewise brought up only Frontend, with no Apollo/listen initialization in its
+captured log. Socket/screenshot checks reached an already-ended PID; no socket
+absence claim or extra screenshot. Both140s-bounded runs completed helper exit0,
+no launch error and no remaining owned processes. No EAC observed in sampled
+monitoring, not universal proof. These are not successful world/server starts.
+
+Added anchored world/map log analysis: discard URL options, distinguish requests
+from brought-up worlds and reject embedded command-line markers. World probes
+now compare the requested map with those markers and report missing evidence
+separately from helper exit. Retrospective CLI analysis independently returns
+only Frontend for both actual logs. All13 CTest targets passed25.40s, including
+query redaction and spoofed/uncompleted map tests. See docs/WORLD_PROBES.md.
+
+No identical blind retries. Next build a scoped alternative-SDK compatibility
+probe with no upstream server initializer/code-patching hooks, then validate
+version/reflection/world prerequisites under the owned private runtime.
+Gameplay and server admission remain unverified; goal stays active.

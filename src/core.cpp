@@ -100,7 +100,9 @@ std::optional<Profile> Profile::forVersion(const QString &version) {
               table["http_interface_probe_allowed"].value_or(false),
               str("http_observer_sha256"),
               str("http_observer_layout"),
-              str("http_router_layout")};
+              str("http_router_layout"),
+              str("solo_world_url"),
+              str("solo_listen_url")};
     for (auto &arg : *table["arguments"].as_array())
         p.arguments.append(QString::fromStdString(arg.value_or("")));
     if (auto arguments = table["launcher_context_arguments"].as_array())

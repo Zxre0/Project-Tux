@@ -60,3 +60,8 @@ artifact is not approval to load it. Any runtime experiment must preserve
 security/admission requirements, isolate official services and document exactly
 what reviewed gameplay-only functionality is enabled. Gameplay status remains
 unverified until an actual owned private session joins, spawns and plays.
+
+The next ordinary engine-interface experiment also failed to establish gameplay:
+Apollo standalone/listen URLs started only Frontend in two real 12.50 runs. See
+[world feasibility evidence](WORLD_PROBES.md). Generic map arguments alone do
+not provide a working host here; other legitimate interfaces remain unverified.

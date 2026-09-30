@@ -40,6 +40,7 @@ struct Profile {
         rebootBootstrapArguments, localBackendArguments, serviceIniArguments;
     bool privatePathVerified, httpInterfaceProbeAllowed;
     QString httpObserverHash, httpObserverLayout, httpRouterLayout;
+    QString soloWorldUrl, soloListenUrl;
     static Profile load();
     static std::optional<Profile> forVersion(const QString &version);
 };
@@ -133,6 +134,7 @@ SupervisionResult superviseRuntime(const QString &program, const QStringList &ar
                                    const QString &outputName, int timeoutMs,
                                    const SupervisionOptions &options = {});
 enum class BackendProbe { None, Selector, ServiceIni };
+enum class WorldProbe { None, Standalone, Listen };
 struct LauncherContextExperiments {
     bool presence = false;
     bool identity = false;
@@ -144,7 +146,8 @@ QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlin
                    BackendProbe backendProbe = BackendProbe::None,
                    const QString &httpProbeHelper = {}, const QString &httpModule = {},
                    bool privateBackend = false, bool developmentLogin = false,
-                   const QString &lawinConfig = {}, const LauncherContextExperiments &context = {});
+                   const QString &lawinConfig = {}, const LauncherContextExperiments &context = {},
+                   WorldProbe worldProbe = WorldProbe::None);
 QString classifyFailure(const QString &text);
 QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session);
 QJsonObject analyzeModuleReceipt(const QByteArray &report, const QString &session, qint64 childPid);

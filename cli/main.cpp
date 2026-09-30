@@ -43,6 +43,10 @@ int main(int argc, char **argv) {
           "Capture Wine message-box, debug-string, process, shell and registry traces"},
          {"engine-stdout",
           "Request engine stdout logging and flushing; support is build-dependent"},
+         {"world-probe",
+          "Request profile-defined Solo map URL; isolated local login only; "
+          "standalone or listen; not verified gameplay",
+          "mode", "none"},
          {"launcher-context-probe",
           "Opt-in 12.50 launcher-context experiment; requires --offline-probe; no authentication"},
          {"launcher-presence-probe",
@@ -191,6 +195,12 @@ int main(int argc, char **argv) {
             const auto backendProbe = !parser.isSet("local-backend-probe") ? fol::BackendProbe::None
                                       : method == "service-ini" ? fol::BackendProbe::ServiceIni
                                                                 : fol::BackendProbe::Selector;
+            const auto worldMode = parser.value("world-probe");
+            fol::require(worldMode == "none" || worldMode == "standalone" || worldMode == "listen",
+                         "World probe must be none, standalone or listen");
+            const auto worldProbe = worldMode == "standalone" ? fol::WorldProbe::Standalone
+                                    : worldMode == "listen"   ? fol::WorldProbe::Listen
+                                                              : fol::WorldProbe::None;
             result = fol::launch(
                 paths, args[1], parser.isSet("print-command"), parser.isSet("offline-probe"),
                 timeout, parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
@@ -200,7 +210,8 @@ int main(int argc, char **argv) {
                 parser.value("lawin-config"),
                 {.presence = parser.isSet("launcher-presence-probe"),
                  .identity = parser.isSet("launcher-identity-probe"),
-                 .rebootBootstrap = parser.isSet("reboot-bootstrap-context-probe")});
+                 .rebootBootstrap = parser.isSet("reboot-bootstrap-context-probe")},
+                worldProbe);
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||

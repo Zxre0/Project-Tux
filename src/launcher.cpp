@@ -43,7 +43,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                    const QString &protonId, bool launcherContextProbe, BackendProbe backendProbe,
                    const QString &httpProbeHelper, const QString &httpModule, bool privateBackend,
                    bool developmentLogin, const QString &lawinConfig,
-                   const LauncherContextExperiments &context) {
+                   const LauncherContextExperiments &context, WorldProbe worldProbe) {
     const bool launcherPresenceProbe = context.presence, launcherIdentityProbe = context.identity;
     const bool localBackendProbe = backendProbe != BackendProbe::None;
     require(timeoutSeconds >= 1 && timeoutSeconds <= 3600, "Probe timeout must be 1-3600 seconds");
@@ -62,6 +62,9 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                        {"status", "blocked"},
                        {"startup_trace", traceStartup},
                        {"engine_stdout_requested", engineStdout},
+                       {"world_probe", worldProbe == WorldProbe::Standalone ? "standalone"
+                                       : worldProbe == WorldProbe::Listen   ? "listen"
+                                                                            : "none"},
                        {"launcher_context_probe", launcherContextProbe},
                        {"launcher_presence_probe", launcherPresenceProbe},
                        {"launcher_identity_probe", launcherIdentityProbe},
@@ -73,6 +76,13 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                     : "none"},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(worldProbe == WorldProbe::None || worldProbe == WorldProbe::Standalone ||
+                    worldProbe == WorldProbe::Listen,
+                "Unknown world probe");
+        require(worldProbe == WorldProbe::None ||
+                    (offlineProbe && launcherContextProbe && privateBackend && developmentLogin &&
+                     !lawinConfig.isEmpty() && context.identity),
+                "World probe requires isolated launcher context, local Lawin login and identity");
         require(!context.rebootBootstrap ||
                     (offlineProbe && launcherContextProbe && privateBackend && context.identity &&
                      !localBackendProbe),
@@ -106,6 +116,16 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
         auto selectedProfile = Profile::forVersion(build.version);
         require(selectedProfile.has_value(), "Unsupported build: " + build.version);
         auto profile = *selectedProfile;
+        QString worldUrl;
+        if (worldProbe != WorldProbe::None) {
+            worldUrl =
+                worldProbe == WorldProbe::Standalone ? profile.soloWorldUrl : profile.soloListenUrl;
+            require(!worldUrl.isEmpty(), "No world probe is defined for this build");
+            result["world_probe_url"] = worldUrl;
+            result["world_probe_scope"] =
+                "engine URL request only; world/server support unverified; "
+                "no security-check or game-module changes";
+        }
         require(!launcherIdentityProbe || !profile.launcherIdentityArguments.isEmpty(),
                 "No launcher identity experiment is defined for this build");
         require(!context.rebootBootstrap || !profile.rebootBootstrapArguments.isEmpty(),
@@ -347,6 +367,10 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             reportPath.replace('/', '\\');
             overrides["FOL_HTTP_PROBE_LOG"] = reportPath;
         }
+        // Unreal's first positional game argument is a map URL. Keep this after
+        // the owned child's executable, not before the Proton/helper program.
+        if (!worldUrl.isEmpty())
+            args.append(worldUrl);
         args.append(profile.arguments);
         if (launcherContextProbe)
             args.append(profile.launcherContextArguments);
@@ -521,12 +545,31 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                 result["game_logs"] =
                     captureGameLogs(prefixPath, directory, launchStarted, localSecret);
                 const auto files = result["game_logs"].toObject()["files"].toArray();
+                QJsonArray worlds;
                 for (const auto &file : files) {
                     const auto observations = file.toObject()["observations"].toObject();
+                    for (const auto &world : observations["worlds_brought_up"].toArray())
+                        if (!worlds.contains(world))
+                            worlds.append(world);
                     if (observations["backend_rejected_logged"].toBool())
                         result["game_reported_blocker"] =
                             "Backend configuration rejected; see game_logs observations and "
                             "source line numbers. This is separate from runtime exit status.";
+                }
+                if (worldProbe != WorldProbe::None) {
+                    const auto requested = worldUrl.section('?', 0, 0).section('/', -1);
+                    bool seen = false;
+                    for (const auto &world : worlds)
+                        seen |= world.toString().section('/', -1) == requested;
+                    result["world_probe_observation"] = QJsonObject{
+                        {"requested_world", requested},
+                        {"observed", seen},
+                        {"worlds_brought_up", worlds},
+                        {"scope",
+                         "recognized world log markers; not server readiness or gameplay"}};
+                    if (!seen && !result.contains("error"))
+                        result["error"] =
+                            "Requested world was not observed; inspect world_probe_observation";
                 }
             } else
                 result["game_logs"] =

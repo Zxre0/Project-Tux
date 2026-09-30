@@ -423,6 +423,23 @@ int main(int argc, char **argv) {
             "helper.exe", "module.dll", true, false, {}, {.identity = true});
         check(identityWithoutIsolation["error"].toString().contains("Launcher identity requires"),
               "application identity cannot omit network isolation");
+        check(identityProfile->soloWorldUrl == "Apollo_Terrain" &&
+                  identityProfile->soloListenUrl == "Apollo_Terrain?listen",
+              "world feasibility probes use only the profile-defined Season 12 map");
+        for (auto mode : {fol::WorldProbe::Standalone, fol::WorldProbe::Listen}) {
+            auto worldWithoutIsolation =
+                fol::launch(paths, "missing", true, false, 1, false, false, {}, true,
+                            fol::BackendProbe::None, "helper.exe", "module.dll", true, true,
+                            "/example/lawin.json", {.identity = true}, mode);
+            check(worldWithoutIsolation["error"].toString().contains("World probe requires"),
+                  "world URL cannot omit namespace isolation");
+            auto worldWithoutLogin =
+                fol::launch(paths, "missing", true, true, 1, false, false, {}, true,
+                            fol::BackendProbe::None, "helper.exe", "module.dll", true, false,
+                            "/example/lawin.json", {.identity = true}, mode);
+            check(worldWithoutLogin["error"].toString().contains("World probe requires"),
+                  "world URL cannot omit actual local-development login");
+        }
         auto identityConflictingBackend = fol::launch(
             paths, "missing", true, true, 1, false, false, {}, true, fol::BackendProbe::Selector,
             "helper.exe", "module.dll", true, false, {}, {.identity = true});
