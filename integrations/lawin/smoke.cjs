@@ -46,6 +46,17 @@ async function main() {
       !gameBytes.equals(require('./cloud.cjs').game)) throw new Error('solo-cloud-contract-failed');
   console.log(JSON.stringify({test: 'lawin-br-solo', playlist: 'Playlist_DefaultSolo',
     cloud_config: 'verified', game_server: 'not-tested'}));
+  const ticketPath = base + '/fortnite/api/game/v2/matchmakingservice/ticket/player/' +
+    session.account_id;
+  const unauthenticatedTicket = await fetch(ticketPath);
+  if (unauthenticatedTicket.status !== 401) throw new Error('ticket-authorization-not-enforced');
+  const ticket = await fetch(ticketPath, {headers});
+  const ticketError = await ticket.json();
+  if (ticket.status !== 503 || ticketError.component !== 'game-server' ||
+      ticketError.errorCode !== 'fol.matchmaking.game_server_unavailable' ||
+      ticketError.readiness !== 'unavailable' || ticketError.ticket || ticketError.signature)
+    throw new Error('unavailable-server-ticket-contract-failed');
+  console.log(JSON.stringify({test: 'lawin-no-game-server', ticket: 'refused', status: 503}));
   const profile = await fetch(base + '/fortnite/api/game/v2/profile/' + session.account_id +
     '/client/QueryProfile?profileId=common_core&rvn=-1', {method: 'POST',
       headers: {...headers, 'content-type': 'application/json'}, body: '{}'});

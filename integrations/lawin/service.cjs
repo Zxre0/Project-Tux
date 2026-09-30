@@ -97,6 +97,8 @@ async function main() {
     (req, res) => res.sendStatus(501));
   require('./party.cjs').register(app, {accountId: user.accountId, authenticate,
     record: data => process.send?.(data)});
+  require('./matchmaking.cjs').register(app, {accountId: user.accountId, authenticate,
+    record: data => process.send?.(data)});
   require('./contentpages.cjs').register(app, upstream('./structs/functions.js').getContentPages);
   for (const route of ['auth','user','lightswitch','version','cloudstorage','storefront',
     'friends','timeline','mcp','main']) app.use(upstream(`./routes/${route}.js`));

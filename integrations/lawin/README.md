@@ -106,8 +106,11 @@ namespace isolation remain enforced. There are still no public discovery,
 remote membership or invitation routes. Historical failures below describe their
 recorded revisions, not the latest behavior.
 
-An actual Play attempt reaches the ticket route, currently 404 because no game
-server/matchmaking implementation is mounted. Profile-token verification still
+An actual Play attempt originally reached an unmatched ticket route (404).
+An original authenticated failure route now explicitly reports HTTP503,
+`fol.matchmaking.game_server_unavailable`, because no verified game server is
+running. It refuses to invent a ticket, signature or readiness. This is not a
+matchmaking implementation. Profile-token verification still
 returns explicit 501. [Game-server work](../../docs/GAMEPLAY_SERVERS.md) is separate
 from this backend and remains unverified.
 

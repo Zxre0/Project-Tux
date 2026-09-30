@@ -31,10 +31,17 @@ proof of universal absence.
 
 ## Candidates inspected
 
+The subsequent original backend adapter replaces that unmatched ticket 404 with
+an authenticated HTTP 503, `fol.matchmaking.game_server_unavailable`. It enforces
+the verified local token/account, reports the game-server component and refuses
+to manufacture a ticket, signature or ready state. This improves diagnostics,
+not gameplay. Authorization tests and the real isolated HTTP smoke verify the
+contract; actual game-client retesting is recorded in PROGRESS.md.
+
 | Project / pinned revision | Relevant evidence | Decision |
 | --- | --- | --- |
 | [Erbium](https://github.com/plooshi/Erbium), `44568e08cbe411ba197d3e0e900685750d46afdc` | README version range includes 12.50; Solo playlist default; Windows x64 DLL compiled and linked here | Primary buildable research candidate, not yet loaded or runtime-verified |
-| [Nova](https://github.com/projectnovafn/Nova), `b6ee4d3121e4d01846f7ce0cc00946237bea3837` | Generic engine 4.25 logic, extensive server responsibilities, Windows DLL coupled to Nova services | Reference only pending exact-version, licensing and initialization review; [analysis](NOVA_ANALYSIS.md) |
+| [Nova](https://github.com/projectnovafn/Nova), `b6ee4d3121e4d01846f7ce0cc00946237bea3837` | Generic engine 4.25 logic; entry point compiled; full build missing OpenSSL/Detours; Nova service coupling | Reference pending dependencies, exact-version, licensing and initialization review; [analysis](NOVA_ANALYSIS.md) |
 | [MGS](https://github.com/MarvelcoCode/MGS), `3f8b1e926ea3d0e19f00233ae23f09a403014614` | Requires supplied SDK and offsets; broad season claims are not exact 12.50 evidence | Not an immediately reproducible alternative |
 | [Core](https://github.com/PongooDev/Core) | README lists full support only through 8.00 | Not the 12.50 candidate |
 | [FortExternalServer](https://github.com/OGFN-Open-sourceing/FortExternalServer) | Documented 3.6/13.40 targets, not 12.50 | External EXE architecture does not establish exact-version compatibility |

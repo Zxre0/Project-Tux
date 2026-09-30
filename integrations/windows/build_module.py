@@ -30,6 +30,13 @@ PROVIDERS = {
         "libraries": ["fmt/fmt.lib", "spdlog/spdlog.lib", "curl/libcurl.lib",
                       "curl/zlib.lib", "MinHook/minhook.x64.lib"],
     },
+    "nova": {
+        "pin": "b6ee4d3121e4d01846f7ce0cc00946237bea3837",
+        "project": "Nova", "definition": "Nova.vcxproj",
+        "export": "NOVAUNIVERSAL_EXPORTS", "libraries": [],
+        "definitions": ["STAGING", "_TCHAR_DEFINED", "WIN32_LEAN_AND_MEAN",
+                        "_CRT_SECURE_NO_WARNINGS", "_WINSOCK_DEPRECATED_NO_WARNINGS"],
+    },
 }
 
 
@@ -54,7 +61,7 @@ def main():
     toolchain = args.toolchain.resolve(strict=True)
     provider = PROVIDERS[args.provider]
     if args.compiler is None:
-        args.compiler = "msvc" if args.provider == "erbium" else "clang"
+        args.compiler = "clang" if args.provider == "reboot" else "msvc"
     pin = provider["pin"]
     for tool in ("clang-cl", "lld-link", "git", "tar", "bash"):
         if not shutil.which(tool):
@@ -90,6 +97,26 @@ def main():
     project = source / provider["project"]
     definition = ET.parse(project / provider["definition"])
     ns = {"ms": "http://schemas.microsoft.com/developer/msbuild/2003"}
+    include_flags = []
+    if args.provider == "nova":
+        # Resolve only the pinned Staging include directories. Never execute
+        # MSBuild events or import upstream's machine-specific vcpkg paths.
+        groups = definition.findall(".//ms:PropertyGroup", ns)
+        staging = next(group for group in groups
+                       if group.attrib.get("Condition", "").endswith("=='Staging|x64'")
+                       and group.find("ms:IncludePath", ns) is not None)
+        for item in staging.find("ms:IncludePath", ns).text.split(";"):
+            if not item.startswith("$(ProjectDir)") or "$(" in item[len("$(ProjectDir)"):]:
+                raise RuntimeError("Unsupported Nova include-path variable")
+            path = (project / item[len("$(ProjectDir)"):].replace("\\", "/")).resolve()
+            if not path.is_relative_to(project):
+                raise RuntimeError("Nova include path escapes generated project")
+            if not path.is_dir():
+                # MSBuild also tolerates unused/nonexistent search directories;
+                # retain the path and report it, never invent missing headers.
+                print(json.dumps({"include_directory": str(path),
+                                  "status": "absent-in-pinned-tree"}), flush=True)
+            include_flags.append("/I" + str(path))
     sources = [entry.attrib["Include"].replace("\\", "/")
                for entry in definition.findall(".//ms:ClCompile[@Include]", ns)
                if entry.attrib["Include"].endswith(".cpp")]
@@ -106,6 +133,7 @@ def main():
     flags = ["/nologo", "/c", "/std:c++latest",
              "/EHsc", "/MT", "/O2", "/utf-8", "/DNDEBUG", "/DUNICODE", "/D_UNICODE",
              "/D" + provider["export"], "/D_WINDOWS", "/D_USRDLL", "/I.", "/I../vendor"]
+    flags += include_flags + ["/D" + value for value in provider.get("definitions", [])]
     if args.provider == "erbium":
         flags.append("/FI" + str(REPO / "integrations/windows/erbium_build_compat.h"))
     if args.compiler == "clang":
@@ -160,6 +188,7 @@ def main():
         run(command, cwd=project, env=env, stdout=log, stderr=subprocess.STDOUT)
     print(json.dumps({"artifact": str(output), "upstream_commit": pin,
                       "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+                      "compiler": args.compiler, "source_count": len(compiled),
                       "runtime_compatibility": "unverified", "loaded": False}))
 
 

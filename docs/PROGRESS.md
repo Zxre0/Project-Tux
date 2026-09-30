@@ -15,16 +15,18 @@ CachyOS/NVIDIA/Hyprland using Proton Experimental 20260924/DXVK. Local login,
 party/XMPP, starter outfits, outfit selection/save and persistence across a full
 game/backend restart have been tested. These are bounded diagnostics; private
 gameplay, game-server integration and hosting remain unverified. The local
-frontend now defaults to BR Solo; an actual Play request reaches a missing
-matchmaking-ticket route (404), not a running server. Erbium's Windows research
-DLL compiled/linked; Nova has been inspected, not built or loaded.
+frontend now defaults to BR Solo; an actual Play request originally hit a missing
+ticket route (404), now an authenticated explicit unavailable-server response
+(503), not a running server. Erbium's Windows research DLL compiled/linked;
+Nova's entry point compiles but its full build fails on missing development
+dependencies. Neither gameplay module has been loaded.
 Baseline startup and the earlier native-backend experiments are separate from
 this verified Lawin path. Steam Linux Runtime container integration is not
 implemented. No EAC was observed during sampled monitoring; this is not proof
 of universal absence.
 
 The target-retirement regression build passed all 13 CTest targets. Findings
-through 4e53145 are committed and pushed to canonical origin/main. Historical
+through 47f2be5 are committed and pushed to canonical origin/main. Historical
 sanitizer results below apply only to their recorded revisions/settings.
 
 Installed native CLI: `/home/atlas/.local/bin/fortnite-linux`. Source checkout:
@@ -2513,3 +2515,45 @@ All optional Windows helpers rebuilt successfully with warnings-as-errors using
 Erbium/Reboot artifact SHA256 and PE type were independently rechecked. Python
 AST, Node syntax and git diff checks pass. No client is left running. Preparing
 separate verified frontend and research checkpoint commits to canonical main.
+
+### Nova build feasibility and explicit matchmaking failure
+
+Committed/pushed Solo frontend 6fa1f12 and research adapter/analysis 47f2be5;
+both GitHub Linux CI runs passed. Worktree was clean before this next iteration.
+
+Extended the research adapter to pinned Nova Staging, parsing project-local
+include paths and ignoring developer vcpkg paths/MSBuild events. The project
+lists 174 C++ units and zero MASM sources. Three unused include directories are
+absent from the committed archive; reported them without creating fake headers.
+The single LaunchWindows.cpp entry-point compilation succeeds with MSVC/SDK.
+The subsequent full attempt stops on fatal C1083 in VivoxVoiceChat.cpp
+(openssl/sha.h missing) and KismetDetoursLibrary.cpp (detours.h missing).
+Nova.cpp and KismetMemoryLibrary.cpp compiled in that attempt, not the entire
+project. No Nova DLL, source stubs, game loading or Nova service requests.
+Logs: ignored build-nova/b6ee4d.../logs and XDG cache toolchains/nova-build.log.
+Windows-targeted OpenSSL/Detours development inputs are needed for full build;
+runtime initialization, service coupling and redistribution review remain separate.
+
+Added an original authenticated unavailable-server ticket route rather than
+leaving the first Play failure unmatched. It verifies the actual local token,
+rejects another account, reports component game-server and HTTP503 with
+fol.matchmaking.game_server_unavailable, and never generates a ticket/signature,
+session ID or ready state. Verification errors do not become authorization.
+Asset-free tests exercise authorization, honest refusal and backend-error handling.
+Real isolated lawin-ticket-smoke passes the new 401/503 contract alongside the
+existing local login/locker/party/XMPP/Solo/cloud checks. Native build and all
+13 CTest targets pass in 25.42 seconds; Python AST and diff checks pass.
+
+Actual 180-second game session 2026-09-30_02-28-29_f7f09aa1 renders the persisted
+outfit and SOLO, captured in ticket-retest-state.png. The owned input helper
+pressed Play; backend logs at 02:31:01 and 02:31:06 show actual authenticated GET
+ticket requests receiving503 and matchmaking-unavailable/game-server events.
+The game retries that error; no blind relaunch is justified. The subsequent
+screenshot attempt correctly found the already-ended window and captured no
+desktop. The bounded run completed helper exit0, no launch error and no owned
+processes left. No EAC observed in sampled monitoring, not universal proof.
+Game startup/rendering did not regress; no private match or player spawn occurred.
+
+Next gameplay requirement remains a reviewed 12.50-compatible server and actual
+private readiness/admission, not removal of security checks or manufactured
+matchmaking success. Nova's dependency failure does not resolve this requirement.

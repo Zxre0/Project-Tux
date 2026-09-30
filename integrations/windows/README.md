@@ -46,7 +46,11 @@ changes. Each compilation and the link have logs; failures are not swallowed.
 The final report explicitly marks runtime compatibility unverified and loaded
 false. Upstream LICENSE is retained alongside the generated artifact.
 
-No Nova build adapter is enabled: its build and runtime coupling require further
-review. No upstream source or generated DLL is tracked in this repository. Do
+`--provider nova` now parses pinned Staging includes without upstream vcpkg paths
+or MSBuild events. The Windows entry-point source compiles; a full build fails on
+missing Windows OpenSSL and Microsoft Detours headers. No dependency stubs or
+Nova DLL were produced. Its runtime/service coupling still needs review; see
+[Nova build evidence](../../docs/NOVA_ANALYSIS.md).
+No upstream source or generated DLL is tracked in this repository. Do
 not distribute or load the unreviewed research artifacts. See
 [gameplay status](../../docs/GAMEPLAY_SERVERS.md).

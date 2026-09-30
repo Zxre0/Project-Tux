@@ -29,11 +29,13 @@ customizations and embeds developer-specific vcpkg static-library paths on D:
 and C:. There is no supplied Linux-native server build script. Crypt32/ws2_32
 are declared link dependencies; vendor memcury also requests Dbghelp. Included
 UAC server/common code and Unreal-style runtime headers require further review.
-The XML importing MASM alone does not prove an assembler source is required.
+The XML imports MASM but contains no MASM source entries; 174 C++ translation
+units are listed. Importing an assembler customization is not an assembler input.
 
-We have provisioned a separate user-local MSVC/Windows SDK toolchain for server
-research, but have not built Nova. Do not substitute a successful Erbium build
-for Nova build evidence, or run Nova's Production configuration unchanged.
+We provisioned a separate user-local MSVC/Windows SDK toolchain and subsequently
+attempted a Nova research build, described below. No Nova DLL has been produced.
+Do not substitute a successful Erbium build for Nova build evidence, or run Nova's
+Production configuration unchanged.
 
 ## Initialization and backend coupling
 
@@ -63,6 +65,28 @@ request. These cannot be adopted as authenticated local-server behavior without
 review. We do not copy embedded client identity replacements or security-check
 changes. A project name change does not make such behavior acceptable or solve
 our technical integration gaps.
+
+## Actual Linux-hosted build experiment
+
+The original Windows research adapter now supports pinned Nova Staging. It parses
+only project-local include directories and uses the dedicated compiler prefix.
+It does not execute upstream MSBuild events or adopt machine-specific vcpkg paths.
+Three absent unused include search directories are reported explicitly.
+
+Using MSVC 19.44.35229 / SDK 10.0.26100.0 on Linux, the listed
+`Engine/Runtime/Launch/Private/Windows/LaunchWindows.cpp` compiled successfully.
+A full build then stopped at real dependencies:
+
+- VivoxVoiceChat.cpp: fatal C1083, missing `openssl/sha.h` (also uses EVP/HMAC).
+- KismetDetoursLibrary.cpp: fatal C1083, missing `detours.h` (Microsoft Detours).
+
+Other early units, including KismetMemoryLibrary.cpp and Nova.cpp, compiled;
+this is not complete compilation/linkage. The project also prints an old compiler
+version advisory, not a demonstrated fatal compatibility issue. No headers,
+cryptographic functions or Detours interfaces were stubbed to hide errors.
+Full build requires reviewed Windows-targeted OpenSSL/Detours development inputs;
+host ELF libraries are not substitutes. Logs remain in ignored build-nova and
+XDG cache. No compiled object was loaded, or Nova service contacted.
 
 ## License and decision
 
