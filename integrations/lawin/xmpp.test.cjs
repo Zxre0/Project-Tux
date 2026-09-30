@@ -44,10 +44,11 @@ test('authenticated stream binds and handles session and ping without inventing 
   await f.peer.handle({name: 'presence', attributes: {to: 'party-missing@muc.example'}});
   assert.equal(f.closed(), true); // No invented party room membership.
 });
-test('cloud index hashes describe exactly the original loopback-only configuration', () => {
+test('cloud index describes exact loopback transport and Solo presentation files', () => {
   const routes = new Map(); register({get: (p, f) => routes.set(p, f), all: () => {}});
-  let metadata;
-  routes.get('/fortnite/api/cloudstorage/system')({}, {json: value => metadata = value[0]});
+  let index;
+  routes.get('/fortnite/api/cloudstorage/system')({}, {json: value => index = value});
+  const metadata = index[0];
   const crypto = require('node:crypto');
   assert.equal(metadata.hash256, crypto.createHash('sha256').update(engine).digest('hex'));
   assert.equal(metadata.length, engine.length);
@@ -55,4 +56,12 @@ test('cloud index hashes describe exactly the original loopback-only configurati
   const settings = engine.toString().split('\n').filter(x => x && !x.startsWith('['));
   assert.ok(settings.every(x => ['ServerAddr="ws://127.0.0.1:8080"', 'ServerPort=8080',
     'bEnableWebsockets=true'].includes(x)));
+  assert.equal(index.length, 2);
+  const {game} = require('./cloud.cjs');
+  assert.equal(index[1].filename, 'DefaultGame.ini');
+  assert.equal(index[1].hash256, crypto.createHash('sha256').update(game).digest('hex'));
+  assert.equal(index[1].length, game.length);
+  assert.equal((game.toString().match(/PlaylistName=/g) || []).length, 1);
+  assert.ok(game.toString().includes('PlaylistName=Playlist_DefaultSolo'));
+  assert.ok(!game.toString().includes('FortOnlineAccount'));
 });

@@ -21,10 +21,14 @@ test('single-member party creation, persistence, revisions and leaving', () => {
   assert.equal(s.get(party.id).revision, 1);
   s.patch(party.id, {revision: 0, meta: {update: {ready: 'true'}}}, true);
   assert.equal(s.get(party.id).members[0].revision, 1);
-  assert.throws(() => s.patch(party.id, {revision: 1, config: {discoverability: 'ALL'}}),
+  assert.throws(() => s.patch(party.id, {revision: 1, config: {discoverability: 'WORLD'}}),
     /unsupported_config/);
   assert.equal(s.get(party.id).revision, 1);
-  s.patch(party.id, {revision: 1, config: {max_size: 8}});
+  s.patch(party.id, {revision: 1, config: {discoverability: 'ALL', joinability: 'OPEN'}});
+  assert.equal(s.get(party.id).config.discoverability, 'ALL');
+  assert.equal(s.get(party.id).config.joinability, 'OPEN');
+  assert.equal(s.get(party.id).members.length, 1);
+  s.patch(party.id, {revision: 2, config: {max_size: 8}});
   assert.equal(s.get(party.id).config.max_size, 8);
   s.remove(party.id); assert.deepEqual(s.summary().current, []);
 });

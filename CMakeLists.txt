@@ -24,6 +24,7 @@ if(BUILD_TESTING)
     if(NODE_EXECUTABLE)
         add_test(NAME lawin-config COMMAND ${NODE_EXECUTABLE} --test
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/config.test.cjs
+            ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/contentpages.test.cjs
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/xmpp.test.cjs
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/party.test.cjs
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/payload-shape.test.cjs

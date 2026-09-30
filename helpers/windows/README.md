@@ -7,7 +7,10 @@ It uses ordinary Win32 foreground/cursor/SendInput APIs. It accepts only the
 session's live Shipping executable PID, one visible unowned top-level window,
 and the observed 1920x1080 client layout. `FOL_UI_ACTION` must be one of
 `select-br`, `enter-br`, `skip-intro`, `locker`, `play-tab`, `escape`,
-`outfit-slot`, `outfit-first`, or `outfit-save`. `play-tab` selects the lobby tab,
+`outfit-slot`, `outfit-first`, `outfit-save`, `mode-change`, or `match-play`.
+`match-play` actually requests matchmaking; use it only in the isolated private
+backend session. `mode-change` opens the lobby's playlist selector.
+`play-tab` selects the lobby tab,
 **not** its matchmaking button. The outfit actions require the observed starter
 locker layout and operate its first outfit and Save and Exit controls. Verify
 each screen before sending the next action. There is no matchmaking,
@@ -33,6 +36,11 @@ posted messages did not visibly navigate the menu. Foreground Win32 SendInput
 did: Battle Royale selection, entering the frontend, skipping the intro overlay,
 and Locker/Play tab navigation were observed. Physical mouse/keyboard usability
 is not established by this automation result.
+
+The cursor diagnostic waits 200ms after movement and verifies its actual position
+before clicking: immediately submitting the click raced Wine/XWayland delivery
+in the tested Solo lobby. The corrected `match-play` action produced an actual
+matchmaking-ticket request and cannot-connect dialog; it did not enter gameplay.
 
 The default `fol-http-probe.exe` is read-only. The debugger observer and the
 explicit module-bootstrap variant below are separate experiments, not normal launch.

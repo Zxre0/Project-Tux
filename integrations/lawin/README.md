@@ -96,6 +96,21 @@ notice from both emergency-notice formats. Other notices and version-specific
 backgrounds are preserved. Upstream license and credits remain in this guide
 and in the deployment.
 
+An original `DefaultGame.ini` cloud file replaces the frontend playlist entries
+with BR Solo as the enabled default. Content pages likewise expose only
+`Playlist_DefaultSolo`; neither change implements a game server. Cloud hashes
+and lengths describe the exact served bytes. The real 12.50 lobby renders SOLO.
+The client's observed ALL/OPEN party preferences are now accepted as local
+presentation metadata, while authentication, single-account membership and
+namespace isolation remain enforced. There are still no public discovery,
+remote membership or invitation routes. Historical failures below describe their
+recorded revisions, not the latest behavior.
+
+An actual Play attempt reaches the ticket route, currently 404 because no game
+server/matchmaking implementation is mounted. Profile-token verification still
+returns explicit 501. [Game-server work](../../docs/GAMEPLAY_SERVERS.md) is separate
+from this backend and remains unverified.
+
 `lawin.log` contains route-template/status/process events, not request bodies,
 raw URLs, credentials, tokens or key data. `lawin-service.log` and `mongodb.log`
 are owner-only raw diagnostic logs; inspect/redact before sharing. The original

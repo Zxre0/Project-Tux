@@ -2,10 +2,14 @@
 'use strict';
 
 // The pinned provider advertises itself through both generations of the lobby
-// emergency-notice schema. Keep other notices and upstream content intact.
+// emergency-notice schema. Keep other notices; expose only the requested BR Solo.
 function register(app, getContentPages) {
   app.get('/content/api/pages/*', (req, res) => {
     const pages = getContentPages(req);
+    const playlists = pages.playlistinformation?.playlist_info;
+    if (Array.isArray(playlists?.playlists))
+      playlists.playlists = playlists.playlists.filter(entry =>
+        entry.playlist_name === 'Playlist_DefaultSolo');
     for (const [section, field] of [
       [pages.emergencynotice?.news, 'messages'],
       [pages.emergencynoticev2?.emergencynotices, 'emergencynotices']

@@ -31,6 +31,21 @@ async function main() {
     throw new Error('local-lobby-content-contract-failed');
   console.log(JSON.stringify({test: 'lawin-lobby-content', provider_notice: 'removed',
     season_background: 'preserved'}));
+  const playlists = pages.playlistinformation?.playlist_info?.playlists;
+  if (playlists?.length !== 1 || playlists[0].playlist_name !== 'Playlist_DefaultSolo')
+    throw new Error('solo-content-contract-failed');
+  const crypto = require('node:crypto');
+  const cloud = await fetch(base + '/fortnite/api/cloudstorage/system', {headers});
+  if (cloud.status !== 200) throw new Error('cloud-index-failed');
+  const index = await cloud.json();
+  const gameInfo = index.find(entry => entry.filename === 'DefaultGame.ini');
+  const gameConfig = await fetch(base + '/fortnite/api/cloudstorage/system/DefaultGame.ini', {headers});
+  const gameBytes = Buffer.from(await gameConfig.arrayBuffer());
+  if (!gameInfo || gameConfig.status !== 200 || gameBytes.length !== gameInfo.length ||
+      crypto.createHash('sha256').update(gameBytes).digest('hex') !== gameInfo.hash256 ||
+      !gameBytes.equals(require('./cloud.cjs').game)) throw new Error('solo-cloud-contract-failed');
+  console.log(JSON.stringify({test: 'lawin-br-solo', playlist: 'Playlist_DefaultSolo',
+    cloud_config: 'verified', game_server: 'not-tested'}));
   const profile = await fetch(base + '/fortnite/api/game/v2/profile/' + session.account_id +
     '/client/QueryProfile?profileId=common_core&rvn=-1', {method: 'POST',
       headers: {...headers, 'content-type': 'application/json'}, body: '{}'});

@@ -60,6 +60,11 @@ function store(accountId) {
         for (const [key, value] of Object.entries(body.config)) {
           if (key === 'max_size' && Number.isInteger(value) && value >= 1 && value <= 16)
             config.max_size = value;
+          else if ((key === 'discoverability' && ['ALL', 'INVITED_ONLY'].includes(value)) ||
+                   (key === 'joinability' && ['OPEN', 'CLOSED', 'INVITE_AND_FORMER'].includes(value)))
+            // Observed 12.50 frontend preferences. The API remains single-account
+            // authenticated, namespace-local, and has no public party discovery.
+            config[key] = value;
           else if (Object.hasOwn(config, key) && config[key] === value) continue;
           else throw new Error('unsupported_config');
         }
@@ -97,6 +102,16 @@ function register(app, {accountId, authenticate, record}) {
   }));
   app.get(base + '/parties/:partyId', respond((req, res) => res.json(state.get(req.params.partyId))));
   app.patch(base + '/parties/:partyId', respond((req, res) => {
+    if (req.body?.config && typeof req.body.config === 'object') {
+      const names = ['type', 'sub_type', 'joinability', 'discoverability', 'max_size',
+        'invite_ttl', 'intention_ttl'];
+      const values = ['DEFAULT', 'default', 'ALL', 'OPEN', 'CLOSED', 'INVITE_AND_FORMER',
+        'INVITED_ONLY', 'FRIENDS', 'PUBLIC'];
+      record({event: 'party-config-observed', config: Object.fromEntries(
+        Object.entries(req.body.config).filter(([key]) => names.includes(key)).map(([key, value]) =>
+          [key, values.includes(value) || (Number.isInteger(value) && value >= 0 && value <= 86400)
+            ? value : 'unrecognized']))});
+    }
     state.patch(req.params.partyId, req.body); record({event: 'party-updated'}); res.sendStatus(204);
   }));
   app.patch(base + '/parties/:partyId/members/:accountId/meta', respond((req, res) => {

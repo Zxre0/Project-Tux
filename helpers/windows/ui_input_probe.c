@@ -65,13 +65,15 @@ void probe_entry(void) {
          !equal(action, L"skip-intro") && !equal(action, L"locker") &&
          !equal(action, L"play-tab") && !equal(action, L"escape") &&
          !equal(action, L"outfit-slot") && !equal(action, L"outfit-first") &&
-         !equal(action, L"outfit-save")))
+         !equal(action, L"outfit-save") && !equal(action, L"match-play") &&
+         !equal(action, L"mode-change")))
         ExitProcess(64);
     BOOL enter_br = equal(action, L"enter-br");
     BOOL skip_intro = equal(action, L"skip-intro");
     BOOL locker = equal(action, L"locker"), play_tab = equal(action, L"play-tab");
     BOOL outfit_slot = equal(action, L"outfit-slot");
     BOOL outfit_first = equal(action, L"outfit-first"), outfit_save = equal(action, L"outfit-save");
+    BOOL match_play = equal(action, L"match-play"), mode_change = equal(action, L"mode-change");
     HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, game_pid);
     DWORD length = 4096;
     if (!process || !QueryFullProcessImageNameW(process, 0, path, &length) ||
@@ -109,14 +111,17 @@ void probe_entry(void) {
         CloseHandle(process);
         ExitProcess(down == 1 && up == 1 ? 0 : 67);
     }
-    LONG y = outfit_first           ? 390
+    LONG y = match_play             ? 675
+             : mode_change          ? 588
+             : outfit_first         ? 390
              : outfit_save          ? 955
              : outfit_slot          ? 340
              : (locker || play_tab) ? 48
              : skip_intro           ? rect.bottom * 95 / 100
              : enter_br             ? rect.bottom * 82 / 100
                                     : rect.bottom / 2;
-    POINT cursor = {outfit_first  ? 410
+    POINT cursor = {(match_play || mode_change) ? 1700
+                    : outfit_first ? 410
                     : outfit_save ? 640
                     : outfit_slot ? 450
                     : locker      ? 906
@@ -125,6 +130,14 @@ void probe_entry(void) {
                                   : rect.right / 2,
                     y};
     if (!ClientToScreen(game_window, &cursor) || !SetCursorPos(cursor.x, cursor.y))
+        ExitProcess(67);
+    Sleep(200); // Let XWayland/Wine deliver the cursor move before the click.
+    POINT actual;
+    if (!GetCursorPos(&actual))
+        ExitProcess(67);
+    record("cursor_x=", actual.x);
+    record("cursor_y=", actual.y);
+    if (actual.x != cursor.x || actual.y != cursor.y)
         ExitProcess(67);
     INPUT input = {0};
     input.type = INPUT_MOUSE;
