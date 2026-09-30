@@ -91,6 +91,11 @@ Upstream check-disabling cloud hotfixes, fabricated launcher manifests, and
 unimplemented profile-token verification are not enabled. Profile-token requests
 fail explicitly rather than receiving fabricated verification success.
 
+The local content-pages adapter removes the provider's `LawinServer V2` lobby
+notice from both emergency-notice formats. Other notices and version-specific
+backgrounds are preserved. Upstream license and credits remain in this guide
+and in the deployment.
+
 `lawin.log` contains route-template/status/process events, not request bodies,
 raw URLs, credentials, tokens or key data. `lawin-service.log` and `mongodb.log`
 are owner-only raw diagnostic logs; inspect/redact before sharing. The original
@@ -102,7 +107,8 @@ game’s prefix log may contain the disposable local password.
 CTest runs it when Node is available; CI provisions Node22. The separate
 `smoke.cjs` requires a running isolated provider and checks wrong-password
 rejection, real password login, token verification, common_core and keychain
-transport. It also verifies Athena starter references, outfit switching,
+transport, lobby-notice removal and the Season 12 background. It also verifies
+Athena starter references, outfit switching,
 unknown-outfit rejection and restoration of the original selection. It never
 prints passwords, tokens or keychain contents.
 Pass the private Lawin configuration as its second argument to also test a real

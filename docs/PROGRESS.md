@@ -2376,3 +2376,30 @@ CTest targets then passed25.08s. Real verify12.50 reports valid=true/profile12.5
 the isolated Lawin print-command plan selects the existing12.50 Proton prefix
 without launching or altering its contents. Existing runtime/argument security
 gates were not relaxed by the target change.
+
+### Remove provider text from lobby (2026-09-30)
+
+User requested removal of the bottom-right LawinServer V2 label. Inspected pinned
+routes/contentpages.js, structs/functions.js and responses/contentpages.json.
+The provider puts its title and credits in emergencynotice.news.messages and
+emergencynoticev2.emergencynotices.emergencynotices. Added an original adapter
+route using upstream version/locale content generation, filtering only notices
+whose title is LawinServer V2 from those two arrays. No upstream files or game
+assets are modified; upstream license/credits remain in documentation/deployment.
+
+Syntax checks and git diff validation pass. Real isolated HTTP smoke in
+lawin-content-smoke-ki0b89 confirms both formats omit the provider notice and
+retain the season12 background; local auth, outfits, party and XMPP checks also
+pass. Started a bounded actual-game run to verify the rendered lobby; screenshot
+verification remains pending.
+
+Actual session 2026-09-30_01-12-22_ae24d49a served content-pages HTTP200 at
+01:12:48.058 and reached the rendered Chapter 2 Season 2 lobby. The game-only
+capture lobby-without-provider-notice.png shows the bottom-right title, warning
+icon and credit body absent, with background and saved female outfit rendered.
+The centered Local Player popup does not obscure the verified bottom-right area.
+The bounded run returned helper exit0, no launch error and no owned processes
+remaining. No EAC observed during sampled monitoring. A later popup-dismissal
+attempt found the already-ended PID and sent no input; no extra launch was needed.
+Native build is current; the relevant Lawin CTest target passes. Screenshot and
+session logs remain in the private session directory, outside Git.

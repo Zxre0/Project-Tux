@@ -20,6 +20,17 @@ async function main() {
     'user-agent': 'Fortnite/++Fortnite+Release-12.50-CL-13137020 Windows/10.0.0.0.64bit'};
   const verified = await fetch(base + '/account/api/oauth/verify', {headers});
   if (verified.status !== 200) throw new Error('verify-failed');
+  const content = await fetch(base + '/content/api/pages/fortnite-game', {headers});
+  if (content.status !== 200) throw new Error('content-pages-failed');
+  const pages = await content.json();
+  const notices = [pages.emergencynotice?.news?.messages,
+    pages.emergencynoticev2?.emergencynotices?.emergencynotices];
+  if (!notices.every(Array.isArray) ||
+      notices.flat().some(notice => notice.title === 'LawinServer V2') ||
+      pages.dynamicbackgrounds?.backgrounds?.backgrounds?.[0]?.stage !== 'season12')
+    throw new Error('local-lobby-content-contract-failed');
+  console.log(JSON.stringify({test: 'lawin-lobby-content', provider_notice: 'removed',
+    season_background: 'preserved'}));
   const profile = await fetch(base + '/fortnite/api/game/v2/profile/' + session.account_id +
     '/client/QueryProfile?profileId=common_core&rvn=-1', {method: 'POST',
       headers: {...headers, 'content-type': 'application/json'}, body: '{}'});
