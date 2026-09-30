@@ -1,8 +1,9 @@
 # Historical Project Reboot Season 12 source map
 
-Archived research scope: the original investigation focused on12.61 and nearby
-12.x branches. As of2026-09-30, only12.50 is an active launcher target. Retain this
-map as upstream source evidence; none of its12.61-only paths authorize12.50 logic.
+Archived research scope: the original investigation focused on 12.61 and nearby
+12.x branches. Only 12.50 is an active launcher target. This document is historical
+upstream source evidence, not an active implementation plan; none of its
+12.61-only paths authorize 12.50 logic. See [current target](../FORTNITE_12_50.md).
 
 Source pin: `Milxnor/Project-Reboot-3.0@3f6417ee6b07063bb6f83902ad3971f998888bab`.
 All paths below are under `Project Reboot 3.0/` at that revision.

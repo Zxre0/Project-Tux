@@ -4,7 +4,7 @@ Retired 2026-09-30 at the user's request. The active profile was removed;
 12.50 is now the sole supported target. The text below records historical
 findings and plans, not current requirements. See [current status](../FORTNITE_12_50.md).
 
-First-class embedded profile: `profiles/fortnite/12.61.toml`. Expected ordinary
+Former embedded profile (removed): `profiles/fortnite/12.61.toml`. Expected ordinary
 shipping executable is `FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe`.
 Working directory is its Win64 directory. Upstream launcher metadata associates
 CL 13498980 with 12.61; our parser requires actual release metadata and does not
@@ -23,8 +23,9 @@ found; neither establishes a 12.61 installation and neither was launched or chan
 The machine also has an unmounted Windows NTFS partition. Read-only mounting was
 denied by UDisks authorization; files on that volume have not been inspected.
 
-Current blockers: missing legitimate 12.61 files; no verified unmodified private
-execution path; no reviewed compatible module/backend environment. Client startup,
+Historical blockers for the retired target: missing legitimate 12.61 files; no
+verified unmodified private execution path; no reviewed compatible module/backend
+environment. Client startup,
 private join, hosting, gameplay, fullscreen, input and audio are all unverified.
 
 ## Optional content-integrity checks

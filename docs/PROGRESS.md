@@ -2,28 +2,34 @@
 
 ## Current handoff state
 
-Fortnite 12.61 files remain unavailable. The user supplied a separate 12.50 build;
-its metadata, structure and all 398 local-manifest file hashes are verified.
-GPU/socket restrictions were removed by the user. The opt-in isolated 12.50
-launcher-context probe now reaches a visually verified sign-in screen using
-Proton Experimental/DXVK on CachyOS/NVIDIA/Hyprland. Baseline arguments still exit
-early; distinguish those historical runs from the context experiment. Steam Linux
-Runtime container integration is not implemented. No login, lobby, private join,
-hosting or 12.61 gameplay is verified.
+**12.50 is the sole supported development target.** Its active compatibility
+profile, default profile lookup and default module-validation version are 12.50.
+The retired 12.61 profile is not embedded or selectable; no 12.61 installation
+is needed to continue. Historical investigations and explicit unsupported-version
+regression tests are retained, not treated as current requirements.
 
-Private-backend discovery narrowed the next blocker: MCPCONFIG=localhost did not
-change selection; epicapp=Localhost is recognized but lacks the game's service
-configuration and is rejected with host unconfigured. Do not interpret this
-known-negative opt-in as a working private launch path. Latest verified release
-suite passes 8/8 targets, including 177 core checks and 15 game-evidence checks.
-Historical sanitizer results below are scoped to their exact revisions and
-settings; graphics-enabled LeakSanitizer findings remain unresolved. Findings
-through b8406b7 are pushed and GitHub CI passed (run 36615515180).
+Supplied installation: `/home/atlas/Documents/Fortnite/++Fortnite+Release-12`.
+Its metadata, structure and all 398 local-manifest file hashes are verified.
+The explicit isolated LawinServerV2 path reaches a rendered lobby on
+CachyOS/NVIDIA/Hyprland using Proton Experimental 20260924/DXVK. Local login,
+party/XMPP, starter outfits, outfit selection/save and persistence across a full
+game/backend restart have been tested. These are bounded diagnostics; private
+gameplay, Project Reboot game-server integration and hosting remain unverified.
+Baseline startup and the earlier native-backend experiments are separate from
+this verified Lawin path. Steam Linux Runtime container integration is not
+implemented. No EAC was observed during sampled monitoring; this is not proof
+of universal absence.
+
+The target-retirement regression build passed all 13 CTest targets. Findings
+through b32067b are committed and pushed to canonical origin/main. Historical
+sanitizer results below apply only to their recorded revisions/settings.
 
 Installed native CLI: `/home/atlas/.local/bin/fortnite-linux`. Source checkout:
-`/home/atlas/Projects/FortniteOnLinux`. Dedicated prefixes `12.61` and
-`runtime-smoke`, and `12.50` are initialized. The corrected run left no owned
-12.50 processes. Game binaries, GPU drivers and boot configuration have not been
+`/home/atlas/Projects/FortniteOnLinux`. Active game compatibility data uses the
+owned `proton-prefixes/12.50/pfx` prefix; ordinary Wine prefixes and historical
+test prefixes remain outside the game installation. Retiring a profile does not
+delete prefix data or game files. The latest bounded lobby run left no owned
+processes. Game binaries, GPU drivers and boot configuration have not been
 modified. The earlier process-scope defect may have affected unrelated user
 applications; see its explicit incident record below.
 Recoverable Wine-prefix backup/reset/restore has been tested on real prefixes.
@@ -31,19 +37,12 @@ Project-owned Experimental and Hotfix copies passed isolated command execution
 and clean-shutdown tests using separate Proton compatibility data. Cancellation,
 timeout, missing-receipt and EAC-name handling have synthetic regression coverage.
 
-An accessible complete 12.61 installation remains required for 12.61 testing.
-The 930.5 GiB NTFS Windows partition `/dev/nvme1n1p3` is unmounted. A read-only,
-noninteractive UDisks mount attempt was denied with `NotAuthorizedCanObtain`.
-It was not mounted or inspected, and no filesystem repair/write was attempted.
-It may contain the missing game files; their presence/version is unknown.
-
-Current task: structured game-log diagnostics and regression tests, followed by
-the unresolved private-service configuration contract. The successful context-only
-sign-in baseline remains available. Reboot source search found no MCPConfig
-configuration setting, and the supplied installation has no loose relevant INI
-file. Neither result proves no supported configuration route exists. Do not
-blindly repeat known-negative arguments, start paused EAC stand-ins, contact
-protected production services or treat offline sign-in as private gameplay.
+Current task: verify that active profiles, defaults, registrations and current
+documentation consistently target 12.50 only. Next launch milestone: prepare and
+validate a matching private Project Reboot game server for the supplied build;
+backend login alone does not establish gameplay compatibility. Missing 12.61
+files and historical partition-access findings are no longer project blockers.
+Do not treat frontend sign-in or a rendered lobby as private gameplay.
 
 ## 2026-09-28/29: milestone 1, native core and evidence collection
 
@@ -2403,3 +2402,20 @@ remaining. No EAC observed during sampled monitoring. A later popup-dismissal
 attempt found the already-ended PID and sent no input; no extra launch was needed.
 Native build is current; the relevant Lawin CTest target passes. Screenshot and
 session logs remain in the private session directory, outside Git.
+
+### Confirm exclusive 12.50 scope (2026-09-30, 01:30 UTC)
+
+Rechecked the user's request to remove 12.61. Commit 466235b already removed its
+active profile and made 12.50 the sole embedded/default target. This audit found
+no 12.61 references in active source, CLI, profiles, README or CI. All three local
+registrations point to the supplied 12.50 installation; no registration removal
+was needed. Real `verify 12.50` reports version/profile 12.50, valid=true and no
+errors. Native build is current; all 13 CTest targets pass in 25.44 seconds,
+including existing rejection tests for retired versions.
+
+Corrected the stale current-handoff section that still required missing 12.61
+files and described the older sign-in-only milestone. Moved the remaining 12.61
+Reboot research into docs/history and clarified that its old blockers/profile
+are historical, not current requirements. Preserved chronological evidence,
+unsupported-version tests, all game files and existing prefix data. No game was
+launched or prefix reset for this documentation/scope check.
