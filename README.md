@@ -53,14 +53,28 @@ local game server, ride the bus and drop onto the map.
 3. **Build the game server** (Erbium) with the Solo config. See
    [docs/MATCH.md](docs/MATCH.md#one-time-build).
 
-4. **Play:**
+4. **Play** with the launcher:
 
    ```sh
-   scripts/fortnite-match.sh
+   build/project-tux                 # or: scripts/install-desktop.sh, then "Project Tux" in your app menu
    ```
 
-   Wait for `Game server listening on 127.0.0.1:7777`. The client then opens:
-   choose **Battle Royale → Solo → Play**.
+   Press **Launch**. It starts the backend, the game server and your game, and
+   shows each one's status. In the lobby choose **Battle Royale → Solo → Play**.
+   **Stop** (or closing the game) ends everything. Prefer a terminal?
+   `scripts/fortnite-match.sh` does the same thing.
+
+## Launcher
+
+| Tab | What it does |
+| --- | --- |
+| **Play** | One-click Launch/Stop, live status of backend, game server and game, match phase, session log |
+| **Hosting** | *Host a local game server* (on by default). Turn it off to start only the backend and your game (lobby/locker work; Play queues with no server). Erbium DLL path. |
+| **Lawin** | Edit the local backend: display name, level, Battle Pass tier, V-Bucks, add/remove cosmetics (all 6,000+ Lawin knows), unlock everything, reset locker, edit the item shop. Available while the game isn't running. |
+| **Settings** | Game folder, Proton path and a setup checklist that tells you what's missing |
+
+`project-tux --launch` starts straight away; the desktop entry has a *Play now*
+action for that. The Lawin editor is also a CLI: `scripts/lawin-admin.sh info`.
 
 The server shows a small frozen Fortnite window and an Erbium console. Leave
 them open. Logs for every run go to
