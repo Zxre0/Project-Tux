@@ -133,7 +133,7 @@ udp_bound() { grep -q ':1E61 ' /proc/net/udp /proc/net/udp6 2>/dev/null; }
 run_server() {
     FOL_HTTP_MODULE_REPORT="$(winpath "$S")\\router-server-$1.json" \
     FOL_INJECT_EARLY="$FOL_INJECT_EARLY;$(winpath "$REPO/build/windows/fol-server-guard.dll")" \
-    FOL_INJECT_STATUS="$(winpath "$S")\\inject-server.txt" FOL_INJECT_LATE=$(winpath "$ERBIUM") \
+    FOL_INJECT_STATUS="$(winpath "$S")\\inject-server-$1.txt" FOL_INJECT_LATE=$(winpath "$ERBIUM") \
     FOL_INJECT_LOG='C:\users\steamuser\AppData\Local\FortniteGame\Saved\Logs\FortniteGame.log' \
     FOL_INJECT_MARKER='UI State changing from [UI.State.Startup.Login]' \
     WINEDEBUG='+timestamp,+pid,+seh,+loaddll' \
@@ -143,12 +143,18 @@ run_server() {
 }
 # Erbium exits after a finished match (bAutoRestart); start a fresh server each
 # time so Play works again. The matchmaker queues players until it listens.
+kill_tree() {
+    local child
+    for child in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$child"; done
+    kill -TERM "$1" 2>/dev/null
+}
 server_supervisor() {
     set +e
-    local n=1 failures=0 pid code started i
+    local n=1 failures=0 pid code started i status
     while :; do
         # Fresh log: the injector waits for this server's own sign-in line.
         rm -f "$LOGS/FortniteGame.log" "$WIN64/stdout.log"
+        status="$S/inject-server-$n.txt"
         started=$SECONDS
         run_server $n &
         pid=$!
@@ -157,18 +163,23 @@ server_supervisor() {
                 echo "Game server listening on 127.0.0.1:7777 after ${i}s"
                 break
             fi
+            grep -qs "child exited" "$status" && break
             kill -0 $pid 2>/dev/null || break
             sleep 1
         done
-        wait $pid
-        code=$?
+        # `proton run` only returns once every Wine process in the prefix has
+        # ended (including the client), so watch the server game itself.
+        until grep -qs "child exited" "$status" || ! kill -0 $pid 2>/dev/null; do sleep 2; done
+        code=$(sed -n 's/.*child exited \([0-9]*\).*/\1/p' "$status" 2>/dev/null | tail -1)
+        kill_tree $pid
+        wait $pid 2>/dev/null
         cp -f "$LOGS/FortniteGame.log" "$S/server-game-$n.log" 2>/dev/null
         if ((SECONDS - started < 90)); then failures=$((failures + 1)); else failures=0; fi
         if ((failures >= 3)); then
             echo "Game server keeps failing to start; see $S"
             return 1
         fi
-        echo "Game server exited ($code); starting a new one for the next match..."
+        echo "Game server exited (${code:-?}); starting a new one for the next match..."
         n=$((n + 1))
         sleep 2
     done
