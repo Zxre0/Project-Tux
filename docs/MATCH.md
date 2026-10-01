@@ -47,11 +47,23 @@ Overrides: `FOL_GAME_DIR`, `FOL_PROTON`, `FOL_ERBIUM_DLL`.
 
 ## Notes
 
-- This Shipping build ignores `-nullrhi`; the server still renders a small
-  window (a frozen mode-select screen) and an Erbium console window. Leave them open.
-- Erbium's ImGui window (`bGUI = true`) crashed the server's D3D11 render
-  thread under DXVK (`D3D11Query.cpp:348 DXGI_ERROR_INVALID_CALL`); the Solo
-  config disables it. The bus therefore starts on Erbium's normal warmup timer.
+- **Server window:** this Shipping build ignores `-nullrhi`, so the server runs
+  with `-RenderOffScreen` at 640x360 and `fol-server-guard.dll` keeps its
+  windows hidden, disabled and uncloseable. A close request used to destroy its
+  viewport and Erbium crashed on a null world (`TickFlush__RepGraph`).
+- **"Fortnite was not started correctly":** 12.50's environment check
+  (`LogAppES: closing code 1`) closes the game after a while unless the
+  launcher context exists. `fol-inject` starts `FortniteLauncher.exe` and the
+  `_EAC` bootstrap next to each instance with `CREATE_SUSPENDED`; they never
+  run and die with the game.
+- **Hyprland fullscreen:** with per-region damage tracking, a fullscreen
+  XWayland game only repainted where the cursor moved. The script switches
+  `debug:damage_tracking` to 1 (monitor) during a session and restores it, and
+  makes the focused monitor the X11 primary so its resolution (e.g. 1440p) is
+  offered. NVIDIA: `__NV_DISABLE_EXPLICIT_SYNC=1`.
+- Erbium's ImGui window crashed the server's D3D11 render thread under DXVK,
+  so the Solo config disables it (bus starts on the normal warmup timer) and
+  its console window is hidden.
 - Client and server share one local account. Nothing leaves the namespace.
 
 ## Verified result (2026-10-01)
