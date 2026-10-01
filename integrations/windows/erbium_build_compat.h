@@ -5,3 +5,15 @@
 #pragma once
 // SPDX-License-Identifier: BSD-3-Clause
 #define _Inits __declspec(selectany) _Inits
+
+// Hide the console Erbium allocates when its GUI is disabled: under Proton it
+// is a separate top-level window, and closing it terminates the game server.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+inline BOOL fol_alloc_hidden_console() {
+    const BOOL created = ::AllocConsole();
+    if (created && GetConsoleWindow())
+        ShowWindow(GetConsoleWindow(), SW_HIDE);
+    return created;
+}
+#define AllocConsole fol_alloc_hidden_console

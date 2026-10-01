@@ -78,7 +78,14 @@ file build/windows/fol-match-router.dll
 clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
     -I/usr/include/wine/windows -I/usr/include/wine/msvcrt -Wall -Wextra -Werror -O1 \
     -c helpers/windows/fol_inject.c -o build/windows/fol_inject.obj
-lld-link /entry:inject_entry /subsystem:console /nodefaultlib /machine:x64 /timestamp:0 \
+lld-link /entry:inject_entry /subsystem:windows /nodefaultlib /machine:x64 /timestamp:0 \
     /out:build/windows/fol-inject.exe build/windows/fol_inject.obj \
     /usr/lib/wine/x86_64-windows/libkernel32.a
 file build/windows/fol-inject.exe
+clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
+    -I/usr/include/wine/windows -I/usr/include/wine/msvcrt -Wall -Wextra -Werror -O1 \
+    -c helpers/windows/server_guard.c -o build/windows/server_guard.obj
+lld-link /dll /entry:guard_entry /subsystem:windows /nodefaultlib /machine:x64 /timestamp:0 \
+    /out:build/windows/fol-server-guard.dll build/windows/server_guard.obj \
+    /usr/lib/wine/x86_64-windows/libkernel32.a /usr/lib/wine/x86_64-windows/libuser32.a
+file build/windows/fol-server-guard.dll
