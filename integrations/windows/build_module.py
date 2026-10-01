@@ -54,6 +54,8 @@ def main():
     parser.add_argument("--source", help="Compile just one project source; do not link")
     parser.add_argument("--link-only", action="store_true",
                         help="Relink existing objects from this pinned research build")
+    parser.add_argument("--config", type=Path,
+                        help="Erbium: replace Public/Configuration.h in the generated copy")
     parser.add_argument("--sdk-probe", action="store_true",
                         help="Erbium SDK-only diagnostic; excludes upstream server code")
     args = parser.parse_args()
@@ -121,6 +123,11 @@ def main():
                 print(json.dumps({"include_directory": str(path),
                                   "status": "absent-in-pinned-tree"}), flush=True)
             include_flags.append("/I" + str(path))
+    if args.config:
+        if args.provider != "erbium":
+            parser.error("--config is only supported for erbium")
+        shutil.copy2(args.config.resolve(strict=True),
+                     project / "Erbium/Public/Configuration.h")
     sources = [entry.attrib["Include"].replace("\\", "/")
                for entry in definition.findall(".//ms:ClCompile[@Include]", ns)
                if entry.attrib["Include"].endswith(".cpp")]
@@ -183,7 +190,8 @@ def main():
         compiled = list(pool.map(compile_one, sources))
     if args.source:
         return
-    output = root / ("fol-solo-sdk-probe.dll" if args.sdk_probe else args.provider + "-research.dll")
+    output = root / ("fol-solo-sdk-probe.dll" if args.sdk_probe
+                     else "erbium-solo.dll" if args.config else args.provider + "-research.dll")
     libraries = provider["libraries"]
     command = ["lld-link", "/dll", "/machine:x64", "/subsystem:windows", "/opt:ref",
                "/opt:icf", "/timestamp:0", "/out:" + str(output), *map(str, compiled),

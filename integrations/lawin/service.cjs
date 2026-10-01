@@ -109,6 +109,7 @@ async function main() {
   });
   stage = 'start-local-xmpp';
   await require('./xmpp.cjs').listen({upstream, authenticate, record: data => process.send?.(data)});
+  await require('./matchmaking.cjs').listen({upstream, record: data => process.send?.(data)});
   app.listen(3551, '127.0.0.1', () => process.send?.({event: 'ready'}));
 }
 main().catch(err => {

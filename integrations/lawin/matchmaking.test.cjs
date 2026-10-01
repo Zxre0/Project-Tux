@@ -2,44 +2,63 @@
 'use strict';
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {register} = require('./matchmaking.cjs');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const {register, udpPortBound} = require('./matchmaking.cjs');
 
-function fixture(authenticate = async (id, token) => token === 'fixture-token') {
-  let handler;
+function fixture(authenticate = async (id, token) => token === 'fixture-token', ready = () => true) {
+  const routes = {};
   const events = [];
-  register({get: (path, callback) => {
-    assert.equal(path, '/fortnite/api/game/v2/matchmakingservice/ticket/player/:accountId');
-    handler = callback;
-  }}, {accountId: 'local-account', authenticate, record: value => events.push(value)});
-  return {events, async request(token, accountId = 'local-account') {
-    let status, body;
-    const response = {sendStatus: value => status = value,
-      status(value) { status = value; return this; }, json: value => body = value};
-    await handler({headers: {authorization: token}, params: {accountId}}, response);
+  const app = {get: (p, h) => routes['GET ' + p] = h, post: (p, h) => routes['POST ' + p] = h};
+  register(app, {accountId: 'local-account', authenticate, record: v => events.push(v),
+    serverReady: ready});
+  return {events, routes, async request(route, {token, params = {}, query = {}} = {}) {
+    let status = 200, body;
+    const response = {sendStatus: v => status = v,
+      status(v) { status = v; return this; }, json: v => body = v};
+    await routes[route]({headers: {authorization: token}, params, query}, response);
     return {status, body};
   }};
 }
+const TICKET = 'GET /fortnite/api/game/v2/matchmakingservice/ticket/player/:accountId';
+const SESSION = 'GET /fortnite/api/matchmaking/session/:sessionId';
 
 test('tickets require verified local authorization and account ownership', async () => {
   const f = fixture();
   for (const token of [undefined, 'bearer wrong', 'Bearer fixture-token', ['bearer fixture-token']])
-    assert.equal((await f.request(token)).status, 401);
-  assert.equal((await f.request('bearer fixture-token', 'another-account')).status, 403);
-  assert.deepEqual(f.events, []);
+    assert.equal((await f.request(TICKET, {token, params: {accountId: 'local-account'}})).status, 401);
+  assert.equal((await f.request(TICKET, {token: 'bearer fixture-token',
+    params: {accountId: 'another-account'}})).status, 403);
+  const broken = fixture(async () => { throw new Error('private diagnostic'); });
+  assert.equal((await broken.request(TICKET, {token: 'bearer fixture-token',
+    params: {accountId: 'local-account'}})).status, 500);
+  assert.ok(!JSON.stringify(broken.events).includes('private diagnostic'));
 });
 
-test('authenticated Play reports unavailable without manufacturing a ticket or readiness', async () => {
+test('ticket points at the local matchmaker and session at the local game server', async () => {
   const f = fixture();
-  const result = await f.request('bearer fixture-token');
-  assert.equal(result.status, 503);
-  assert.equal(result.body.errorCode, 'fol.matchmaking.game_server_unavailable');
-  assert.equal(result.body.component, 'game-server');
-  assert.equal(result.body.readiness, 'unavailable');
-  for (const key of ['ticket', 'payload', 'signature', 'serviceUrl', 'sessionId'])
-    assert.equal(Object.hasOwn(result.body, key), false);
-  assert.equal(f.events[0].reason, 'integration-unimplemented');
+  const auth = {token: 'bearer fixture-token', params: {accountId: 'local-account'}};
+  assert.equal((await f.request(TICKET, {...auth, query: {bucketId: 'bad'}})).status, 400);
+  const ticket = await f.request(TICKET, {...auth,
+    query: {bucketId: '12895384:0:NAE:playlist_defaultsolo'}});
+  assert.equal(ticket.status, 200);
+  assert.match(ticket.body.serviceUrl, /^ws:\/\/127\.0\.0\.1:\d+$/);
+  const session = await f.request(SESSION, {token: 'bearer fixture-token',
+    params: {sessionId: 'abc'}});
+  assert.equal(session.body.serverAddress, '127.0.0.1');
+  assert.equal(session.body.serverPort, 7777);
+  assert.equal(session.body.buildUniqueId, '12895384');
   assert.ok(!JSON.stringify(f.events).includes('fixture-token'));
-  const broken = fixture(async () => { throw new Error('private diagnostic'); });
-  assert.equal((await broken.request('bearer fixture-token')).status, 500);
-  assert.ok(!JSON.stringify(broken.events).includes('private diagnostic'));
+});
+
+test('udp readiness parses /proc/net/udp format', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fol-udp-'));
+  const file = path.join(dir, 'udp');
+  const header = '  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode ref pointer drops\n';
+  fs.writeFileSync(file, header + '   0: 00000000:1E61 00000000:0000 07 00000000:00000000 00:00000000 00000000  1000        0 1 2 0 0\n');
+  assert.equal(udpPortBound(7777, [file]), true);
+  fs.writeFileSync(file, header);
+  assert.equal(udpPortBound(7777, [file]), false);
+  fs.rmSync(dir, {recursive: true});
 });
