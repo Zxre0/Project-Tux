@@ -62,6 +62,38 @@ cleanup() {
     cp -f "$WIN64/stdout.log" "$S/erbium-stdout.log" 2>/dev/null || true
 }
 trap cleanup EXIT
+trap "exit 143" TERM INT
+
+# Test automation: fullscreen the client, enter BR if needed and press Play.
+ui() {
+    local code=0
+    FOL_GAME_WINDOWS_PID=$client_windows_pid FOL_UI_ACTION=$1 \
+        "$(dirname "$PROTON")/files/bin/wine" "$REPO/build/windows/fol-ui-input-probe.exe" \
+        >>"$S/ui-input.log" 2>&1 || code=$?
+    ((code)) && echo "ui $1 failed: $code" >>"$S/ui-input.log"
+    return $code
+}
+shot() { grim "$S/$1.png" 2>/dev/null || true; }
+autoplay() {
+    set +e
+    local log="$LOGS/FortniteGame_2.log" i
+    for ((i = 0; i < 120; i++)); do
+        client_windows_pid=$(sed -n 's/.*started pid \([0-9]*\).*/\1/p' "$S/inject-client.txt" 2>/dev/null | head -1)
+        [[ -n $client_windows_pid ]] && grep -qs 'UI.State.Startup.SubgameSelect\|UI.State.Athena.Frontend' "$log" && break
+        sleep 1
+    done
+    local linux_pid
+    linux_pid=$(pgrep -f 'Win64-Shipping.exe' | grep -vx "${server_pid:-0}" | head -1)
+    hyprctl dispatch focuswindow "pid:$linux_pid" >/dev/null && hyprctl dispatch fullscreen 0 >/dev/null
+    sleep 5
+    if ! grep -qs 'UI.State.Athena.Frontend' "$log"; then
+        shot autoplay-1-subgame; ui select-br; sleep 3; ui enter-br; sleep 15
+    fi
+    shot autoplay-2-lobby
+    for i in 1 2 3; do ui match-play && grep -qs 'Browse: 127.0.0.1' "$log" && break; sleep 10; done
+    sleep 20
+    shot autoplay-3-after-play; sleep 60; shot autoplay-4-match; sleep 60; shot autoplay-5-match
+}
 
 udp_bound() { grep -q ':1E61 ' /proc/net/udp /proc/net/udp6 2>/dev/null; }
 
@@ -71,7 +103,7 @@ if [[ $FOL_MATCH_MODE != --client ]]; then
     rm -f "$WIN64/stdout.log"
     echo "Starting headless game server..."
     FOL_HTTP_MODULE_REPORT="$(winpath "$S")\\router-server.json" \
-    FOL_INJECT_LATE=$(winpath "$ERBIUM") \
+    FOL_INJECT_STATUS="$(winpath "$S")\\inject-server.txt" FOL_INJECT_LATE=$(winpath "$ERBIUM") \
     FOL_INJECT_LOG='C:\users\steamuser\AppData\Local\FortniteGame\Saved\Logs\FortniteGame.log' \
     FOL_INJECT_MARKER='UI State changing from [UI.State.Startup.Login]' \
     WINEDEBUG='+timestamp,+pid,+seh,+loaddll' \
@@ -92,10 +124,13 @@ if [[ $FOL_MATCH_MODE == --server ]]; then
     exit $?
 fi
 echo "Starting client..."
+server_pid=$(pgrep -f 'Win64-Shipping.exe' | head -1 || true)
 FOL_HTTP_MODULE_REPORT="$(winpath "$S")\\router-client.json" WINEDEBUG='-all' \
+FOL_INJECT_STATUS="$(winpath "$S")\\inject-client.txt" \
     "$PROTON" run "$REPO/build/windows/fol-inject.exe" "$EXE" -log -d3d11 "${GAME_ARGS[@]}" \
     >"$S/client-wine.log" 2>&1 &
 client=$!
 pids+=($client)
 echo "Client running. In the lobby select Solo and press Play."
+[[ ${FOL_MATCH_AUTOPLAY:-0} == 1 ]] && autoplay
 wait "$client"

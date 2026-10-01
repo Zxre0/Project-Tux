@@ -10,6 +10,7 @@
  *   FOL_INJECT_LOG     game log to watch (deleted beforehand by the caller)
  *   FOL_INJECT_MARKER  ASCII text to wait for
  *   FOL_INJECT_DELAY   extra milliseconds after the marker (default 5000)
+ *   FOL_INJECT_STATUS  optional file that receives the progress lines
  */
 #define WIN32_LEAN_AND_MEAN
 #define _ACRTIMP
@@ -24,11 +25,14 @@ void *memset(void *destination, int value, SIZE_T size) {
     return destination;
 }
 
+static HANDLE status = INVALID_HANDLE_VALUE;
 static void say(const char *text) {
     DWORD n = 0, written;
     while (text[n])
         ++n;
     WriteFile(GetStdHandle(STD_ERROR_HANDLE), text, n, &written, NULL);
+    if (status != INVALID_HANDLE_VALUE)
+        WriteFile(status, text, n, &written, NULL);
 }
 static void say_number(DWORD value) {
     char digits[12];
@@ -193,6 +197,9 @@ void inject_entry(void) {
     }
     while (*target_command == L' ' || *target_command == L'\t')
         ++target_command;
+    if (GetEnvironmentVariableW(L"FOL_INJECT_STATUS", log, 4096) - 1 < 4095)
+        status = CreateFileW(log, FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL, NULL);
     DWORD early_size = GetEnvironmentVariableW(L"FOL_INJECT_EARLY", early, 4096);
     DWORD late_size = GetEnvironmentVariableW(L"FOL_INJECT_LATE", late, 4096);
     DWORD log_size = GetEnvironmentVariableW(L"FOL_INJECT_LOG", log, 4096);

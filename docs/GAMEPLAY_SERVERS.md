@@ -1,5 +1,9 @@
 # Fortnite 12.50 BR Solo gameplay status
 
+> **Update 2026-10-01:** gameplay works. Erbium (Solo config, no GUI) hosts
+> Apollo_Terrain on 7777 and the client joins via local matchmaking. See
+> [MATCH.md](MATCH.md). The notes below are the earlier history.
+
 Local backend login and a rendered Solo frontend work in the bounded diagnostic
 profile. A real match, player spawn and gameplay do not work yet. The backend is
 not the game server. Changing server projects does not evade security boundaries
