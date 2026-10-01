@@ -64,6 +64,11 @@ Overrides: `FOL_GAME_DIR`, `FOL_PROTON`, `FOL_ERBIUM_DLL`.
 - Erbium's ImGui window crashed the server's D3D11 render thread under DXVK,
   so the Solo config disables it (bus starts on the normal warmup timer) and
   its console window is hidden.
+- **Next match:** Erbium (`bAutoRestart`) exits once a finished match is empty;
+  the script notices via the injector status (not `proton run`, which waits
+  for every Wine process) and starts a fresh server in ~40 s. Play queues
+  until it listens. Verified 2026-10-01: match end 05:27:34, new server
+  joinable 05:28:11.
 - Client and server share one local account. Nothing leaves the namespace.
 
 ## Verified result (2026-10-01)
