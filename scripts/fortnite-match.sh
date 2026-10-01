@@ -57,8 +57,12 @@ pids=()
 cleanup() {
     for p in "${pids[@]}"; do kill "$p" 2>/dev/null || true; done
     WINEPREFIX="$COMPAT/pfx" "$(dirname "$PROTON")/files/bin/wineserver" -k 2>/dev/null || true
-    cp -f "$LOGS"/FortniteGame.log "$S/server-game.log" 2>/dev/null || true
-    cp -f "$LOGS"/FortniteGame_2.log "$S/client-game.log" 2>/dev/null || true
+    if [[ $FOL_MATCH_MODE == --client ]]; then
+        cp -f "$LOGS"/FortniteGame.log "$S/client-game.log" 2>/dev/null || true
+    else
+        cp -f "$LOGS"/FortniteGame.log "$S/server-game.log" 2>/dev/null || true
+        cp -f "$LOGS"/FortniteGame_2.log "$S/client-game.log" 2>/dev/null || true
+    fi
     cp -f "$WIN64/stdout.log" "$S/erbium-stdout.log" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -123,6 +127,7 @@ if [[ $FOL_MATCH_MODE == --server ]]; then
     wait "${pids[0]}"
     exit $?
 fi
+[[ $FOL_MATCH_MODE == --client ]] && rm -f "$LOGS/FortniteGame.log"
 echo "Starting client..."
 server_pid=$(pgrep -f 'Win64-Shipping.exe' | head -1 || true)
 FOL_HTTP_MODULE_REPORT="$(winpath "$S")\\router-client.json" WINEDEBUG='-all' \
@@ -133,4 +138,7 @@ client=$!
 pids+=($client)
 echo "Client running. In the lobby select Solo and press Play."
 [[ ${FOL_MATCH_AUTOPLAY:-0} == 1 ]] && autoplay
-wait "$client"
+code=0
+wait "$client" || code=$?
+echo "Client exited ($code)"
+exit $code
