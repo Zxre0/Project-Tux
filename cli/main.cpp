@@ -70,6 +70,8 @@ int main(int argc, char **argv) {
           "dll"},
          {"sdk-probe-module", "Trusted SDK-only diagnostic DLL; isolated local Lawin login only",
           "dll"},
+         {"sdk-travel-probe", "Request the profile world on the verified owned game thread; "
+                              "requires --sdk-probe-module; no server/gameplay claim"},
          {"private-backend",
           "Start the local backend in the isolated game namespace; requires local router DLL"},
          {"development-login", "Use the generated @localhost identity; requires --private-backend"},
@@ -203,17 +205,18 @@ int main(int argc, char **argv) {
             const auto worldProbe = worldMode == "standalone" ? fol::WorldProbe::Standalone
                                     : worldMode == "listen"   ? fol::WorldProbe::Listen
                                                               : fol::WorldProbe::None;
-            result = fol::launch(
-                paths, args[1], parser.isSet("print-command"), parser.isSet("offline-probe"),
-                timeout, parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
-                parser.value("proton"), parser.isSet("launcher-context-probe"), backendProbe,
-                parser.value("http-probe-helper"), parser.value("http-module"),
-                parser.isSet("private-backend"), parser.isSet("development-login"),
-                parser.value("lawin-config"),
-                {.presence = parser.isSet("launcher-presence-probe"),
-                 .identity = parser.isSet("launcher-identity-probe"),
-                 .rebootBootstrap = parser.isSet("reboot-bootstrap-context-probe")},
-                worldProbe, parser.value("sdk-probe-module"));
+            result = fol::launch(paths, args[1], parser.isSet("print-command"),
+                                 parser.isSet("offline-probe"), timeout,
+                                 parser.isSet("trace-startup"), parser.isSet("engine-stdout"),
+                                 parser.value("proton"), parser.isSet("launcher-context-probe"),
+                                 backendProbe, parser.value("http-probe-helper"),
+                                 parser.value("http-module"), parser.isSet("private-backend"),
+                                 parser.isSet("development-login"), parser.value("lawin-config"),
+                                 {.presence = parser.isSet("launcher-presence-probe"),
+                                  .identity = parser.isSet("launcher-identity-probe"),
+                                  .rebootBootstrap = parser.isSet("reboot-bootstrap-context-probe"),
+                                  .sdkTravel = parser.isSet("sdk-travel-probe")},
+                                 worldProbe, parser.value("sdk-probe-module"));
             exitCode = result.contains("error") || result["status"] == "stopped-eac-detected" ||
                                result["status"] == "stopped-anticheat-detected" ||
                                result["status"] == "probe-timeout" ||

@@ -77,6 +77,8 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                                                                     : "none"},
                        {"launcher_pid", QCoreApplication::applicationPid()}};
     try {
+        require(!context.sdkTravel || !sdkProbeModule.isEmpty(),
+                "SDK travel requires the explicit SDK diagnostic module");
         require(sdkProbeModule.isEmpty() ||
                     (worldProbe == WorldProbe::None && offlineProbe && launcherContextProbe &&
                      privateBackend && developmentLogin && !lawinConfig.isEmpty() &&
@@ -396,6 +398,16 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
             };
             overrides["FOL_SOLO_SDK_MODULE"] = windowsPath(checkedSdk);
             overrides["FOL_SOLO_SDK_REPORT"] = windowsPath(directory + "/solo-sdk-probe.jsonl");
+            if (context.sdkTravel) {
+                require(QRegularExpression("^[A-Za-z0-9_]{1,128}$")
+                            .match(profile.soloWorldUrl)
+                            .hasMatch(),
+                        "SDK travel requires a profile-defined local world basename");
+                overrides["FOL_SOLO_SDK_TRAVEL"] = profile.soloWorldUrl;
+                overrides["FOL_SOLO_SDK_CONTEXT"] =
+                    windowsPath(directory + "/solo-sdk-context.bin");
+                result["sdk_travel_requested_world"] = profile.soloWorldUrl;
+            }
         }
         if (launcherContextProbe)
             args.append(profile.launcherContextArguments);
@@ -528,7 +540,7 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                     const auto sdk = analyzeSdkProbe(
                         sdkReceipt.open(QIODevice::ReadOnly) ? sdkReceipt.read(16385)
                                                              : QByteArray{},
-                        session, evidence["child_windows_pid"].toInteger());
+                        session, evidence["child_windows_pid"].toInteger(), context.sdkTravel);
                     result["sdk_probe_observation"] = sdk;
                     if (!sdk["complete"].toBool() && !result.contains("error"))
                         result["error"] = "SDK compatibility probe did not complete successfully; "
@@ -592,8 +604,10 @@ QJsonObject launch(const Paths &paths, const QString &id, bool printOnly, bool o
                             "Backend configuration rejected; see game_logs observations and "
                             "source line numbers. This is separate from runtime exit status.";
                 }
-                if (worldProbe != WorldProbe::None) {
-                    const auto requested = worldUrl.section('?', 0, 0).section('/', -1);
+                if (worldProbe != WorldProbe::None || context.sdkTravel) {
+                    const auto requested = context.sdkTravel
+                                               ? profile.soloWorldUrl
+                                               : worldUrl.section('?', 0, 0).section('/', -1);
                     bool seen = false;
                     for (const auto &world : worlds)
                         seen |= world.toString().section('/', -1) == requested;

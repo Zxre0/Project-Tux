@@ -100,7 +100,28 @@ static BOOL load_owned_module(PROCESS_INFORMATION *child) {
             if (sdk_path[i] == L'\\' || sdk_path[i] == L'/')
                 sdk_name = sdk_path + i + 1;
         if (!equal(sdk_name, L"fol-solo-sdk-probe.dll") ||
-            !inject_owned_module(child, sdk_path, sdk_name, "sdk_probe_loaded"))
+            image_base(child->dwProcessId, sdk_name))
+            return FALSE;
+        wchar_t context_path[4096], travel[129];
+        DWORD travel_count = GetEnvironmentVariableW(L"FOL_SOLO_SDK_TRAVEL", travel, 129);
+        if (travel_count) {
+            DWORD context_count = GetEnvironmentVariableW(L"FOL_SOLO_SDK_CONTEXT", context_path, 4096);
+            if (travel_count >= 129 || !context_count || context_count >= 4096)
+                return FALSE;
+            /* Bind the later window callback to this child's actual initial
+             * thread; never select an arbitrary process or window thread. */
+            DWORD identity[3] = {0x314c4f46, child->dwProcessId, child->dwThreadId}, written = 0;
+            HANDLE context = CreateFileW(context_path, GENERIC_WRITE, FILE_SHARE_READ, NULL,
+                                         CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (context == INVALID_HANDLE_VALUE)
+                return FALSE;
+            BOOL saved = WriteFile(context, identity, sizeof(identity), &written, NULL) &&
+                         written == sizeof(identity) && FlushFileBuffers(context);
+            CloseHandle(context);
+            if (!saved)
+                return FALSE;
+        }
+        if (!inject_owned_module(child, sdk_path, sdk_name, "sdk_probe_loaded"))
             return FALSE;
     }
     DWORD window = module_window_ms();

@@ -2,24 +2,27 @@
 #include <QJsonDocument>
 
 namespace fol {
-QJsonObject analyzeSdkProbe(const QByteArray &data, const QString &session, qint64 childPid) {
+QJsonObject analyzeSdkProbe(const QByteArray &data, const QString &session, qint64 childPid,
+                            bool travelRequested) {
     QJsonObject result{{"complete", false},
                        {"scope", "SDK version/reflection observations; not hosting or gameplay"}};
     try {
         require(!data.isEmpty() && data.size() <= 16384 && data.endsWith('\n') &&
                     !session.isEmpty() && childPid > 0,
                 "SDK receipt missing, oversized, truncated or child identity unavailable");
-        const QStringList sequence{"started",
-                                   "sdk-init-started",
-                                   "sdk-init-completed",
-                                   "fortnite-version-times100",
-                                   "engine-version-times100",
-                                   "object-count",
-                                   "game-mode-class-found",
-                                   "net-driver-class-found",
-                                   "ready-to-start-function-found",
-                                   "process-event-vtable-slot",
-                                   "world-found"};
+        QStringList sequence{"started",
+                             "sdk-init-started",
+                             "sdk-init-completed",
+                             "fortnite-version-times100",
+                             "engine-version-times100",
+                             "object-count",
+                             "game-mode-class-found",
+                             "net-driver-class-found",
+                             "ready-to-start-function-found",
+                             "process-event-vtable-slot",
+                             "world-found"};
+        if (travelRequested)
+            sequence.append({"window-thread-verified", "world-travel-request-issued"});
         int stage = 0;
         bool finished = false, failure = false;
         QJsonObject observations;
@@ -43,7 +46,7 @@ QJsonObject analyzeSdkProbe(const QByteArray &data, const QString &session, qint
                 require(value == 1 && stage == sequence.size() && !failure,
                         "SDK probe reported unsatisfied prerequisites");
             } else if (event == "cpp-exception" || event == "unknown-cpp-exception" ||
-                       event == "structured-exception") {
+                       event == "structured-exception" || event == "world-travel-error") {
                 require(stage > 0 && !failure, "Unexpected SDK failure record");
                 failure = true;
                 result["failure_event"] = event;
@@ -66,7 +69,8 @@ QJsonObject analyzeSdkProbe(const QByteArray &data, const QString &session, qint
                     observations["process-event-vtable-slot"].toInteger() < 256,
                 "SDK version, object count or reflection slot is not compatible");
         for (const auto &key : sequence)
-            if (key.endsWith("-found") || key == "started" || key.startsWith("sdk-init-"))
+            if (key.endsWith("-found") || key == "started" || key.startsWith("sdk-init-") ||
+                key == "window-thread-verified" || key == "world-travel-request-issued")
                 require(observations[key] == 1, "SDK required prerequisite not found");
         result["observations"] = observations;
         result["complete"] = true;

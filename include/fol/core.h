@@ -139,6 +139,7 @@ struct LauncherContextExperiments {
     bool presence = false;
     bool identity = false;
     bool rebootBootstrap = false;
+    bool sdkTravel = false;
 };
 QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlineProbe,
                    int timeoutSeconds, bool traceStartup = false, bool engineStdout = false,
@@ -148,7 +149,8 @@ QJsonObject launch(const Paths &, const QString &id, bool printOnly, bool offlin
                    bool privateBackend = false, bool developmentLogin = false,
                    const QString &lawinConfig = {}, const LauncherContextExperiments &context = {},
                    WorldProbe worldProbe = WorldProbe::None, const QString &sdkProbeModule = {});
-QJsonObject analyzeSdkProbe(const QByteArray &, const QString &session, qint64 childPid);
+QJsonObject analyzeSdkProbe(const QByteArray &, const QString &session, qint64 childPid,
+                            bool travelRequested = false);
 QString classifyFailure(const QString &text);
 QJsonObject analyzeHttpProbe(const QByteArray &report, const QString &session);
 QJsonObject analyzeModuleReceipt(const QByteArray &report, const QString &session, qint64 childPid);
