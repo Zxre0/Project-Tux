@@ -1,224 +1,116 @@
-# FortniteOnLinux
+# Project Tux
 
-Native Linux CLI/core for Fortnite **12.50** with legitimately
-obtained files and authorized local/private development infrastructure.
-Canonical repository: <https://github.com/Zxre0/FortniteOnLinux>.
+Play **Fortnite 12.50** (Chapter 2 Season 2) on Linux: a native launcher/CLI,
+a local backend and a local game server, running the Windows game through
+Proton/DXVK.
 
-**12.50 is the sole supported development target.** Status remains experimental:
-the isolated [LawinServerV2 provider](integrations/lawin/README.md) reaches a
-rendered lobby on CachyOS/Hyprland/NVIDIA through Proton Experimental/DXVK.
-Character rendering, eight starter outfit thumbnails, outfit selection/save and
-persistence across a full game/backend restart are verified. **Local BR Solo
-gameplay works**: `scripts/fortnite-match.sh` runs an Erbium game server and the
-client joins through local matchmaking and spawns on the map (see
-[docs/MATCH.md](docs/MATCH.md)). Alternative game servers are under review: see
-[actual Play failure and build evidence](docs/GAMEPLAY_SERVERS.md) and
-[Project Nova analysis](docs/NOVA_ANALYSIS.md). No Fortnite assets or real Epic
-credentials are distributed.
+**Status:** local BR Solo works end to end on CachyOS/Hyprland/NVIDIA with Proton
+Experimental. Log in, customise your locker, press Play, get matched to the
+local game server, ride the bus and drop onto the map.
 
-The tested path requires explicit isolated development options; it does not
-enable Epic production services or protected matchmaking. No EAC/BattlEye was
-observed during sampled monitoring, which is not proof of universal absence.
-See [12.50 evidence](docs/FORTNITE_12_50.md), [launch instructions](docs/BACKEND.md)
-and [launch-context scope](docs/EAC.md).
+> You need your own legitimately obtained 12.50 game files. No Fortnite assets,
+> game-server binaries or Epic credentials are distributed here. Everything
+> runs in an isolated, loopback-only network namespace; nothing talks to Epic.
 
-The optional Lawin provider and the experimental native backend are separate
-from the Project Reboot game server. The native backend still stops at
-QueryKeychain; use the documented Lawin path for the verified lobby.
+## How it works
 
-## Play a local match
-
-See **[docs/MATCH.md](docs/MATCH.md)**: `scripts/fortnite-match.sh` starts the
-Lawin backend with local matchmaking, a headless Erbium game server and the
-client in one isolated namespace.
-
-## Build
-
-Requires C++20, CMake >=3.22, Ninja, Qt >=6.4 Core/Network, toml++ >=3.3,
-zlib, and Vulkan headers/loader development files. No Wine is needed to run the CLI
-or asset-free tests. On Arch/CachyOS developer packages are `base-devel cmake
-ninja qt6-base tomlplusplus zlib vulkan-headers vulkan-icd-loader`.
-
-```sh
-./build.sh
-./build/fortnite-linux --help
-./build/fortnite-linux diagnose
+```
+ ┌──────────── isolated network namespace (loopback only) ─────────────┐
+ │                                                                     │
+ │  Lawin backend :3551   login, profiles, locker, party, XMPP         │
+ │  Matchmaker    :3552   queues you until the game server is ready    │
+ │                                                                     │
+ │  Game server  (Fortnite 12.50 + Erbium)  ──  Apollo_Terrain :7777   │
+ │        ▲                                                            │
+ │        │ join                                                       │
+ │  Client       (Fortnite 12.50, Proton/DXVK, your window)            │
+ └─────────────────────────────────────────────────────────────────────┘
 ```
 
-Optional user-local installation: `cmake --install build --prefix "$HOME/.local"`.
-Ensure `$HOME/.local/bin` is on PATH, or invoke the installed binary by full path.
+- **Backend:** [LawinServerV2](https://github.com/Lawin0129/LawinServerV2), run
+  through the adapter in [`integrations/lawin`](integrations/lawin/README.md),
+  with local matchmaking added.
+- **Game server:** [Erbium](https://github.com/plooshi/Erbium), built on Linux
+  with the MSVC toolchain and a plain-Solo config (no cheats, no siphon).
+- **Glue:** `fol-inject.exe` starts each game process and loads
+  `fol-match-router.dll` (redirects Epic service URLs to the local backend)
+  and, for the server, Erbium once sign-in completes.
 
-If using a separately provisioned Khronos header checkout, configure once with
-`cmake -S . -B build -G Ninja -DVulkan_INCLUDE_DIR=/absolute/path/to/Vulkan-Headers/include`.
-`./build.sh` preserves that CMake cache setting. See [Linux notes](docs/LINUX.md).
+## Quick start
 
-## Current commands
+1. **Build** (Arch/CachyOS packages: `base-devel cmake ninja qt6-base
+   tomlplusplus zlib vulkan-headers vulkan-icd-loader clang lld`):
+
+   ```sh
+   ./build.sh                      # native CLI + backend runner + tests
+   bash helpers/windows/build.sh   # Windows helpers (needs Wine headers/libs)
+   ```
+
+2. **One-time setup:** register your 12.50 install, import Proton, and prepare
+   the Lawin deployment. See [docs/BACKEND.md](docs/BACKEND.md) and
+   [integrations/lawin/README.md](integrations/lawin/README.md).
+
+3. **Build the game server** (Erbium) with the Solo config. See
+   [docs/MATCH.md](docs/MATCH.md#one-time-build).
+
+4. **Play:**
+
+   ```sh
+   scripts/fortnite-match.sh
+   ```
+
+   Wait for `Game server listening on 127.0.0.1:7777`. The client then opens:
+   choose **Battle Royale → Solo → Play**.
+
+The server shows a small frozen Fortnite window and an Erbium console. Leave
+them open. Logs for every run go to
+`~/.local/state/fortnite-on-linux/logs/sessions/<date>_match/`.
+
+## CLI
+
+The `fortnite-linux` binary manages installs, Proton runtimes and prefixes, and
+runs diagnostics:
 
 ```sh
-fortnite-linux discover /mnt/games
-fortnite-linux add /path/to/Fortnite
-fortnite-linux builds
-fortnite-linux verify 12.50
-fortnite-linux verify 12.50 --manifest /path/to/integrity.toml
-fortnite-linux manifest /path/to/build.manifest --installation /path/to/Fortnite --hash-files
-fortnite-linux imports /path/to/FortniteClient-Win64-Shipping.exe --dll-dir /path/to/prefix/drive_c/windows/system32
-fortnite-linux remove 12.50              # registration only; preserves files
-fortnite-linux runtime list
+fortnite-linux discover /mnt/games        # find installs
+fortnite-linux add /path/to/Fortnite      # register one
+fortnite-linux verify 12.50               # structural/manifest checks
 fortnite-linux runtime import-proton '/path/to/Proton - Experimental' --id experimental
-fortnite-linux runtime test-proton proton-smoke --proton experimental
-fortnite-linux runtime test 12.50        # after creating the prefix; no Fortnite execution
 fortnite-linux prefix create 12.50
-fortnite-linux prefix status 12.50
-fortnite-linux prefix stop 12.50         # only processes in this owned prefix
-fortnite-linux prefix backup 12.50       # copy; leaves active prefix in place
-fortnite-linux prefix backups 12.50      # list recovery tokens
-fortnite-linux prefix archive 12.50      # move aside without deleting files
-fortnite-linux prefix restore 12.50 BACKUP_TOKEN  # requires absent active prefix
-fortnite-linux prefix reset 12.50        # archive old prefix, then initialize new Wine prefix
-fortnite-linux diagnose --output system.json
-fortnite-linux launch 12.50 --offline-probe --print-command
-fortnite-linux launch 12.50 --offline-probe --timeout 60
-fortnite-linux launch 12.50 --offline-probe --trace-startup --timeout 35
-fortnite-linux launch 12.50 --offline-probe --trace-startup --engine-stdout --timeout 35
-fortnite-linux launch 12.50 --offline-probe --proton experimental --trace-startup --timeout 45
-fortnite-linux launch 12.50 --offline-probe --launcher-context-probe --trace-startup --timeout 45
-fortnite-linux module /path/to/module.dll --manifest /path/to/module.toml
-fortnite-linux network 127.0.0.1 7777
-fortnite-linux processes
-fortnite-linux logs
+fortnite-linux prefix backup 12.50
+fortnite-linux diagnose
+fortnite-linux logs analyze /path/to/fortnite.log
+fortnite-linux --help
 ```
 
-Registration supports multiple IDs (`add PATH --id custom-name`). Detection reads
-ASCII/UTF-16 release metadata and checks PE architecture, section bounds, content
-folders and readable nonempty paks. It does **not** prove asset authenticity or
-full integrity. Conflicting/unknown metadata is rejected. No unofficial downloads.
+Full command notes and caveats: [docs/CLI.md](docs/CLI.md).
 
-Optional integrity manifests contain a `[files]` table mapping quoted relative
-file paths to SHA-256 strings. Only listed files are checked; manifest provenance
-is not authenticated. Paths escaping the installation, including symlink escapes,
-are rejected. The same `--manifest` option on `module` expects `fortnite_version`
-and `sha256` fields instead. See [12.50 validation](docs/FORTNITE_12_50.md#optional-content-integrity-checks).
+## Known limitations
 
-`manifest PATH` independently reads supported legacy binary Epic manifests.
-Add `--installation ROOT` to check listed file presence/sizes, and `--hash-files`
-to stream SHA-1 verification (a full installation can take several minutes).
-This is read-only and never executes the manifest's launcher or downloads files.
-Matches prove consistency with the supplied local manifest, not authenticity.
-See [manifest verification](docs/MANIFESTS.md) for scope and format limits.
+- Only 12.50 and BR Solo have been tested, with a single player.
+- This Shipping build ignores `-nullrhi`, so the server still renders a window.
+- Erbium's ImGui control panel crashes the server under DXVK and is disabled,
+  so the bus launches on the normal warmup timer.
+- The Erbium DLL isn't committed; build it yourself (step 3).
 
-`imports PE_PATH` inventories immediate/delayed DLL names and candidate files in
-the executable directory and repeated `--dll-dir` directories. It does not load
-DLLs, change Wine search paths, or equate missing optional imports with failure.
-See [dependency diagnostics](docs/DEPENDENCIES.md).
+## Documentation
 
-Normal `launch` and `host` currently report a blocker. `--offline-probe` is only a
-network-isolated startup experiment using installed Wine or an imported Proton script, not working
-offline gameplay. It requires unprivileged Linux user/network namespaces and an
-initialized dedicated Wine prefix, or imported Proton with separate managed
-compatibility data. It never starts the EAC bootstrap intentionally.
-Process-name monitoring is sampled; absence from snapshots is not proof that EAC
-never loaded. See [EAC findings](docs/EAC.md).
+| Doc | Contents |
+| --- | --- |
+| [MATCH.md](docs/MATCH.md) | Running a local match, how it works, verified result |
+| [BACKEND.md](docs/BACKEND.md) | Lawin setup and the lobby launch |
+| [CLI.md](docs/CLI.md) | Detailed CLI behaviour |
+| [LINUX.md](docs/LINUX.md) | Host requirements and notes |
+| [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common problems |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Code layout |
+| [FORTNITE_12_50.md](docs/FORTNITE_12_50.md) | 12.50 build notes and startup history |
+| [PROGRESS.md](docs/PROGRESS.md) | Full development log |
 
-`--trace-startup` adds Wine message-box, debug-string, process, shell and registry
-traces in the dedicated prefix. Treat trace logs as private diagnostic material.
-`--engine-stdout` separately requests engine stdout logging and line flushing;
-Shipping builds may ignore these arguments. They did not explain the tested
-12.50 exit 1. Neither option changes authentication or anti-cheat requirements.
-Commands explicitly record inherited WINEDLLPATH, LD_LIBRARY_PATH and WINEARCH
-when set, without dumping the entire environment. See the
-[12.50 runtime comparison](docs/RUNTIME_COMPARISON.md) for the separate bundled-Wine
-experiment and its verified dependency fix, which did not resolve exit 1.
-The latest registry trace shows a failed Epic launcher-registration lookup before
-shutdown; this is a lead, not proof of an authentication or anti-cheat requirement.
+## Credits
 
-The core detects Steam-local Proton installations and tests imported runtime copies.
-`launch --proton ID --offline-probe` runs an imported Proton script on the host;
-it is not a Steam Linux Runtime/UMU container launch. Experimental and Hotfix
-both started supplied 12.50 Shipping and reproduced exit 1. DXVK/VKD3D game rendering validation,
-runtime downloads, complete prefix lifecycle,
-private backend/server integration, server browser, dev-loop and GUI remain
-unimplemented. WineD3D is the unchanged Wine baseline. Gamescope is optional and
-currently only detected. No production services or router configuration are used.
-
-Prefix recovery uses private XDG data storage in `prefix-backups/ID/TOKEN/`.
-Copy backups preserve symlinks without following Wine's links into the host.
-Archive/reset retain the previous prefix; restore consumes the selected backup
-by renaming it into place and refuses to overwrite an existing prefix. Incomplete
-backups are retained for inspection but cannot be restored automatically. Stop all
-prefix users first; launcher locks cannot prevent an independently started Wine.
-No permanent prefix deletion or automatic backup pruning is implemented.
-
-`runtime test ID` runs Wine's built-in cmd.exe version command and writes a unique
-execution receipt in an offline namespace, then waits for that namespace's Wine
-server. This tests Windows command execution
-and clean shutdown only; it does not test D3D rendering or Fortnite compatibility.
-
-`runtime import-proton DIRECTORY --id NAME` copies a trusted, already-installed
-Proton runtime into project XDG data. It does not download runtimes or modify the
-source. `runtime test-proton PREFIX_ID --proton NAME` uses separate
-`proton-prefixes/PREFIX_ID/pfx` compatibility data, no game files and no Steam
-account. A unique Windows-written receipt and clean server shutdown are required
-for success; exit zero alone is insufficient. Custom `user_settings.py` is rejected,
-and inherited Steam/Proton/Wine overrides are removed from this baseline test.
-This supports the tested `files/bin/wine` layout, not every Proton/UMU release.
-Wine prefix backup commands do not currently manage Proton compatibility data.
-Proton game probes use the same ownership checks and hold prefix/runtime locks
-through execution. A prefix cannot silently switch Proton IDs. Existing Steam,
-Proton, Wine and media override variables are cleared and recorded as unsets in
-the command; no real Steam installation or account configuration is used.
-`--print-command` does not create Proton compatibility data. A discovered
-`steam-runtime-launcher-interface-0` is rejected for these host probes because
-handing execution to an external service would invalidate the namespace assumption.
-The script's `PROTON_LOG=0` keeps its separate log redirection off, while explicit
-`WINEDEBUG` enables module/registry traces in supervised `wine.log`. Thus this
-setting does **not** disable Wine diagnostics. Runtime-test logging is unchanged.
-The reported exit code is the Proton launcher status; logs must establish the
-game's own execution/exit. A zero wrapper exit is not gameplay success.
-Both runtime tests handle SIGINT/SIGTERM and bounded timeout with session-scoped
-cleanup and process-tree logs. EAC-name observation fails the test and stops its
-processes. SIGKILL or machine power loss cannot be handled by userspace cleanup.
-
-Configuration, data, cache and logs follow XDG conventions under
-`fortnite-on-linux`. Every launch request records a unique session under
-`~/.local/state/fortnite-on-linux/logs/sessions/`, including blocked preflight.
-After successful process cleanup, newly modified prefix-local FortniteGame.log
-files are copied into the session as fortnite.log (additional users receive numbered
-files). Collection skips stale, unsafe or over-64-MiB files and reports its result;
-freshness is a timestamp check, not log-content attestation. Raw `crashed` is a
-QProcess exit-status flag: inspect `stop_requested` and `crash_diagnosis` before
-treating a bounded probe's SIGTERM exit as a spontaneous game crash.
-
-Captured logs include structured engine/backend/sign-in observations with source
-line numbers. To inspect an existing log without launching anything:
-
-```sh
-fortnite-linux logs analyze /path/to/session/fortnite.log
-```
-
-This reports logged stages, not proof of rendering, login or gameplay. Backend
-configuration rejection is reported separately from the runtime's exit status.
-
-`--local-backend-probe` is a gated 12.50 discovery experiment, not a working server
-redirect. The initial MCPCONFIG option did not change the selected backend; the
-current experiment tests the separate built-in epicapp Localhost selector. It
-requires both `--offline-probe` and `--launcher-context-probe`. No backend service
-is automatically started. See [networking evidence](docs/NETWORKING.md).
-The separate `--backend-probe-method service-ini` experiment tests built-in
-loopback service-address configuration instead of the Localhost selector. It
-requires the same opt-ins and does not imply successful routing or login.
-The CLI prints JSON and returns nonzero on validation or launch failure.
-
-See [progress](docs/PROGRESS.md), [architecture](docs/ARCHITECTURE.md),
-[compatibility matrix](docs/TEST_MATRIX.md),
-and [troubleshooting](docs/TROUBLESHOOTING.md).
-
-Latest supplied-12.50 result: the isolated Lawin login/party path with explicit
-Reboot bootstrap-context arguments reaches a rendered lobby; Win32 input navigates
-Locker and Play tabs. No suspended launcher is required in the tested path. This
-is an opt-in spoofed-context experiment, not an authenticated Epic launch.
-The local starter locker now renders a character and exposes
-eight original default outfits; selecting and saving another outfit works in the
-tested game UI, and the selection survives a full game/backend restart. No game
-assets or real-account entitlements are distributed.
-Private matches, Reboot hosting and physical input remain unverified. See
-[scope and evidence](docs/EAC.md) and [reproduction notes](docs/BACKEND.md).
+[LawinServerV2](https://github.com/Lawin0129/LawinServerV2) (GPL-3.0) and
+[Erbium](https://github.com/plooshi/Erbium) (GPL-3.0) are used from pinned
+upstream checkouts and are not vendored here.
+[msvc-wine](https://github.com/mstorsjo/msvc-wine) provides the Linux-hosted
+MSVC toolchain. Fortnite is a trademark of Epic Games; this project is not
+affiliated with or endorsed by Epic Games.
