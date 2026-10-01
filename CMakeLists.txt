@@ -43,7 +43,7 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/payload-shape.test.cjs
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/profile-schema.test.cjs
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/local-locker.test.cjs
-${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/relay.test.cjs)
+            ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/relay.test.cjs)
     endif()
     add_executable(backend-tests tests/backend_tests.cpp)
     target_link_libraries(backend-tests PRIVATE fol_core)

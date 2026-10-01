@@ -6,6 +6,7 @@
 #include <QCloseEvent>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFontDatabase>
@@ -108,6 +109,7 @@ class Launcher : public QMainWindow {
         QObject::connect(&killTimer, &QTimer::timeout, this, [this] { signalGroup(SIGKILL); });
         poll.setInterval(2000);
         QObject::connect(&poll, &QTimer::timeout, this, [this] { pollMatch(); });
+        protectSettings();
         refresh();
     }
 
@@ -348,6 +350,7 @@ class Launcher : public QMainWindow {
         });
         QObject::connect(mpPassword, &QLineEdit::textChanged, this, [this](const QString &text) {
             settings.setValue("multiplayer/password", text);
+            protectSettings();
             refresh();
         });
         return page;
@@ -460,7 +463,8 @@ class Launcher : public QMainWindow {
             if (missing)
                 *missing << "a server address (Multiplayer tab)";
         }
-        if (serverAccounts() && (mpLogin->text().trimmed().isEmpty() || mpPassword->text().isEmpty())) {
+        if (serverAccounts() &&
+            (mpLogin->text().trimmed().isEmpty() || mpPassword->text().isEmpty())) {
             ok = false;
             if (missing)
                 *missing << "the server login and password (Multiplayer tab)";
@@ -522,22 +526,23 @@ class Launcher : public QMainWindow {
         mpEnable->setEnabled(!running);
         mpBox->setEnabled(!running && mpOn());
         mpAddress->setEnabled(!running && mpJoining());
-        for (QWidget *widget : {static_cast<QWidget *>(mpOwnAccount), static_cast<QWidget *>(mpServerAccount)})
+        for (QWidget *widget :
+             {static_cast<QWidget *>(mpOwnAccount), static_cast<QWidget *>(mpServerAccount)})
             widget->setEnabled(!running && mpJoining());
         mpLogin->setEnabled(!running && serverAccounts());
         mpPassword->setEnabled(!running && serverAccounts());
         mpAddresses->setText("Share one of these with players: <b>" +
                              lanAddresses().join(", ").toHtmlEscaped() + "</b> (UDP 7777)");
         if (!running)
-            mpStatus->setText(!mpOn() ? "Multiplayer is off: the sandbox has no network."
-                              : mpJoining()
-                                  ? (mpAddress->text().trimmed().isEmpty()
-                                         ? "Enter the server address to join."
-                                         : "Launch will connect you to " +
-                                               mpAddress->text().trimmed().toHtmlEscaped() +
-                                               (serverAccounts() ? " and sign in to its accounts."
-                                                                 : "."))
-                                  : "Launch will host your server for LAN/VPN players.");
+            mpStatus->setText(
+                !mpOn() ? "Multiplayer is off: the sandbox has no network."
+                : mpJoining()
+                    ? (mpAddress->text().trimmed().isEmpty()
+                           ? "Enter the server address to join."
+                           : "Launch will connect you to " +
+                                 mpAddress->text().trimmed().toHtmlEscaped() +
+                                 (serverAccounts() ? " and sign in to its accounts." : "."))
+                    : "Launch will host your server for LAN/VPN players.");
         if (!canLaunch)
             hint->setText("<span style='color:#e04040'>Setup incomplete: " +
                           missing.join(", ").toHtmlEscaped() + ". See the Settings tab.</span>");
@@ -572,8 +577,8 @@ class Launcher : public QMainWindow {
         env.insert("FOL_GAME_DIR", gameEdit->text());
         env.insert("FOL_PROTON", protonEdit->text());
         env.insert("FOL_ERBIUM_DLL", erbiumEdit->text());
-        for (const char *name : {"FOL_MP_MODE", "FOL_MP_SERVER", "FOL_MP_ACCOUNTS", "FOL_MP_LOGIN",
-                                 "FOL_MP_PASSWORD"})
+        for (const char *name :
+             {"FOL_MP_MODE", "FOL_MP_SERVER", "FOL_MP_ACCOUNTS", "FOL_MP_LOGIN", "FOL_MP_PASSWORD"})
             env.remove(name);
         if (mpOn()) {
             env.insert("FOL_MP_MODE", mpJoining() ? "join" : "host");
@@ -692,6 +697,13 @@ class Launcher : public QMainWindow {
     }
 
     QSettings settings{"ProjectTux", "launcher"};
+    // The settings can hold a server password: keep the file owner-only.
+    // QSettings rewrites it atomically and keeps the existing permissions.
+    void protectSettings() {
+        settings.sync();
+        QFile::setPermissions(settings.fileName(),
+                              QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    }
     QString root, data, config, session, match;
     QProcess process;
     QTimer killTimer, poll;
