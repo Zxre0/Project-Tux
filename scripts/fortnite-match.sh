@@ -33,10 +33,12 @@ if [[ ${1:-} != --inner ]]; then
     mkdir -p "$FOL_MATCH_DIR"
     echo "Session logs: $FOL_MATCH_DIR"
     OUTER=$(stat -L -c '%d:%i' /proc/self/ns/net)
-    # Network: a loopback-only namespace, unless multiplayer is enabled
-    # (FOL_MP_MODE=join|host). Multiplayer uses pasta for real networking and
-    # then strips routes to the minimum (see apply_multiplayer_routes).
-    NETNS=(unshare --user --map-root-user --net --)
+    # Network: a loopback-only namespace (user + net only). With multiplayer
+    # (FOL_MP_MODE=join|host) pasta is attached to that same namespace for real
+    # networking; the inner script then strips routes to the minimum (see
+    # apply_multiplayer_routes). Letting pasta create the namespaces instead
+    # would also isolate SysV IPC, breaking X11 MIT-SHM (the game exits).
+    PASTA=()
     case ${FOL_MP_MODE:-} in
     "") ;;
     join|host)
@@ -51,23 +53,36 @@ if [[ ${1:-} != --inner ]]; then
                 { echo "Cannot resolve multiplayer server '${FOL_MP_SERVER:-}'" >&2; exit 1; }
             export FOL_GAME_SERVER="$ip:$port" FOL_MATCH_MODE=--client
             echo "Multiplayer: joining $FOL_GAME_SERVER (no local server)"
-            NETNS=(pasta --config-net --quiet --no-map-gw -t none -u none -T none -U none --)
+            PASTA=(pasta --config-net --quiet --no-map-gw -t none -u none -T none -U none)
         else
             [[ $FOL_MATCH_MODE == --client ]] &&
                 { echo "Hosting for others needs the local game server enabled" >&2; exit 1; }
             echo "Multiplayer: hosting on UDP 7777 for LAN/VPN players"
-            NETNS=(pasta --config-net --quiet --no-map-gw -t none -u 7777 -T none -U none --)
+            PASTA=(pasta --config-net --quiet --no-map-gw -t none -u 7777 -T none -U none)
         fi ;;
     *) echo "FOL_MP_MODE must be join or host" >&2; exit 1 ;;
     esac
-    exec env -u OPENSSL_ia32cap STEAM_COMPAT_CLIENT_INSTALL_PATH="$COMPAT/empty-steam-client" \
-        STEAM_COMPAT_DATA_PATH="$COMPAT" WINEPREFIX="$COMPAT/pfx" SteamAppId=0 SteamGameId=0 \
-        PROTON_LOG=0 WINEDLLOVERRIDES='winemenubuilder.exe=d' NO_PROXY=127.0.0.1,localhost \
-        no_proxy=127.0.0.1,localhost DXVK_LOG_PATH="$FOL_MATCH_DIR" \
-        "${NETNS[@]}" "$REPO/build/fortnite-backend" \
-        --config "$CONFIG/backend/identity.json" --log "$FOL_MATCH_DIR/backend.log" \
-        --isolated-session --outer-netns "$OUTER" --lawin-config "$CONFIG/backend/lawin.json" \
-        run -- /bin/bash "$REPO/scripts/fortnite-match.sh" --inner
+    SESSION_CMD=(env -u OPENSSL_ia32cap STEAM_COMPAT_CLIENT_INSTALL_PATH="$COMPAT/empty-steam-client"
+        STEAM_COMPAT_DATA_PATH="$COMPAT" WINEPREFIX="$COMPAT/pfx" SteamAppId=0 SteamGameId=0
+        PROTON_LOG=0 WINEDLLOVERRIDES='winemenubuilder.exe=d' NO_PROXY=127.0.0.1,localhost
+        no_proxy=127.0.0.1,localhost DXVK_LOG_PATH="$FOL_MATCH_DIR"
+        unshare --user --map-root-user --net -- "$REPO/build/fortnite-backend"
+        --config "$CONFIG/backend/identity.json" --log "$FOL_MATCH_DIR/backend.log"
+        --isolated-session --outer-netns "$OUTER" --lawin-config "$CONFIG/backend/lawin.json"
+        run -- /bin/bash "$REPO/scripts/fortnite-match.sh" --inner)
+    ((${#PASTA[@]})) || exec "${SESSION_CMD[@]}"
+    "${SESSION_CMD[@]}" &
+    session_pid=$!
+    trap 'kill -TERM $session_pid 2>/dev/null' TERM INT
+    for ((i = 0; i < 100; i++)); do # wait until it is inside its own namespace
+        ns=$(stat -L -c '%d:%i' /proc/$session_pid/ns/net 2>/dev/null) || break
+        [[ $ns != "$OUTER" ]] && break
+        sleep 0.1
+    done
+    "${PASTA[@]}" "$session_pid" 2> >(grep -v nameserver >&2) ||
+        { echo "Multiplayer: pasta could not attach" >&2; kill -TERM $session_pid; }
+    wait $session_pid
+    exit $?
 fi
 
 # ---- inside the isolated namespace, after Lawin is ready ----
@@ -76,7 +91,11 @@ S=$FOL_MATCH_DIR
 # Multiplayer: no default route, so nothing but the allowed peers (and never
 # Epic's services) is reachable. Join: the one server. Host: LAN/VPN ranges.
 apply_multiplayer_routes() {
-    local gw dev net
+    local gw dev net i
+    for ((i = 0; i < 50; i++)); do # pasta configures the namespace from outside
+        ip -4 route show default | grep -q . && break
+        sleep 0.2
+    done
     read -r gw dev < <(ip -4 route show default | awk '{print $3, $5; exit}')
     [[ -n $gw ]] || { echo "Multiplayer: no network inside the sandbox" >&2; return 1; }
     ip -4 route del default
@@ -161,20 +180,20 @@ autoplay() {
         [[ -n $client_windows_pid ]] && grep -qs 'UI.State.Startup.SubgameSelect\|UI.State.Athena.Frontend' "$log" && break
         sleep 1
     done
-    local linux_pid
-    linux_pid=$(pgrep -f 'Win64-Shipping.exe' | grep -vx "${server_pid:-0}" | head -1)
-    hyprctl dispatch focuswindow "pid:$linux_pid" >/dev/null
-    # The input helper's coordinates are for a 1920x1080 client.
-    local m1080
-    m1080=$(hyprctl monitors -j | python3 -c 'import json,sys; print(next((m["name"] for m in json.load(sys.stdin) if (m["width"],m["height"])==(1920,1080)),""))')
-    [[ -n $m1080 ]] && hyprctl dispatch movewindow "mon:$m1080" >/dev/null
-    hyprctl dispatch fullscreen 0 >/dev/null
+    # Find the client by window class (the server uses its own); PIDs differ
+    # inside pasta's PID namespace.
+    local address
+    local address fullscreen
+    read -r address fullscreen < <(hyprctl -j clients | python3 -c 'import json,sys; c=next((c for c in json.load(sys.stdin) if c["class"]=="steam_app_0"),None); print(c["address"], c["fullscreen"]) if c else print("", 0)')
+    hyprctl dispatch focuswindow "address:$address" >/dev/null
+    # The input helper needs a 16:9 client; fullscreen unless already.
+    [[ $fullscreen == 0 ]] && hyprctl dispatch fullscreen 0 >/dev/null
     sleep 5
     if ! grep -qs 'UI.State.Athena.Frontend' "$log"; then
         shot autoplay-1-subgame; ui select-br; sleep 3; ui enter-br; sleep 15
     fi
     shot autoplay-2-lobby
-    for i in 1 2 3; do ui match-play && grep -qs 'Browse: 127.0.0.1' "$log" && break; sleep 10; done
+    for i in 1 2 3; do ui match-play && grep -qs 'LogNet: Browse: [0-9]' "$log" && break; sleep 10; done
     sleep 20
     shot autoplay-3-after-play; sleep 60; shot autoplay-4-match; sleep 60; shot autoplay-5-match
 }

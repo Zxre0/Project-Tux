@@ -88,6 +88,28 @@ on every login, so the client's sign-in logged the server out ("Logged In
 Elsewhere") and it left the map. `integrations/lawin/multi-session.cjs` keeps
 earlier sessions of the local account valid.
 
+## Multiplayer
+
+Off by default. In the launcher's **Multiplayer** tab (or with `FOL_MP_MODE`):
+
+- **Join** (`FOL_MP_MODE=join FOL_MP_SERVER=host[:port]`): no local server;
+  your own Lawin account/locker, and matchmaking sends Play to that server.
+- **Host** (`FOL_MP_MODE=host`): your server also accepts players on UDP 7777
+  from LAN/VPN ranges (10/8, 172.16/12, 192.168/16, 100.64/10 for Tailscale).
+
+The session namespace is still created with `unshare` (user + net only), and
+`pasta` (package `passt`) is attached to it for real networking. The inner
+script then deletes the default route and adds only the joined server (join)
+or the LAN/VPN ranges (host), so Epic's services stay unreachable, and
+`--no-map-gw` keeps host loopback services hidden. Letting pasta create the
+namespaces itself also isolates SysV IPC, which breaks X11 MIT-SHM and the game
+exits at start-up.
+
+Verified 2026-10-01: host mode, local client joined and played; inbound UDP
+7777 reached the sandbox (echo test); join mode, matchmaking pointed the client
+at the remote address (`Browse: 192.168.4.1`) with no local server. A game
+between two machines has not been tested yet.
+
 ## Launcher
 
 `build/project-tux` (Qt) wraps `scripts/fortnite-match.sh`: it runs the script in

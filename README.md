@@ -70,6 +70,7 @@ local game server, ride the bus and drop onto the map.
 | --- | --- |
 | **Play** | One-click Launch/Stop, live status of backend, game server and game, match phase, session log |
 | **Hosting** | *Host a local game server* (on by default). Turn it off to start only the backend and your game (lobby/locker work; Play queues with no server). Erbium DLL path. |
+| **Multiplayer** | Off by default. Join another player's server by IP/hostname, or host so LAN/VPN players can join yours (needs `passt`). The sandbox still can't reach Epic. |
 | **Lawin** | Edit the local backend: display name, level, Battle Pass tier, V-Bucks, add/remove cosmetics (all 6,000+ Lawin knows), unlock everything, reset locker, edit the item shop. Available while the game isn't running. |
 | **Settings** | Game folder, Proton path and a setup checklist that tells you what's missing |
 

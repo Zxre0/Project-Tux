@@ -87,8 +87,10 @@ void probe_entry(void) {
         ExitProcess(64);
     EnumWindows(find_window, 0);
     RECT rect;
-    if (!game_window || !GetClientRect(game_window, &rect) || rect.right != 1920 ||
-        rect.bottom != 1080)
+    /* Coordinates below are for the observed 1920x1080 layout; any 16:9 client
+     * (e.g. 2560x1440) is scaled proportionally. */
+    if (!game_window || !GetClientRect(game_window, &rect) || rect.right < 1280 ||
+        rect.right * 9 != rect.bottom * 16)
         ExitProcess(66);
     record("client_width=", rect.right);
     record("client_height=", rect.bottom);
@@ -111,24 +113,25 @@ void probe_entry(void) {
         CloseHandle(process);
         ExitProcess(down == 1 && up == 1 ? 0 : 67);
     }
-    LONG y = match_play             ? 675
-             : mode_change          ? 588
-             : outfit_first         ? 390
-             : outfit_save          ? 955
-             : outfit_slot          ? 340
-             : (locker || play_tab) ? 48
-             : skip_intro           ? rect.bottom * 95 / 100
-             : enter_br             ? rect.bottom * 82 / 100
-                                    : rect.bottom / 2;
-    POINT cursor = {(match_play || mode_change) ? 1700
-                    : outfit_first ? 410
-                    : outfit_save ? 640
-                    : outfit_slot ? 450
-                    : locker      ? 906
-                    : play_tab    ? 526
-                    : skip_intro  ? rect.right * 97 / 100
-                                  : rect.right / 2,
-                    y};
+    /* Positions in the observed 1920x1080 layout, scaled to the client size. */
+    const LONG y = match_play             ? 675
+                   : mode_change          ? 588
+                   : outfit_first         ? 390
+                   : outfit_save          ? 955
+                   : outfit_slot          ? 340
+                   : (locker || play_tab) ? 48
+                   : skip_intro           ? 1026
+                   : enter_br             ? 885
+                                          : 540;
+    const LONG x = (match_play || mode_change) ? 1700
+                   : outfit_first              ? 410
+                   : outfit_save               ? 640
+                   : outfit_slot               ? 450
+                   : locker                    ? 906
+                   : play_tab                  ? 526
+                   : skip_intro                ? 1862
+                                               : 960;
+    POINT cursor = {x * rect.right / 1920, y * rect.bottom / 1080};
     if (!ClientToScreen(game_window, &cursor) || !SetCursorPos(cursor.x, cursor.y))
         ExitProcess(67);
     Sleep(200); // Let XWayland/Wine deliver the cursor move before the click.
