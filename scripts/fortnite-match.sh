@@ -129,12 +129,9 @@ autoplay() {
 
 udp_bound() { grep -q ':1E61 ' /proc/net/udp /proc/net/udp6 2>/dev/null; }
 
-if [[ $FOL_MATCH_MODE != --client ]]; then
-    mkdir -p "$LOGS"
-    rm -f "$LOGS/FortniteGame.log" "$LOGS/FortniteGame_2.log"
-    rm -f "$WIN64/stdout.log"
-    echo "Starting headless game server..."
-    FOL_HTTP_MODULE_REPORT="$(winpath "$S")\\router-server.json" \
+# One game server process, in the foreground. $1 numbers its logs.
+run_server() {
+    FOL_HTTP_MODULE_REPORT="$(winpath "$S")\\router-server-$1.json" \
     FOL_INJECT_EARLY="$FOL_INJECT_EARLY;$(winpath "$REPO/build/windows/fol-server-guard.dll")" \
     FOL_INJECT_STATUS="$(winpath "$S")\\inject-server.txt" FOL_INJECT_LATE=$(winpath "$ERBIUM") \
     FOL_INJECT_LOG='C:\users\steamuser\AppData\Local\FortniteGame\Saved\Logs\FortniteGame.log' \
@@ -142,7 +139,46 @@ if [[ $FOL_MATCH_MODE != --client ]]; then
     WINEDEBUG='+timestamp,+pid,+seh,+loaddll' \
         "$PROTON" run "$REPO/build/windows/fol-inject.exe" "$EXE" -log -nullrhi -nosplash -nosound \
         -RenderOffScreen -windowed -ResX=640 -ResY=360 \
-        "${GAME_ARGS[@]}" >"$S/server-wine.log" 2>&1 &
+        "${GAME_ARGS[@]}" >"$S/server-wine-$1.log" 2>&1
+}
+# Erbium exits after a finished match (bAutoRestart); start a fresh server each
+# time so Play works again. The matchmaker queues players until it listens.
+server_supervisor() {
+    set +e
+    local n=1 failures=0 pid code started i
+    while :; do
+        # Fresh log: the injector waits for this server's own sign-in line.
+        rm -f "$LOGS/FortniteGame.log" "$WIN64/stdout.log"
+        started=$SECONDS
+        run_server $n &
+        pid=$!
+        for ((i = 0; i < 600; i++)); do
+            if udp_bound; then
+                echo "Game server listening on 127.0.0.1:7777 after ${i}s"
+                break
+            fi
+            kill -0 $pid 2>/dev/null || break
+            sleep 1
+        done
+        wait $pid
+        code=$?
+        cp -f "$LOGS/FortniteGame.log" "$S/server-game-$n.log" 2>/dev/null
+        if ((SECONDS - started < 90)); then failures=$((failures + 1)); else failures=0; fi
+        if ((failures >= 3)); then
+            echo "Game server keeps failing to start; see $S"
+            return 1
+        fi
+        echo "Game server exited ($code); starting a new one for the next match..."
+        n=$((n + 1))
+        sleep 2
+    done
+}
+
+if [[ $FOL_MATCH_MODE != --client ]]; then
+    mkdir -p "$LOGS"
+    rm -f "$LOGS/FortniteGame_2.log"
+    echo "Starting headless game server..."
+    server_supervisor &
     pids+=($!)
     for ((i = 0; i < 600; i++)); do
         udp_bound && break
@@ -150,7 +186,6 @@ if [[ $FOL_MATCH_MODE != --client ]]; then
         sleep 1
     done
     udp_bound || { echo "Game server never listened on 7777; see $S" >&2; exit 1; }
-    echo "Game server listening on 127.0.0.1:7777 after ${i}s"
 fi
 
 if [[ $FOL_MATCH_MODE == --server ]]; then

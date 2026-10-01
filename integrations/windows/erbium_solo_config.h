@@ -17,7 +17,7 @@ struct FConfiguration
     static inline auto bInfiniteAmmo = false;
     static inline auto bForceRespawns = false;
     static inline auto bJoinInProgress = false;
-    static inline auto bAutoRestart = false;
+    static inline auto bAutoRestart = true; // exit after a finished match; the launcher starts a new server
     static inline auto bKeepInventory = false;
     static inline auto Port = 7777;
     static inline auto bEnableIris = true;
