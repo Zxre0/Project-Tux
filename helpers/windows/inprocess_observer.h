@@ -104,7 +104,11 @@ static BYTE WINAPI request_observation(void *object) {
     while (InterlockedCompareExchange(&observation_lock, 1, 0) != 0)
         Sleep(0);
     {
+        #ifdef FOL_PERSISTENT_ROUTER
+        if (observation_enabled) {
+#else
         if (observation_enabled && routing_attempts++ < 4096) {
+#endif
 #else
     if (InterlockedCompareExchange(&observation_lock, 1, 0) == 0) {
         if (observation_enabled && observed_count + rejected_count < 8) {

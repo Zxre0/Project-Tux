@@ -1,5 +1,8 @@
 /* Bounded diagnostic lifetime, supplied by the native launcher. */
 static DWORD module_window_ms(void) {
+#ifdef FOL_PERSISTENT_ROUTER
+    return INFINITE; // Match hosting: route for the whole game lifetime.
+#endif
     wchar_t text[8];
     DWORD size = GetEnvironmentVariableW(L"FOL_HTTP_MODULE_MS", text, 8);
     if (!size)

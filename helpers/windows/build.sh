@@ -67,3 +67,18 @@ lld-link /entry:probe_entry /subsystem:console /nodefaultlib /machine:x64 /times
     /out:build/windows/fol-ui-input-probe.exe build/windows/ui_input_probe.obj \
     /usr/lib/wine/x86_64-windows/libkernel32.a /usr/lib/wine/x86_64-windows/libuser32.a
 file build/windows/fol-ui-input-probe.exe
+clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
+    -DFOL_INPROCESS_OBSERVER -DFOL_LOCAL_ROUTER -DFOL_PERSISTENT_ROUTER \
+    -I/usr/include/wine/windows -I/usr/include/wine/msvcrt \
+    -Wall -Wextra -Werror -O1 -c helpers/windows/http_module.c -o build/windows/match_router.obj
+lld-link /dll /entry:module_entry /subsystem:console /nodefaultlib /machine:x64 /timestamp:0 \
+    /out:build/windows/fol-match-router.dll build/windows/match_router.obj \
+    /usr/lib/wine/x86_64-windows/libkernel32.a
+file build/windows/fol-match-router.dll
+clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
+    -I/usr/include/wine/windows -I/usr/include/wine/msvcrt -Wall -Wextra -Werror -O1 \
+    -c helpers/windows/fol_inject.c -o build/windows/fol_inject.obj
+lld-link /entry:inject_entry /subsystem:console /nodefaultlib /machine:x64 /timestamp:0 \
+    /out:build/windows/fol-inject.exe build/windows/fol_inject.obj \
+    /usr/lib/wine/x86_64-windows/libkernel32.a
+file build/windows/fol-inject.exe
