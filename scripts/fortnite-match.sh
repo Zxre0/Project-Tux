@@ -20,6 +20,21 @@ ERBIUM=${FOL_ERBIUM_DLL:-$(ls "$REPO"/build-erbium/*/erbium-solo.dll 2>/dev/null
 WIN64="$GAME_DIR/FortniteGame/Binaries/Win64"
 LOGS="$COMPAT/pfx/drive_c/users/steamuser/AppData/Local/FortniteGame/Saved/Logs"
 winpath() { printf 'Z:%s' "${1//\//\\}"; }
+LAWIN_CONFIG=$CONFIG/backend/lawin.json
+# Owner-only relay config for shared accounts (integrations/lawin/relay.cjs).
+write_remote_config() {
+    python3 - "$CONFIG/backend/lawin.json" "$CONFIG/backend/remote.json" \
+        "$REPO/integrations/lawin/relay.cjs" "$1" <<'PY'
+import json, os, sys
+source, target, runner, server = sys.argv[1:5]
+data = {"node": json.load(open(source))["node"], "runner": runner, "server": server,
+        "username": os.environ["FOL_MP_LOGIN"], "password": os.environ["FOL_MP_PASSWORD"]}
+fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+os.fchmod(fd, 0o600)
+with os.fdopen(fd, "w") as out:
+    json.dump(data, out)
+PY
+}
 
 if [[ ${1:-} != --inner ]]; then
     for f in "$PROTON" "$ERBIUM" "$REPO/build/windows/fol-inject.exe" \
@@ -53,6 +68,17 @@ if [[ ${1:-} != --inner ]]; then
                 { echo "Cannot resolve multiplayer server '${FOL_MP_SERVER:-}'" >&2; exit 1; }
             export FOL_GAME_SERVER="$ip:$port" FOL_MATCH_MODE=--client
             echo "Multiplayer: joining $FOL_GAME_SERVER (no local server)"
+            if [[ ${FOL_MP_ACCOUNTS:-own} == server ]]; then
+                # Shared accounts: sign in to the server's backend (its admin
+                # website manages accounts and cosmetics) through relay.cjs.
+                [[ -n ${FOL_MP_LOGIN:-} && -n ${FOL_MP_PASSWORD:-} ]] ||
+                    { echo "Using the server's accounts needs the login and password from its admin website" >&2; exit 1; }
+                LAWIN_CONFIG=$CONFIG/backend/remote.json
+                write_remote_config "$ip" ||
+                    { echo "Cannot write $LAWIN_CONFIG" >&2; exit 1; }
+                unset FOL_MP_PASSWORD
+                echo "Multiplayer: signing in to the server's accounts as $FOL_MP_LOGIN"
+            fi
             PASTA=(pasta --config-net --quiet --no-map-gw -t none -u none -T none -U none)
         else
             [[ $FOL_MATCH_MODE == --client ]] &&
@@ -68,7 +94,7 @@ if [[ ${1:-} != --inner ]]; then
         no_proxy=127.0.0.1,localhost DXVK_LOG_PATH="$FOL_MATCH_DIR"
         unshare --user --map-root-user --net -- "$REPO/build/fortnite-backend"
         --config "$CONFIG/backend/identity.json" --log "$FOL_MATCH_DIR/backend.log"
-        --isolated-session --outer-netns "$OUTER" --lawin-config "$CONFIG/backend/lawin.json"
+        --isolated-session --outer-netns "$OUTER" --lawin-config "$LAWIN_CONFIG"
         run -- /bin/bash "$REPO/scripts/fortnite-match.sh" --inner)
     ((${#PASTA[@]})) || exec "${SESSION_CMD[@]}"
     "${SESSION_CMD[@]}" &
@@ -112,7 +138,9 @@ apply_multiplayer_routes() {
     fi
 }
 [[ -n ${FOL_MP_MODE:-} ]] && apply_multiplayer_routes
-read -r USERNAME PASSWORD < <(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["username"], d["password"])' "$CONFIG/backend/local-login.json")
+LOGIN_FILE=$CONFIG/backend/local-login.json
+[[ ${FOL_MP_MODE:-} == join && ${FOL_MP_ACCOUNTS:-own} == server ]] && LOGIN_FILE=$CONFIG/backend/remote.json
+{ read -r USERNAME; read -r PASSWORD; } < <(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["username"]); print(d["password"])' "$LOGIN_FILE")
 GAME_ARGS=(-epicportal -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -skippatchcheck -nobe
            -fromfl=eac -fltoken=3db3ba5dcbd2e16703f3978d
            "-AUTH_LOGIN=$USERNAME" "-AUTH_PASSWORD=$PASSWORD" -AUTH_TYPE=epic)

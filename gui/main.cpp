@@ -277,9 +277,32 @@ class Launcher : public QMainWindow {
         mpAddress->setPlaceholderText("IP or hostname, optional :port (default 7777)");
         joinRow->addWidget(mpAddress, 1);
         form->addLayout(joinRow);
+        // Accounts: this PC's own backend, or the server's shared accounts (its
+        // admin website manages lockers, so cosmetics show up in its matches).
+        mpOwnAccount = new QRadioButton("My own account and locker on this PC");
+        mpServerAccount = new QRadioButton("The server's accounts (cosmetics work in its matches)");
+        (settings.value("multiplayer/accounts", "own").toString() == "server" ? mpServerAccount
+                                                                              : mpOwnAccount)
+            ->setChecked(true);
+        auto *accounts = new QGridLayout;
+        accounts->setContentsMargins(24, 0, 0, 0);
+        accounts->setColumnMinimumWidth(0, 24);
+        accounts->addWidget(mpOwnAccount, 0, 0, 1, 3);
+        accounts->addWidget(mpServerAccount, 1, 0, 1, 3);
+        mpLogin = new QLineEdit(settings.value("multiplayer/login").toString());
+        mpLogin->setPlaceholderText("e.g. nocto@tux");
+        mpPassword = new QLineEdit(settings.value("multiplayer/password").toString());
+        mpPassword->setEchoMode(QLineEdit::Password);
+        accounts->addWidget(new QLabel("Login"), 2, 1);
+        accounts->addWidget(mpLogin, 2, 2);
+        accounts->addWidget(new QLabel("Password"), 3, 1);
+        accounts->addWidget(mpPassword, 3, 2);
+        accounts->setColumnStretch(2, 1);
+        form->addLayout(accounts);
         auto *joinNote = new QLabel(
-            "Your own account and locker are used. No local game server is started; Play "
-            "connects you to that address.");
+            "No local game server is started; Play connects you to that address. With the "
+            "server's accounts, the host gives you a login on its admin website "
+            "(http://server:8090) and manages your locker there.");
         joinNote->setWordWrap(true);
         joinNote->setContentsMargins(24, 0, 0, 8);
         form->addWidget(joinNote);
@@ -315,10 +338,23 @@ class Launcher : public QMainWindow {
             settings.setValue("multiplayer/address", text.trimmed());
             refresh();
         });
+        QObject::connect(mpServerAccount, &QRadioButton::toggled, this, [this](bool server) {
+            settings.setValue("multiplayer/accounts", server ? "server" : "own");
+            refresh();
+        });
+        QObject::connect(mpLogin, &QLineEdit::textChanged, this, [this](const QString &text) {
+            settings.setValue("multiplayer/login", text.trimmed());
+            refresh();
+        });
+        QObject::connect(mpPassword, &QLineEdit::textChanged, this, [this](const QString &text) {
+            settings.setValue("multiplayer/password", text);
+            refresh();
+        });
         return page;
     }
     bool mpOn() const { return mpEnable->isChecked(); }
     bool mpJoining() const { return mpOn() && mpJoin->isChecked(); }
+    bool serverAccounts() const { return mpJoining() && mpServerAccount->isChecked(); }
     bool hosting() const { return hostCheck->isChecked() && !mpJoining(); }
     static QStringList lanAddresses() {
         QStringList list;
@@ -424,6 +460,11 @@ class Launcher : public QMainWindow {
             if (missing)
                 *missing << "a server address (Multiplayer tab)";
         }
+        if (serverAccounts() && (mpLogin->text().trimmed().isEmpty() || mpPassword->text().isEmpty())) {
+            ok = false;
+            if (missing)
+                *missing << "the server login and password (Multiplayer tab)";
+        }
         if (mpOn() && mpHost->isChecked() && !hostCheck->isChecked()) {
             ok = false;
             if (missing)
@@ -481,6 +522,10 @@ class Launcher : public QMainWindow {
         mpEnable->setEnabled(!running);
         mpBox->setEnabled(!running && mpOn());
         mpAddress->setEnabled(!running && mpJoining());
+        for (QWidget *widget : {static_cast<QWidget *>(mpOwnAccount), static_cast<QWidget *>(mpServerAccount)})
+            widget->setEnabled(!running && mpJoining());
+        mpLogin->setEnabled(!running && serverAccounts());
+        mpPassword->setEnabled(!running && serverAccounts());
         mpAddresses->setText("Share one of these with players: <b>" +
                              lanAddresses().join(", ").toHtmlEscaped() + "</b> (UDP 7777)");
         if (!running)
@@ -489,7 +534,9 @@ class Launcher : public QMainWindow {
                                   ? (mpAddress->text().trimmed().isEmpty()
                                          ? "Enter the server address to join."
                                          : "Launch will connect you to " +
-                                               mpAddress->text().trimmed().toHtmlEscaped() + ".")
+                                               mpAddress->text().trimmed().toHtmlEscaped() +
+                                               (serverAccounts() ? " and sign in to its accounts."
+                                                                 : "."))
                                   : "Launch will host your server for LAN/VPN players.");
         if (!canLaunch)
             hint->setText("<span style='color:#e04040'>Setup incomplete: " +
@@ -525,11 +572,17 @@ class Launcher : public QMainWindow {
         env.insert("FOL_GAME_DIR", gameEdit->text());
         env.insert("FOL_PROTON", protonEdit->text());
         env.insert("FOL_ERBIUM_DLL", erbiumEdit->text());
-        env.remove("FOL_MP_MODE");
-        env.remove("FOL_MP_SERVER");
+        for (const char *name : {"FOL_MP_MODE", "FOL_MP_SERVER", "FOL_MP_ACCOUNTS", "FOL_MP_LOGIN",
+                                 "FOL_MP_PASSWORD"})
+            env.remove(name);
         if (mpOn()) {
             env.insert("FOL_MP_MODE", mpJoining() ? "join" : "host");
             env.insert("FOL_MP_SERVER", mpAddress->text().trimmed());
+        }
+        if (serverAccounts()) {
+            env.insert("FOL_MP_ACCOUNTS", "server");
+            env.insert("FOL_MP_LOGIN", mpLogin->text().trimmed());
+            env.insert("FOL_MP_PASSWORD", mpPassword->text());
         }
         process.setProcessEnvironment(env);
         process.setWorkingDirectory(root);
@@ -653,8 +706,8 @@ class Launcher : public QMainWindow {
     QTabWidget *tabs;
     LawinTab *lawin;
     QCheckBox *mpEnable;
-    QRadioButton *mpJoin, *mpHost;
-    QLineEdit *mpAddress;
+    QRadioButton *mpJoin, *mpHost, *mpOwnAccount, *mpServerAccount;
+    QLineEdit *mpAddress, *mpLogin, *mpPassword;
     QLabel *mpStatus, *mpAddresses;
     QGroupBox *mpBox;
     bool lawinLoaded = false;
