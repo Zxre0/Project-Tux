@@ -97,6 +97,29 @@ Off by default. In the launcher's **Multiplayer** tab (or with `FOL_MP_MODE`):
 - **Host** (`FOL_MP_MODE=host`): your server also accepts players on UDP 7777
   from LAN/VPN ranges (10/8, 172.16/12, 192.168/16, 100.64/10 for Tailscale).
 
+### Shared accounts (joining a Project Tux Windows Server)
+
+With your own account, the server you join can't see your locker, so you
+spawn with default cosmetics (its game server asks *its* backend for your
+profile and gets 404). A [Project Tux Windows Server](https://github.com/Zxre0/Project-Tux-Windows-Server)
+can instead host everyone's accounts: the host creates a login for you on
+its admin website (`http://SERVER:8090`) and manages your cosmetics there.
+
+In the **Multiplayer** tab choose **Join**, enter the server address, pick
+**The server's accounts** and enter that login and password. Or:
+
+```sh
+FOL_MP_MODE=join FOL_MP_SERVER=192.168.5.52 FOL_MP_ACCOUNTS=server \
+  FOL_MP_LOGIN=nocto@tux FOL_MP_PASSWORD=... scripts/fortnite-match.sh
+```
+
+No local Lawin or MongoDB is started. `integrations/lawin/relay.cjs` listens
+on the sandbox's loopback ports 3551 (backend), 3552 (matchmaker) and 8080
+(XMPP) and forwards them to the same ports on the server, so the router DLL
+and the game are unchanged and the sandbox still only reaches that one
+address. The login is kept in the owner-only `backend/remote.json`.
+Matchmaking then waits for the server's game server like a local match.
+
 The session namespace is still created with `unshare` (user + net only), and
 `pasta` (package `passt`) is attached to it for real networking. The inner
 script then deletes the default route and adds only the joined server (join)
