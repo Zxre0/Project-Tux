@@ -28,6 +28,8 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include "lawin_tab.h"
+
 #include <csignal>
 #include <unistd.h>
 
@@ -70,7 +72,15 @@ class Launcher : public QMainWindow {
         tabs = new QTabWidget;
         tabs->addTab(playTab(), "Play");
         tabs->addTab(hostingTab(), "Hosting");
+        lawin = new LawinTab(root);
+        tabs->addTab(lawin, "Lawin");
         tabs->addTab(settingsTab(), "Settings");
+        QObject::connect(tabs, &QTabWidget::currentChanged, this, [this](int index) {
+            if (tabs->widget(index) == lawin && !lawinLoaded && !running) {
+                lawinLoaded = true;
+                lawin->load();
+            }
+        });
         setCentralWidget(tabs);
 
         process.setProcessChannelMode(QProcess::MergedChannels);
@@ -365,6 +375,7 @@ class Launcher : public QMainWindow {
         launchButton->setEnabled(!running && canLaunch);
         launchButton->setText(running ? "Running…" : "Launch");
         stopButton->setEnabled(running);
+        lawin->setSessionRunning(running);
         hostCheck->setEnabled(!running);
         hostBox->setEnabled(!running);
         settingsBox->setEnabled(!running);
@@ -507,6 +518,8 @@ class Launcher : public QMainWindow {
     QLineEdit *erbiumEdit, *gameEdit, *protonEdit;
     QGroupBox *hostBox, *settingsBox;
     QTabWidget *tabs;
+    LawinTab *lawin;
+    bool lawinLoaded = false;
 };
 } // namespace
 

@@ -70,3 +70,18 @@ Earlier failure fixed on the way: Lawin revoked the account's existing tokens
 on every login, so the client's sign-in logged the server out ("Logged In
 Elsewhere") and it left the map. `integrations/lawin/multi-session.cjs` keeps
 earlier sessions of the local account valid.
+
+## Launcher
+
+`build/project-tux` (Qt) wraps `scripts/fortnite-match.sh`: it runs the script in
+its own process group so **Stop** signals everything at once (Lawin's runner
+stops MongoDB/backend; the match script's cleanup kills the Wine processes).
+The **Hosting** checkbox picks `--both` (default) or `--client`. The **Lawin**
+tab drives `scripts/lawin-admin.sh` (`integrations/lawin/admin.cjs`), which
+starts a private MongoDB in its own loopback-only namespace, applies one change,
+backs up the profile under the deployment's `profile-backups/`, and stops. It
+refuses to run while a game session holds the database lock.
+
+Verified 2026-10-01: Launch from the GUI → server listening → client joined →
+battle bus; Stop left no processes or lock. Name/V-Bucks edits showed in the
+lobby (hosting off).
