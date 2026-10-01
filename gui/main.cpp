@@ -17,9 +17,11 @@
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QMessageBox>
+#include <QNetworkInterface>
 #include <QPlainTextEdit>
 #include <QProcess>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
@@ -72,6 +74,7 @@ class Launcher : public QMainWindow {
         tabs = new QTabWidget;
         tabs->addTab(playTab(), "Play");
         tabs->addTab(hostingTab(), "Hosting");
+        tabs->addTab(multiplayerTab(), "Multiplayer");
         lawin = new LawinTab(root);
         tabs->addTab(lawin, "Lawin");
         tabs->addTab(settingsTab(), "Settings");
@@ -244,6 +247,87 @@ class Launcher : public QMainWindow {
         return page;
     }
 
+    QWidget *multiplayerTab() {
+        auto *page = new QWidget;
+        auto *layout = new QVBoxLayout(page);
+        mpEnable = new QCheckBox("Enable multiplayer");
+        mpEnable->setChecked(settings.value("multiplayer/enabled", false).toBool());
+        auto font = mpEnable->font();
+        font.setBold(true);
+        mpEnable->setFont(font);
+        layout->addWidget(mpEnable);
+        auto *explain = new QLabel(
+            "Off by default: normally everything runs in a sealed sandbox with no network. "
+            "Multiplayer gives the sandbox real networking, limited to what you choose below "
+            "(it can never reach Epic's servers).");
+        explain->setWordWrap(true);
+        layout->addWidget(explain);
+
+        mpBox = new QGroupBox("Mode");
+        auto *form = new QVBoxLayout(mpBox);
+        mpJoin = new QRadioButton("Join another player's server");
+        mpHost = new QRadioButton("Host: let other players join my server");
+        (settings.value("multiplayer/mode", "join").toString() == "host" ? mpHost : mpJoin)
+            ->setChecked(true);
+        form->addWidget(mpJoin);
+        auto *joinRow = new QHBoxLayout;
+        joinRow->addSpacing(24);
+        joinRow->addWidget(new QLabel("Server address"));
+        mpAddress = new QLineEdit(settings.value("multiplayer/address").toString());
+        mpAddress->setPlaceholderText("IP or hostname, optional :port (default 7777)");
+        joinRow->addWidget(mpAddress, 1);
+        form->addLayout(joinRow);
+        auto *joinNote = new QLabel(
+            "Your own account and locker are used. No local game server is started; Play "
+            "connects you to that address.");
+        joinNote->setWordWrap(true);
+        joinNote->setContentsMargins(24, 0, 0, 8);
+        form->addWidget(joinNote);
+        form->addWidget(mpHost);
+        mpAddresses = new QLabel;
+        mpAddresses->setWordWrap(true);
+        mpAddresses->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        mpAddresses->setContentsMargins(24, 0, 0, 0);
+        form->addWidget(mpAddresses);
+        layout->addWidget(mpBox);
+
+        mpStatus = new QLabel;
+        mpStatus->setWordWrap(true);
+        layout->addWidget(mpStatus);
+        auto *note = new QLabel(
+            "<small>Hosting accepts players from your LAN and VPN ranges (10.x, 172.16-31.x, "
+            "192.168.x, Tailscale 100.64.x). Over the internet, use a VPN such as Tailscale or "
+            "ZeroTier rather than router port forwarding. Players need UDP port 7777. "
+            "Requires <b>pasta</b> (package <i>passt</i>).</small>");
+        note->setWordWrap(true);
+        layout->addWidget(note);
+        layout->addStretch();
+
+        QObject::connect(mpEnable, &QCheckBox::toggled, this, [this](bool on) {
+            settings.setValue("multiplayer/enabled", on);
+            refresh();
+        });
+        QObject::connect(mpJoin, &QRadioButton::toggled, this, [this](bool join) {
+            settings.setValue("multiplayer/mode", join ? "join" : "host");
+            refresh();
+        });
+        QObject::connect(mpAddress, &QLineEdit::textChanged, this, [this](const QString &text) {
+            settings.setValue("multiplayer/address", text.trimmed());
+            refresh();
+        });
+        return page;
+    }
+    bool mpOn() const { return mpEnable->isChecked(); }
+    bool mpJoining() const { return mpOn() && mpJoin->isChecked(); }
+    bool hosting() const { return hostCheck->isChecked() && !mpJoining(); }
+    static QStringList lanAddresses() {
+        QStringList list;
+        for (const auto &address : QNetworkInterface::allAddresses())
+            if (address.protocol() == QAbstractSocket::IPv4Protocol && !address.isLoopback())
+                list << address.toString();
+        return list;
+    }
+
     QWidget *settingsTab() {
         auto *page = new QWidget;
         auto *layout = new QVBoxLayout(page);
@@ -310,7 +394,8 @@ class Launcher : public QMainWindow {
         bool needed;
     };
     QList<Check> checks() const {
-        const bool host = hostCheck->isChecked();
+        const bool host = hosting();
+        const auto pasta = QStandardPaths::findExecutable("pasta");
         return {
             {"Fortnite 12.50",
              gameEdit->text() + "/FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe",
@@ -328,10 +413,22 @@ class Launcher : public QMainWindow {
             {"Local login", config + "/backend/local-login.json",
              "Prepare Lawin: see integrations/lawin/README.md", true},
             {"Erbium game server", erbiumEdit->text(), "Build Erbium: see docs/MATCH.md", host},
+            {"pasta (multiplayer)", pasta.isEmpty() ? "/nonexistent" : pasta,
+             "Install it: sudo pacman -S passt", mpOn()},
         };
     }
     bool ready(QStringList *missing = nullptr) const {
         bool ok = true;
+        if (mpJoining() && mpAddress->text().trimmed().isEmpty()) {
+            ok = false;
+            if (missing)
+                *missing << "a server address (Multiplayer tab)";
+        }
+        if (mpOn() && mpHost->isChecked() && !hostCheck->isChecked()) {
+            ok = false;
+            if (missing)
+                *missing << "hosting turned on (needed to host for others)";
+        }
         for (const auto &check : checks())
             if (check.needed && !QFileInfo::exists(check.path)) {
                 ok = false;
@@ -353,13 +450,15 @@ class Launcher : public QMainWindow {
                              check.name.toHtmlEscaped(),
                              ok             ? QString()
                              : check.needed ? " — " + check.fix.toHtmlEscaped()
-                                            : " — not needed (hosting off)");
+                                            : " — not needed");
         }
         checkList->setText(list);
 
-        const bool host = hostCheck->isChecked();
+        const bool host = hosting();
         backendLabel->setText(dot(backend, "Backend"));
-        serverLabel->setText(dot(host ? server : State::Off, host ? "Game server" : "Hosting off"));
+        serverLabel->setText(
+            mpJoining() ? dot(client == State::Ready ? State::Ready : State::Off, "Remote server")
+                        : dot(host ? server : State::Off, host ? "Game server" : "Hosting off"));
         clientLabel->setText(dot(client, "Game"));
         matchLabel->setText(match.isEmpty() ? QString()
                                             : "Match: <b>" + match.toHtmlEscaped() + "</b>");
@@ -379,6 +478,19 @@ class Launcher : public QMainWindow {
         hostCheck->setEnabled(!running);
         hostBox->setEnabled(!running);
         settingsBox->setEnabled(!running);
+        mpEnable->setEnabled(!running);
+        mpBox->setEnabled(!running && mpOn());
+        mpAddress->setEnabled(!running && mpJoining());
+        mpAddresses->setText("Share one of these with players: <b>" +
+                             lanAddresses().join(", ").toHtmlEscaped() + "</b> (UDP 7777)");
+        if (!running)
+            mpStatus->setText(!mpOn() ? "Multiplayer is off: the sandbox has no network."
+                              : mpJoining()
+                                  ? (mpAddress->text().trimmed().isEmpty()
+                                         ? "Enter the server address to join."
+                                         : "Launch will connect you to " +
+                                               mpAddress->text().trimmed().toHtmlEscaped() + ".")
+                                  : "Launch will host your server for LAN/VPN players.");
         if (!canLaunch)
             hint->setText("<span style='color:#e04040'>Setup incomplete: " +
                           missing.join(", ").toHtmlEscaped() + ". See the Settings tab.</span>");
@@ -388,8 +500,14 @@ class Launcher : public QMainWindow {
                                 "or press Stop to end the session."
                               : "Starting… this takes about a minute.");
         else
-            hint->setText(host ? "Ready. Launch starts the backend, the game server and your game."
-                               : "Ready. Hosting is off: Launch starts the backend and your game.");
+            hint->setText(
+                mpJoining() ? "Ready. Multiplayer: Launch starts the backend and your game; "
+                              "Play joins " +
+                                  mpAddress->text().trimmed().toHtmlEscaped() + "."
+                : host      ? QString("Ready. Launch starts the backend, the game server and "
+                                      "your game.") +
+                                  (mpOn() ? " Other players can join you." : "")
+                            : "Ready. Hosting is off: Launch starts the backend and your game.");
     }
 
     void log(const QString &line) { output->appendPlainText(line); }
@@ -407,10 +525,16 @@ class Launcher : public QMainWindow {
         env.insert("FOL_GAME_DIR", gameEdit->text());
         env.insert("FOL_PROTON", protonEdit->text());
         env.insert("FOL_ERBIUM_DLL", erbiumEdit->text());
+        env.remove("FOL_MP_MODE");
+        env.remove("FOL_MP_SERVER");
+        if (mpOn()) {
+            env.insert("FOL_MP_MODE", mpJoining() ? "join" : "host");
+            env.insert("FOL_MP_SERVER", mpAddress->text().trimmed());
+        }
         process.setProcessEnvironment(env);
         process.setWorkingDirectory(root);
-        process.start("/bin/bash", {root + "/scripts/fortnite-match.sh",
-                                    hostCheck->isChecked() ? "--both" : "--client"});
+        process.start("/bin/bash",
+                      {root + "/scripts/fortnite-match.sh", hosting() ? "--both" : "--client"});
         if (!process.waitForStarted(5000)) {
             log("Could not start scripts/fortnite-match.sh: " + process.errorString());
             backend = State::Failed;
@@ -458,6 +582,10 @@ class Launcher : public QMainWindow {
         } else if (line.startsWith("Game server exited early") ||
                    line.startsWith("Game server never listened")) {
             server = State::Failed;
+        } else if (line.startsWith("Multiplayer:")) {
+            mpStatus->setText(line.mid(13).toHtmlEscaped());
+            if (line.contains("players can join at"))
+                match = "Hosting at " + line.section(" at ", 1);
         } else if (line.startsWith("Starting client")) {
             backend = State::Ready;
             client = State::Starting;
@@ -524,6 +652,11 @@ class Launcher : public QMainWindow {
     QGroupBox *hostBox, *settingsBox;
     QTabWidget *tabs;
     LawinTab *lawin;
+    QCheckBox *mpEnable;
+    QRadioButton *mpJoin, *mpHost;
+    QLineEdit *mpAddress;
+    QLabel *mpStatus, *mpAddresses;
+    QGroupBox *mpBox;
     bool lawinLoaded = false;
 };
 } // namespace

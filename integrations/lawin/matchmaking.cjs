@@ -7,7 +7,17 @@
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 
-const GAME_SERVER = {address: '127.0.0.1', port: 7777};
+// FOL_GAME_SERVER=ip:port points matchmaking at another player's server
+// (multiplayer "join" mode); otherwise the local server on loopback.
+function gameServer(value = process.env.FOL_GAME_SERVER) {
+  const match = /^(\d{1,3}(?:\.\d{1,3}){3})(?::(\d{1,5}))?$/.exec(value || '');
+  if (!match || match[1].split('.').some(octet => Number(octet) > 255))
+    return {address: '127.0.0.1', port: 7777, remote: false};
+  const port = Number(match[2] || 7777);
+  return {address: match[1], port: port >= 1 && port <= 65535 ? port : 7777,
+    remote: match[1] !== '127.0.0.1'};
+}
+const GAME_SERVER = gameServer();
 const MATCHMAKER_PORT = 3552;
 const id = () => crypto.randomUUID().replaceAll('-', '');
 
@@ -24,8 +34,9 @@ function udpPortBound(port, files = ['/proc/net/udp', '/proc/net/udp6']) {
   return false;
 }
 
-function register(app, {accountId, authenticate, record,
-  serverReady = () => udpPortBound(GAME_SERVER.port)}) {
+// A remote server's readiness can't be observed from here; send Play at once.
+const localReady = () => GAME_SERVER.remote || udpPortBound(GAME_SERVER.port);
+function register(app, {accountId, authenticate, record, serverReady = localReady}) {
   const buckets = new Map();
   const authorized = handler => async (req, res) => {
     const bearer = req.headers.authorization;
@@ -73,7 +84,7 @@ function register(app, {accountId, authenticate, record,
 
 // Matchmaker websocket: Connecting -> Waiting -> Queued (until the server is
 // bound) -> SessionAssignment -> Play.
-async function listen({upstream, record, serverReady = () => udpPortBound(GAME_SERVER.port),
+async function listen({upstream, record, serverReady = localReady,
   port = MATCHMAKER_PORT, pollMs = 1000}) {
   const {WebSocketServer} = upstream('ws');
   const server = new WebSocketServer({host: '127.0.0.1', port, maxPayload: 32768,
@@ -102,4 +113,4 @@ async function listen({upstream, record, serverReady = () => udpPortBound(GAME_S
   record({event: 'matchmaker-listening', address: '127.0.0.1', port});
   return server;
 }
-module.exports = {register, listen, udpPortBound, GAME_SERVER, MATCHMAKER_PORT};
+module.exports = {register, listen, udpPortBound, gameServer, GAME_SERVER, MATCHMAKER_PORT};

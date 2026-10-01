@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const {register, udpPortBound} = require('./matchmaking.cjs');
+const {register, udpPortBound, gameServer} = require('./matchmaking.cjs');
 
 function fixture(authenticate = async (id, token) => token === 'fixture-token', ready = () => true) {
   const routes = {};
@@ -61,4 +61,12 @@ test('udp readiness parses /proc/net/udp format', () => {
   fs.writeFileSync(file, header);
   assert.equal(udpPortBound(7777, [file]), false);
   fs.rmSync(dir, {recursive: true});
+});
+
+test('FOL_GAME_SERVER selects a remote server, falling back to loopback', () => {
+  assert.deepEqual(gameServer(''), {address: '127.0.0.1', port: 7777, remote: false});
+  assert.deepEqual(gameServer('192.168.4.20'), {address: '192.168.4.20', port: 7777, remote: true});
+  assert.deepEqual(gameServer('100.101.102.103:7778'), {address: '100.101.102.103', port: 7778, remote: true});
+  assert.equal(gameServer('999.1.1.1').remote, false);
+  assert.equal(gameServer('example.com').remote, false);
 });

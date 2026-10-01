@@ -33,11 +33,38 @@ if [[ ${1:-} != --inner ]]; then
     mkdir -p "$FOL_MATCH_DIR"
     echo "Session logs: $FOL_MATCH_DIR"
     OUTER=$(stat -L -c '%d:%i' /proc/self/ns/net)
+    # Network: a loopback-only namespace, unless multiplayer is enabled
+    # (FOL_MP_MODE=join|host). Multiplayer uses pasta for real networking and
+    # then strips routes to the minimum (see apply_multiplayer_routes).
+    NETNS=(unshare --user --map-root-user --net --)
+    case ${FOL_MP_MODE:-} in
+    "") ;;
+    join|host)
+        command -v pasta >/dev/null ||
+            { echo "Multiplayer needs pasta: sudo pacman -S passt" >&2; exit 1; }
+        if [[ $FOL_MP_MODE == join ]]; then
+            target=${FOL_MP_SERVER:-}
+            port=7777
+            [[ $target == *:* ]] && { port=${target##*:}; target=${target%:*}; }
+            ip=$(getent ahostsv4 "$target" 2>/dev/null | awk 'NR==1 {print $1}')
+            [[ $ip =~ ^[0-9]+(\.[0-9]+){3}$ && $port =~ ^[0-9]+$ ]] ||
+                { echo "Cannot resolve multiplayer server '${FOL_MP_SERVER:-}'" >&2; exit 1; }
+            export FOL_GAME_SERVER="$ip:$port" FOL_MATCH_MODE=--client
+            echo "Multiplayer: joining $FOL_GAME_SERVER (no local server)"
+            NETNS=(pasta --config-net --quiet --no-map-gw -t none -u none -T none -U none --)
+        else
+            [[ $FOL_MATCH_MODE == --client ]] &&
+                { echo "Hosting for others needs the local game server enabled" >&2; exit 1; }
+            echo "Multiplayer: hosting on UDP 7777 for LAN/VPN players"
+            NETNS=(pasta --config-net --quiet --no-map-gw -t none -u 7777 -T none -U none --)
+        fi ;;
+    *) echo "FOL_MP_MODE must be join or host" >&2; exit 1 ;;
+    esac
     exec env -u OPENSSL_ia32cap STEAM_COMPAT_CLIENT_INSTALL_PATH="$COMPAT/empty-steam-client" \
         STEAM_COMPAT_DATA_PATH="$COMPAT" WINEPREFIX="$COMPAT/pfx" SteamAppId=0 SteamGameId=0 \
         PROTON_LOG=0 WINEDLLOVERRIDES='winemenubuilder.exe=d' NO_PROXY=127.0.0.1,localhost \
         no_proxy=127.0.0.1,localhost DXVK_LOG_PATH="$FOL_MATCH_DIR" \
-        unshare --user --map-root-user --net -- "$REPO/build/fortnite-backend" \
+        "${NETNS[@]}" "$REPO/build/fortnite-backend" \
         --config "$CONFIG/backend/identity.json" --log "$FOL_MATCH_DIR/backend.log" \
         --isolated-session --outer-netns "$OUTER" --lawin-config "$CONFIG/backend/lawin.json" \
         run -- /bin/bash "$REPO/scripts/fortnite-match.sh" --inner
@@ -45,6 +72,27 @@ fi
 
 # ---- inside the isolated namespace, after Lawin is ready ----
 S=$FOL_MATCH_DIR
+
+# Multiplayer: no default route, so nothing but the allowed peers (and never
+# Epic's services) is reachable. Join: the one server. Host: LAN/VPN ranges.
+apply_multiplayer_routes() {
+    local gw dev net
+    read -r gw dev < <(ip -4 route show default | awk '{print $3, $5; exit}')
+    [[ -n $gw ]] || { echo "Multiplayer: no network inside the sandbox" >&2; return 1; }
+    ip -4 route del default
+    ip -6 route del default 2>/dev/null || true
+    if [[ $FOL_MP_MODE == join ]]; then
+        ip -4 route get "${FOL_GAME_SERVER%:*}" >/dev/null 2>&1 ||
+            ip -4 route add "${FOL_GAME_SERVER%:*}" via "$gw" dev "$dev"
+    else
+        for net in 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10; do
+            ip -4 route add "$net" via "$gw" dev "$dev" 2>/dev/null || true
+        done
+        echo "Multiplayer: players can join at $(ip -4 -o addr show dev "$dev" scope global |
+            awk '{sub(/\/.*/, "", $4); print $4; exit}'):7777 (UDP)"
+    fi
+}
+[[ -n ${FOL_MP_MODE:-} ]] && apply_multiplayer_routes
 read -r USERNAME PASSWORD < <(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["username"], d["password"])' "$CONFIG/backend/local-login.json")
 GAME_ARGS=(-epicportal -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -skippatchcheck -nobe
            -fromfl=eac -fltoken=3db3ba5dcbd2e16703f3978d
