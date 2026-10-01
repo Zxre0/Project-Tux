@@ -64,11 +64,16 @@ pids=()
 # Hyprland: with per-region damage tracking, fullscreen XWayland games only
 # repaint where the cursor moves. Repaint whole monitors while we run.
 damage_prev=
+SERVER_APP_ID=9999990
 if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] && command -v hyprctl >/dev/null; then
     damage_prev=$(hyprctl -j getoption debug:damage_tracking 2>/dev/null |
         python3 -c 'import json,sys; print(json.load(sys.stdin)["int"])' 2>/dev/null || true)
     [[ -n $damage_prev && $damage_prev != 1 ]] &&
         hyprctl eval 'hl.config({debug = {damage_tracking = 1}})' >/dev/null 2>&1
+    # Proton names windows steam_app_<SteamGameId>; the server's own ID lets
+    # this rule keep its windows (shown for seconds while it loads, before
+    # the guard can hide them) on a hidden special workspace.
+    hyprctl eval "hl.window_rule({ name = \"project_tux_server\", match = { class = \"^steam_app_$SERVER_APP_ID\$\" }, workspace = \"special:tux_server silent\", no_initial_focus = true, no_focus = true, no_anim = true })" >/dev/null 2>&1 || true
     # Wine lists fullscreen resolutions of the X11 primary output only; without
     # one it uses the first (possibly a smaller monitor). Use the focused one.
     focused=$(hyprctl -j monitors 2>/dev/null |
@@ -86,7 +91,6 @@ cleanup() {
         cp -f "$LOGS"/FortniteGame.log "$S/server-game.log" 2>/dev/null || true
         cp -f "$LOGS"/FortniteGame_2.log "$S/client-game.log" 2>/dev/null || true
     fi
-    cp -f "$WIN64/stdout.log" "$S/erbium-stdout.log" 2>/dev/null || true
 }
 trap cleanup EXIT
 trap "exit 143" TERM INT
@@ -134,6 +138,8 @@ run_server() {
     FOL_HTTP_MODULE_REPORT="$(winpath "$S")\\router-server-$1.json" \
     FOL_INJECT_EARLY="$FOL_INJECT_EARLY;$(winpath "$REPO/build/windows/fol-server-guard.dll")" \
     FOL_INJECT_STATUS="$(winpath "$S")\\inject-server-$1.txt" FOL_INJECT_LATE=$(winpath "$ERBIUM") \
+    FOL_ERBIUM_LOG="$(winpath "$S")\\erbium-$1.log" \
+    SteamGameId=$SERVER_APP_ID SteamAppId=$SERVER_APP_ID \
     FOL_INJECT_LOG='C:\users\steamuser\AppData\Local\FortniteGame\Saved\Logs\FortniteGame.log' \
     FOL_INJECT_MARKER='UI State changing from [UI.State.Startup.Login]' \
     WINEDEBUG='+timestamp,+pid,+seh,+loaddll' \
@@ -153,7 +159,7 @@ server_supervisor() {
     local n=1 failures=0 pid code started i status
     while :; do
         # Fresh log: the injector waits for this server's own sign-in line.
-        rm -f "$LOGS/FortniteGame.log" "$WIN64/stdout.log"
+        rm -f "$LOGS/FortniteGame.log"
         status="$S/inject-server-$n.txt"
         started=$SECONDS
         run_server $n &
