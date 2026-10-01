@@ -8,9 +8,10 @@ Canonical repository: <https://github.com/Zxre0/FortniteOnLinux>.
 the isolated [LawinServerV2 provider](integrations/lawin/README.md) reaches a
 rendered lobby on CachyOS/Hyprland/NVIDIA through Proton Experimental/DXVK.
 Character rendering, eight starter outfit thumbnails, outfit selection/save and
-persistence across a full game/backend restart are verified. Sessions remain
-bounded diagnostics; BR Solo is now the local default, but joining a game and
-gameplay are not yet verified. Alternative game servers are under review: see
+persistence across a full game/backend restart are verified. **Local BR Solo
+gameplay works**: `scripts/fortnite-match.sh` runs an Erbium game server and the
+client joins through local matchmaking and spawns on the map (see
+[docs/MATCH.md](docs/MATCH.md)). Alternative game servers are under review: see
 [actual Play failure and build evidence](docs/GAMEPLAY_SERVERS.md) and
 [Project Nova analysis](docs/NOVA_ANALYSIS.md). No Fortnite assets or real Epic
 credentials are distributed.
@@ -24,6 +25,12 @@ and [launch-context scope](docs/EAC.md).
 The optional Lawin provider and the experimental native backend are separate
 from the Project Reboot game server. The native backend still stops at
 QueryKeychain; use the documented Lawin path for the verified lobby.
+
+## Play a local match
+
+See **[docs/MATCH.md](docs/MATCH.md)**: `scripts/fortnite-match.sh` starts the
+Lawin backend with local matchmaking, a headless Erbium game server and the
+client in one isolated namespace.
 
 ## Build
 

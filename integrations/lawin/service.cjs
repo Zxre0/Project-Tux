@@ -82,6 +82,7 @@ async function main() {
   });
   app.get('/fol/health', (req, res) => res.json({backend: 'lawin-v2', ready: true}));
   // Do not adopt upstream platform-check disabling hotfixes or fabricated manifests.
+  app.post('/account/api/oauth/token', require('./multi-session.cjs').preserveSessions());
   require('./cloud.cjs').register(app);
   app.use('/fortnite/api/game/v2/profileToken', (req, res) => {
     const shape = require('./payload-shape.cjs').describe(req.body,

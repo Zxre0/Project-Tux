@@ -2617,3 +2617,15 @@ No identical blind retries. Next build a scoped alternative-SDK compatibility
 probe with no upstream server initializer/code-patching hooks, then validate
 version/reflection/world prerequisites under the owned private runtime.
 Gameplay and server admission remain unverified; goal stays active.
+
+### Local BR Solo gameplay working (2026-10-01)
+
+Replaced the client-side world-travel experiments (shelved on branch
+wip/sdk-travel-probe) with the standard private-server layout: a second,
+signed-in 12.50 process hosts the match with Erbium; the client joins through
+Lawin matchmaking. New: fol-inject.exe, fol-match-router.dll (persistent
+router), Lawin matchmaker/session routes gated on UDP 7777, multi-session
+tokens, Erbium Solo config, scripts/fortnite-match.sh. Findings: this Shipping
+build ignores -nullrhi; Erbium's ImGui D3D11 window crashed the server render
+thread under DXVK, so the GUI is disabled. Session 2026-10-01_03-50-14_match: client joined,
+spawned on Apollo with HUD, server MatchState InProgress. Details in docs/MATCH.md.

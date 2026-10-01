@@ -28,6 +28,7 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/xmpp.test.cjs
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/party.test.cjs
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/matchmaking.test.cjs
+            ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/multi-session.test.cjs
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/payload-shape.test.cjs
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/profile-schema.test.cjs
             ${CMAKE_CURRENT_SOURCE_DIR}/integrations/lawin/local-locker.test.cjs)
