@@ -194,7 +194,8 @@ def main():
                      else "erbium-solo.dll" if args.config else args.provider + "-research.dll")
     libraries = provider["libraries"]
     command = ["lld-link", "/dll", "/machine:x64", "/subsystem:windows", "/opt:ref",
-               "/opt:icf", "/timestamp:0", "/out:" + str(output), *map(str, compiled),
+               "/opt:icf", "/timestamp:0", "/out:" + str(output),
+               "/map:" + str(output.with_suffix(".map")), *map(str, compiled),
                *[str(source / "vendor" / item) for item in libraries],
                "kernel32.lib", "user32.lib", "gdi32.lib", "winspool.lib", "comdlg32.lib",
                "advapi32.lib", "shell32.lib", "ole32.lib", "oleaut32.lib", "uuid.lib",

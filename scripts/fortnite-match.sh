@@ -50,11 +50,34 @@ GAME_ARGS=(-epicportal -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -skippa
            -fromfl=eac -fltoken=3db3ba5dcbd2e16703f3978d
            "-AUTH_LOGIN=$USERNAME" "-AUTH_PASSWORD=$PASSWORD" -AUTH_TYPE=epic)
 EXE=$(winpath "$WIN64/FortniteClient-Win64-Shipping.exe")
+# NVIDIA + XWayland (Hyprland, multi-monitor/high refresh): with the driver's
+# explicit-sync path the compositor only shows new frames when the cursor moves.
+export __NV_DISABLE_EXPLICIT_SYNC=${__NV_DISABLE_EXPLICIT_SYNC:-1}
 export FOL_HTTP_OBSERVER_LAYOUT='59236016,107847520,104,17' FOL_HTTP_ROUTER_LAYOUT='59245424,10'
 export FOL_INJECT_EARLY=$(winpath "$REPO/build/windows/fol-match-router.dll")
+# Suspended (never-run) launcher/EAC bootstrap processes next to each game:
+# 12.50's environment check otherwise shows "Fortnite was not started
+# correctly" and closes the game after a while.
+export FOL_INJECT_PRESENCE="$(winpath "$WIN64/FortniteLauncher.exe");$(winpath "$WIN64/FortniteClient-Win64-Shipping_EAC.exe")"
 cd "$WIN64"
 pids=()
+# Hyprland: with per-region damage tracking, fullscreen XWayland games only
+# repaint where the cursor moves. Repaint whole monitors while we run.
+damage_prev=
+if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] && command -v hyprctl >/dev/null; then
+    damage_prev=$(hyprctl -j getoption debug:damage_tracking 2>/dev/null |
+        python3 -c 'import json,sys; print(json.load(sys.stdin)["int"])' 2>/dev/null || true)
+    [[ -n $damage_prev && $damage_prev != 1 ]] &&
+        hyprctl eval 'hl.config({debug = {damage_tracking = 1}})' >/dev/null 2>&1
+    # Wine lists fullscreen resolutions of the X11 primary output only; without
+    # one it uses the first (possibly a smaller monitor). Use the focused one.
+    focused=$(hyprctl -j monitors 2>/dev/null |
+        python3 -c 'import json,sys; print(next((m["name"] for m in json.load(sys.stdin) if m["focused"]),""))' 2>/dev/null || true)
+    [[ -n $focused ]] && command -v xrandr >/dev/null && xrandr --output "$focused" --primary >/dev/null 2>&1 || true
+fi
 cleanup() {
+    [[ -n $damage_prev && $damage_prev != 1 ]] &&
+        hyprctl eval "hl.config({debug = {damage_tracking = $damage_prev}})" >/dev/null 2>&1
     for p in "${pids[@]}"; do kill "$p" 2>/dev/null || true; done
     WINEPREFIX="$COMPAT/pfx" "$(dirname "$PROTON")/files/bin/wineserver" -k 2>/dev/null || true
     if [[ $FOL_MATCH_MODE == --client ]]; then
@@ -88,7 +111,12 @@ autoplay() {
     done
     local linux_pid
     linux_pid=$(pgrep -f 'Win64-Shipping.exe' | grep -vx "${server_pid:-0}" | head -1)
-    hyprctl dispatch focuswindow "pid:$linux_pid" >/dev/null && hyprctl dispatch fullscreen 0 >/dev/null
+    hyprctl dispatch focuswindow "pid:$linux_pid" >/dev/null
+    # The input helper's coordinates are for a 1920x1080 client.
+    local m1080
+    m1080=$(hyprctl monitors -j | python3 -c 'import json,sys; print(next((m["name"] for m in json.load(sys.stdin) if (m["width"],m["height"])==(1920,1080)),""))')
+    [[ -n $m1080 ]] && hyprctl dispatch movewindow "mon:$m1080" >/dev/null
+    hyprctl dispatch fullscreen 0 >/dev/null
     sleep 5
     if ! grep -qs 'UI.State.Athena.Frontend' "$log"; then
         shot autoplay-1-subgame; ui select-br; sleep 3; ui enter-br; sleep 15
@@ -107,11 +135,13 @@ if [[ $FOL_MATCH_MODE != --client ]]; then
     rm -f "$WIN64/stdout.log"
     echo "Starting headless game server..."
     FOL_HTTP_MODULE_REPORT="$(winpath "$S")\\router-server.json" \
+    FOL_INJECT_EARLY="$FOL_INJECT_EARLY;$(winpath "$REPO/build/windows/fol-server-guard.dll")" \
     FOL_INJECT_STATUS="$(winpath "$S")\\inject-server.txt" FOL_INJECT_LATE=$(winpath "$ERBIUM") \
     FOL_INJECT_LOG='C:\users\steamuser\AppData\Local\FortniteGame\Saved\Logs\FortniteGame.log' \
     FOL_INJECT_MARKER='UI State changing from [UI.State.Startup.Login]' \
     WINEDEBUG='+timestamp,+pid,+seh,+loaddll' \
         "$PROTON" run "$REPO/build/windows/fol-inject.exe" "$EXE" -log -nullrhi -nosplash -nosound \
+        -RenderOffScreen -windowed -ResX=640 -ResY=360 \
         "${GAME_ARGS[@]}" >"$S/server-wine.log" 2>&1 &
     pids+=($!)
     for ((i = 0; i < 600; i++)); do

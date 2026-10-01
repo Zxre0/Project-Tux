@@ -5,12 +5,16 @@
  *   fol-inject.exe C:\path\FortniteClient-Win64-Shipping.exe ARGS...
  *
  * Environment (Windows paths):
- *   FOL_INJECT_EARLY   DLL loaded ~3 s after the child starts
+ *   FOL_INJECT_EARLY   DLL(s), ';'-separated, loaded ~3 s after the child starts
  *   FOL_INJECT_LATE    DLL loaded after FOL_INJECT_MARKER appears in FOL_INJECT_LOG
  *   FOL_INJECT_LOG     game log to watch (deleted beforehand by the caller)
  *   FOL_INJECT_MARKER  ASCII text to wait for
  *   FOL_INJECT_DELAY   extra milliseconds after the marker (default 5000)
  *   FOL_INJECT_STATUS  optional file that receives the progress lines
+ *   FOL_INJECT_PRESENCE  ';'-separated executables started suspended (never run)
+ *                      alongside the game, e.g. FortniteLauncher.exe and the
+ *                      _EAC bootstrap: 12.50's environment check ("AppES",
+ *                      closing code 1) otherwise closes the game after a while.
  */
 #define WIN32_LEAN_AND_MEAN
 #define _ACRTIMP
@@ -222,6 +226,39 @@ void inject_entry(void) {
     limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
     if (job)
         SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof(limits));
+    static wchar_t presence[8192];
+    DWORD presence_size = GetEnvironmentVariableW(L"FOL_INJECT_PRESENCE", presence, 8192);
+    if (presence_size && presence_size < 8192) {
+        for (wchar_t *item = presence; *item;) {
+            wchar_t *end = item;
+            while (*end && *end != L';')
+                ++end;
+            const BOOL last = !*end;
+            *end = 0;
+            if (*item) {
+                STARTUPINFOW info = {0};
+                PROCESS_INFORMATION paused = {0};
+                info.cb = sizeof(info);
+                /* Created suspended and never resumed: no code of it runs. */
+                if (CreateProcessW(item, NULL, NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL,
+                                   &info, &paused)) {
+                    if (job)
+                        AssignProcessToJobObject(job, paused.hProcess);
+                    CloseHandle(paused.hThread);
+                    say("fol-inject: presence process ");
+                    say_number(paused.dwProcessId);
+                    say("\n");
+                } else {
+                    say("fol-inject: presence process failed ");
+                    say_number(GetLastError());
+                    say("\n");
+                }
+            }
+            if (last)
+                break;
+            item = end + 1;
+        }
+    }
     STARTUPINFOW startup = {0};
     PROCESS_INFORMATION child = {0};
     startup.cb = sizeof(startup);
@@ -239,9 +276,20 @@ void inject_entry(void) {
     say("fol-inject: started pid ");
     say_number(child.dwProcessId);
     say("\n");
-    if (early_size) {
-        if (WaitForSingleObject(child.hProcess, 3000) == WAIT_TIMEOUT && !inject(&child, early))
-            say("fol-inject: early module failed; continuing\n");
+    if (early_size && WaitForSingleObject(child.hProcess, 3000) == WAIT_TIMEOUT) {
+        /* FOL_INJECT_EARLY may list several DLLs separated by ';'. */
+        for (wchar_t *item = early; *item;) {
+            wchar_t *end = item;
+            while (*end && *end != L';')
+                ++end;
+            const BOOL last = !*end;
+            *end = 0;
+            if (*item && !inject(&child, item))
+                say("fol-inject: early module failed; continuing\n");
+            if (last)
+                break;
+            item = end + 1;
+        }
     }
     if (late_size) {
         if (wait_for_marker(child.hProcess, log, marker)) {
