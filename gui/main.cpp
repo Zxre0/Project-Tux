@@ -450,6 +450,11 @@ class Launcher : public QMainWindow {
         } else if (line.startsWith("Game server listening")) {
             server = State::Ready;
             match = "Waiting for players";
+        } else if (line.contains("starting a new one for the next match")) {
+            server = State::Starting;
+            match = "Starting a fresh server for the next match";
+        } else if (line.startsWith("Game server keeps failing")) {
+            server = State::Failed;
         } else if (line.startsWith("Game server exited early") ||
                    line.startsWith("Game server never listened")) {
             server = State::Failed;
