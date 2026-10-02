@@ -51,7 +51,9 @@ static int fol_local_url(const wchar_t *input, wchar_t *output, unsigned capacit
     if (!(fol_wide_prefix(path, L"/account/api/") || fol_wide_prefix(path, L"/fortnite/api/") ||
           fol_wide_prefix(path, L"/lightswitch/api/") || fol_wide_prefix(path, L"/content/api/") ||
           fol_wide_prefix(path, L"/launcher/api/") ||
-          fol_wide_prefix(path, L"/party/api/v1/Fortnite/")))
+          fol_wide_prefix(path, L"/party/api/v1/Fortnite/") ||
+          fol_wide_prefix(path, L"/api/v1/events/Fortnite/") ||
+          fol_wide_prefix(path, L"/api/v1/leaderboards/Fortnite/")))
         return 0;
     const wchar_t local[] = L"http://127.0.0.1:3551";
     unsigned prefix_size = sizeof(local) / sizeof(wchar_t) - 1;
