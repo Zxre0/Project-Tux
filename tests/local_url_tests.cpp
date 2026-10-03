@@ -23,6 +23,15 @@ int main() {
                   L"https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnite/parties",
                   result, 4096) == 1);
         check(std::wcscmp(result, L"http://127.0.0.1:3551/party/api/v1/Fortnite/parties") == 0);
+        // Arena: the lobby's events (divisions, hype) come from the server's backend.
+        check(fol_local_url(L"https://events-public-service-live.ol.epicgames.com/api/v1/events/"
+                            L"Fortnite/download/0123456789abcdef0123456789abcdef?region=NAE",
+                            result, 4096) == 1);
+        check(std::wcscmp(result, L"http://127.0.0.1:3551/api/v1/events/Fortnite/download/"
+                                  L"0123456789abcdef0123456789abcdef?region=NAE") == 0);
+        check(fol_local_url(L"https://events-public-service-live.ol.epicgames.com/api/v1/"
+                            L"leaderboards/Fortnite/x",
+                            result, 4096) == 1);
         for (const wchar_t *url :
              {L"https://attacker.invalid/account/api/oauth/token",
               L"https://account.ol.epicgames.com.attacker.invalid/account/api/oauth/token",
@@ -31,6 +40,8 @@ int main() {
               L"https://account.ol.epicgames.com/account/apix/token",
               L"https://party-service-prod.ol.epicgames.com/party/api/v1/OtherGame/parties",
               L"https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnitex/parties",
+              L"https://events-public-service-live.ol.epicgames.com/api/v1/events/OtherGame/x",
+              L"https://events-public-service-live.ol.epicgames.com/api/v1/other/Fortnite/x",
               L"http://127.0.0.1:3551/account/api/oauth/token"}) {
             check(fol_local_url(url, result, 4096) == 0);
             check(result[0] == 0);
