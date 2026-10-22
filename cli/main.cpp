@@ -132,7 +132,9 @@ int main(int argc, char **argv) {
             if (roots.isEmpty())
                 roots = {QDir::homePath() + "/Games", "/mnt",
                          "/run/media/" + qEnvironmentVariable("USER"),
-                         QDir::homePath() + "/.local/share/Steam/steamapps/common"};
+                         QDir::homePath() + "/.local/share/Steam/steamapps/common",
+                         QDir::homePath() + "/.var/app/com.valvesoftware.Steam/.local/share/"
+                                            "Steam/steamapps/common"};
             result["search_roots"] = QJsonArray::fromStringList(roots);
             result["candidates"] = QJsonArray::fromStringList(fol::discoverBuilds(roots));
             result["scope"] =

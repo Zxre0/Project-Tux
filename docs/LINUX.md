@@ -30,6 +30,35 @@ Arch/CachyOS package names relevant to a missing runtime: `wine`,
 presence is not proof of a working device. Multilib needs distribution-supported
 configuration; the launcher does not edit pacman configuration or install drivers.
 
+## Fedora
+
+Fedora (tested on 44, x86_64) is supported alongside Arch/CachyOS. Build
+dependencies:
+
+```sh
+sudo dnf install gcc-c++ cmake ninja-build qt6-qtbase-devel tomlplusplus-devel \
+    zlib-ng-compat-devel vulkan-headers vulkan-loader-devel clang lld \
+    wine wine-devel nodejs passt
+```
+
+Differences from Arch that the project handles:
+
+- **Windows helpers:** Wine's headers come from `wine-devel` (not `wine`), and its
+  x86_64 import libraries live in `/usr/lib64/wine-wow64/wine/x86_64-windows`
+  (or `/usr/lib64/wine/x86_64-windows`). `helpers/windows/build.sh` detects
+  both; override with `FOL_WINE_INCLUDE` / `FOL_WINE_LIB` if needed.
+- **Steam/Proton:** install Steam from RPM Fusion or Flathub. Proton is found in
+  `~/.local/share/Steam` and in the Flatpak's
+  `~/.var/app/com.valvesoftware.Steam/.local/share/Steam`. Import it with
+  `fortnite-linux runtime import-proton` as usual; the launcher runs the
+  imported copy, not the Flatpak.
+- **Drivers:** `diagnose` reports `vulkan-loader`, `mesa-vulkan-drivers` and
+  their `.i686` variants, plus RPM Fusion's `xorg-x11-drv-nvidia-libs` on
+  NVIDIA. The launcher never installs or changes drivers.
+- **Namespaces/SELinux:** Fedora allows unprivileged user namespaces by default,
+  which `unshare --user --net` and `pasta` need. The build and test suite pass
+  on Fedora 44; a full game launch there has not been verified yet.
+
 Data: `$XDG_DATA_HOME/fortnite-on-linux` (default `~/.local/share/...`).
 Config: `$XDG_CONFIG_HOME/fortnite-on-linux` (default `~/.config/...`).
 Cache: `$XDG_CACHE_HOME/fortnite-on-linux` (default `~/.cache/...`).
