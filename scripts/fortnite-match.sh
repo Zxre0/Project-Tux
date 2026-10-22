@@ -58,7 +58,7 @@ if [[ ${1:-} != --inner ]]; then
     "") ;;
     join|host)
         command -v pasta >/dev/null ||
-            { echo "Multiplayer needs pasta: sudo pacman -S passt" >&2; exit 1; }
+            { echo "Multiplayer needs pasta: install the passt package (dnf install passt / pacman -S passt)" >&2; exit 1; }
         if [[ $FOL_MP_MODE == join ]]; then
             target=${FOL_MP_SERVER:-}
             port=7777

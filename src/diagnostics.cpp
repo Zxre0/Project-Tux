@@ -78,7 +78,8 @@ QJsonObject vulkanReport() {
                 "container/sandbox device access before changing host GPU drivers.";
     }
     for (const QString path :
-         {"/usr/lib32/libvulkan.so.1", "/usr/lib/i386-linux-gnu/libvulkan.so.1"}) {
+         {"/usr/lib32/libvulkan.so.1", "/usr/lib/i386-linux-gnu/libvulkan.so.1",
+          "/usr/lib/libvulkan.so.1"}) {
         QFile file(path);
         if (file.open(QIODevice::ReadOnly)) {
             auto header = file.read(5);
@@ -137,34 +138,46 @@ QJsonObject systemReport() {
         if (process.eac)
             eac.append(process.json());
     QJsonArray packages;
+    bool nvidia = false, amd = false;
+    for (const auto &item : gpu) {
+        auto vendor = item.toObject()["vendor"].toString();
+        nvidia |= vendor == "0x10de";
+        amd |= vendor == "0x1002";
+    }
+    // Arch family (pacman) or Fedora family (rpm). 32-bit names are lib32-*
+    // on Arch and *.i686 on Fedora. Fedora's NVIDIA driver comes from RPM Fusion.
+    QString manager;
+    QStringList query, names;
     if (QFileInfo::exists("/etc/arch-release")) {
-        auto pacman = QStandardPaths::findExecutable("pacman");
-        QStringList names{"wine", "vulkan-icd-loader", "lib32-vulkan-icd-loader", "mesa",
-                          "lib32-mesa"};
-        for (const auto &item : gpu) {
-            auto vendor = item.toObject()["vendor"].toString();
-            if (vendor == "0x10de")
-                names.append({"nvidia-utils", "lib32-nvidia-utils"});
-            if (vendor == "0x1002")
-                names.append({"vulkan-radeon", "lib32-vulkan-radeon"});
-        }
-        names.removeDuplicates();
-        if (!pacman.isEmpty()) {
-            for (const auto &name : names) {
-                auto query = run(pacman, {"-Q", name}, 3000);
-                bool installed = query.exitCode == 0 && !query.timedOut;
-                QJsonObject entry{
-                    {"package", name},
-                    {"installed", installed},
-                    {"evidence", query.output.trimmed()},
-                    {"scope",
-                     name.startsWith("lib32-")
-                         ? "runtimes requiring 32-bit libraries; not a universal requirement"
-                         : "package presence; functionality checked separately"}};
-                if (!installed)
-                    entry["suggestion"] = "Review distribution package: " + name;
-                packages.append(entry);
-            }
+        manager = QStandardPaths::findExecutable("pacman");
+        query = {"-Q"};
+        names = {"wine", "vulkan-icd-loader", "lib32-vulkan-icd-loader", "mesa", "lib32-mesa"};
+        if (nvidia)
+            names.append({"nvidia-utils", "lib32-nvidia-utils"});
+        if (amd)
+            names.append({"vulkan-radeon", "lib32-vulkan-radeon"});
+    } else if (QFileInfo::exists("/etc/fedora-release")) {
+        manager = QStandardPaths::findExecutable("rpm");
+        query = {"-q"};
+        names = {"wine", "vulkan-loader", "vulkan-loader.i686", "mesa-vulkan-drivers",
+                 "mesa-vulkan-drivers.i686"};
+        if (nvidia)
+            names.append({"xorg-x11-drv-nvidia-libs", "xorg-x11-drv-nvidia-libs.i686"});
+    }
+    if (!manager.isEmpty()) {
+        for (const auto &name : names) {
+            auto result = run(manager, query + QStringList{name}, 3000);
+            bool installed = result.exitCode == 0 && !result.timedOut;
+            QJsonObject entry{
+                {"package", name},
+                {"installed", installed},
+                {"evidence", result.output.trimmed()},
+                {"scope", name.startsWith("lib32-") || name.endsWith(".i686")
+                              ? "runtimes requiring 32-bit libraries; not a universal requirement"
+                              : "package presence; functionality checked separately"}};
+            if (!installed)
+                entry["suggestion"] = "Review distribution package: " + name;
+            packages.append(entry);
         }
     }
     return {

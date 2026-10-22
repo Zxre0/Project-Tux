@@ -50,7 +50,7 @@ native Linux. It is **not** a backend, an authentication module or a routing DLL
 Its purpose is to collect the missing 12.50 interface evidence needed before a
 scoped local-backend adapter can be designed. Candidate discovery is not login.
 
-On the tested CachyOS host, existing Clang/LLD plus Wine's Windows and MSVCRT
+On the tested CachyOS and Fedora hosts, existing Clang/LLD plus Wine's Windows and MSVCRT
 headers/import libraries build it without installing a Windows SDK:
 
 ```sh
@@ -62,8 +62,8 @@ cmake --build build --target windows-probe-runner
 The manual test requires an initialized, idle launcher-owned `runtime-smoke` Wine
 prefix. It runs an asset-free PE fixture inside a user/network namespace and uses
 the native supervisor. It is not automatically executed by CI. Header/library
-paths in the optional build script match the tested Wine package layout; other
-distributions may require adjustment. Generated artifacts stay in ignored build/.
+paths are detected for the Arch, Fedora and Debian Wine layouts; set
+`FOL_WINE_INCLUDE`/`FOL_WINE_LIB` for others. Generated artifacts stay in ignored build/.
 
 The helper accepts no PID. It creates only the named Shipping executable (or the
 explicit synthetic fixture), assigns its initially suspended child to a Windows

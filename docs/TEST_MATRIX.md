@@ -10,6 +10,7 @@ Synthetic tests do not count as game compatibility.
 | CachyOS + NVIDIA + KDE Wayland | Untested | Untested | Untested | Untested | Untested |
 | Arch + NVIDIA | Untested | Untested | Untested | Untested | Untested |
 | Arch + AMD | Untested | Untested | Untested | Untested | Untested |
+| Fedora 44 container (build only, 2026-10-21) | Build + 13/13 CTest passed; Windows helpers built against `wine-devel` | Not applicable | Untested | Untested | Untested |
 
 Prefix initialization and offline Wine cmd.exe execution passed on the CachyOS
 host, with zero owned processes after completion. Full supervisor tests using a
