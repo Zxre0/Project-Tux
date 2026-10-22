@@ -436,19 +436,21 @@ class Launcher : public QMainWindow {
         QObject::connect(recheck, &QPushButton::clicked, this, [this] { refresh(); });
         layout->addWidget(checks);
 
-        // Discord shows "Playing <name of the Discord application with this ID>".
+        // Discord shows "Playing <name of the Discord application with this ID>":
+        // Project Tux's own application, "Project Tux Fortnite on Linux".
         auto *discordBox = new QGroupBox("Discord");
         auto *discordForm = new QFormLayout(discordBox);
         discordCheck = new QCheckBox("Show what you're playing in Discord");
         discordCheck->setChecked(settings.value("discord/enabled", true).toBool());
-        discordId = new QLineEdit(settings.value("discord/application_id").toString());
+        discordId = new QLineEdit(
+            settings.value("discord/application_id", "1562653073317568513").toString());
         discordId->setPlaceholderText("Discord application ID");
         discordForm->addRow(discordCheck);
         discordForm->addRow("Application ID", discordId);
         auto *discordHelp = new QLabel(
-            "<small>Discord shows <i>Playing</i> followed by the name of the application "
-            "with this ID. Create one named <b>Project Tux Fortnite on Linux</b> at "
-            "discord.com/developers/applications and paste its Application ID.</small>");
+            "<small>Shows <i>Playing Project Tux Fortnite on Linux</i>. Discord takes the "
+            "name from the application with this ID; change it only to use your own "
+            "application from discord.com/developers/applications.</small>");
         discordHelp->setWordWrap(true);
         discordForm->addRow(discordHelp);
         layout->addWidget(discordBox);
