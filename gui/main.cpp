@@ -52,6 +52,16 @@ QString repoRoot() {
         return QDir::cleanPath(app.filePath(".."));
     return QStringLiteral(PROJECT_TUX_SOURCE_DIR);
 }
+// Install command for a distribution package, for the setup checklist.
+QString installHint(const QString &package) {
+    if (!QStandardPaths::findExecutable("dnf").isEmpty())
+        return "sudo dnf install " + package;
+    if (!QStandardPaths::findExecutable("pacman").isEmpty())
+        return "sudo pacman -S " + package;
+    if (!QStandardPaths::findExecutable("apt").isEmpty())
+        return "sudo apt install " + package;
+    return "install the " + package + " package";
+}
 
 enum class State { Off, Starting, Ready, Failed };
 QString dot(State state, const QString &text) {
@@ -453,7 +463,7 @@ class Launcher : public QMainWindow {
              "Prepare Lawin: see integrations/lawin/README.md", true},
             {"Erbium game server", erbiumEdit->text(), "Build Erbium: see docs/MATCH.md", host},
             {"pasta (multiplayer)", pasta.isEmpty() ? "/nonexistent" : pasta,
-             "Install it: sudo pacman -S passt", mpOn()},
+             "Install it: " + installHint("passt"), mpOn()},
         };
     }
     bool ready(QStringList *missing = nullptr) const {

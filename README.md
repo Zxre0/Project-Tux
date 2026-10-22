@@ -5,7 +5,7 @@ a local backend and a local game server, running the Windows game through
 Proton/DXVK.
 
 **Status:** local BR Solo works end to end on CachyOS/Hyprland/NVIDIA with Proton
-Experimental. Log in, customise your locker, press Play, get matched to the
+Experimental. Fedora is supported too (see [Fedora](docs/LINUX.md#fedora)). Log in, customise your locker, press Play, get matched to the
 local game server, ride the bus and drop onto the map.
 
 > You need your own legitimately obtained 12.50 game files. No Fortnite assets,
@@ -38,8 +38,19 @@ local game server, ride the bus and drop onto the map.
 
 ## Quick start
 
-1. **Build** (Arch/CachyOS packages: `base-devel cmake ninja qt6-base
-   tomlplusplus zlib vulkan-headers vulkan-icd-loader clang lld`):
+1. **Build.** Install the build dependencies first:
+
+   ```sh
+   # Arch/CachyOS
+   sudo pacman -S --needed base-devel cmake ninja qt6-base tomlplusplus zlib \
+       vulkan-headers vulkan-icd-loader clang lld wine nodejs passt
+   # Fedora
+   sudo dnf install gcc-c++ cmake ninja-build qt6-qtbase-devel tomlplusplus-devel \
+       zlib-ng-compat-devel vulkan-headers vulkan-loader-devel clang lld \
+       wine wine-devel nodejs passt
+   ```
+
+   Then:
 
    ```sh
    ./build.sh                      # native CLI + backend runner + tests
