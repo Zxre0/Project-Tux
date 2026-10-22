@@ -98,10 +98,19 @@ Fedora are supported (see [Fedora](docs/LINUX.md#fedora)).
 | **Hosting** | *Host a local game server* (on by default). Turn it off to start only the backend and your game (lobby/locker work; Play queues with no server). Erbium DLL path. |
 | **Multiplayer** | Off by default. Join another player's server by IP/hostname, or host so LAN/VPN players can join yours (needs `passt`). When joining a [Project Tux Windows Server](https://github.com/Zxre0/Project-Tux-Windows-Server), use **the server's accounts** so your cosmetics show in its matches ([details](docs/MATCH.md#shared-accounts-joining-a-project-tux-windows-server)). The sandbox still can't reach Epic. |
 | **Lawin** | Edit the local backend: display name, level, Battle Pass tier, V-Bucks, add/remove cosmetics (all 6,000+ Lawin knows; the game skips items newer than your build), unlock everything, reset locker, edit the item shop. Available while the game isn't running. |
-| **Settings** | Game folder (its version is detected), Proton path and a setup checklist that tells you what's missing |
+| **Settings** | Game folder (its version is detected), Proton path, a setup checklist that tells you what's missing, and Discord status |
 
 `project-tux --launch` starts straight away; the desktop entry has a *Play now*
 action for that. The Lawin editor is also a CLI: `scripts/lawin-admin.sh info`.
+
+**Discord:** while a session runs, the launcher shows *Playing Project Tux
+Fortnite on Linux* in Discord, with the version and match phase underneath.
+Discord takes the name from a Discord application: create one named *Project
+Tux Fortnite on Linux* at
+[discord.com/developers/applications](https://discord.com/developers/applications)
+and paste its **Application ID** into Settings → Discord. It talks only to the
+Discord app on your computer (native, Flatpak or Vesktop), never from inside
+the game's sandbox; untick the box to turn it off.
 
 The server shows a small frozen Fortnite window and an Erbium console. Leave
 them open. Logs for every run go to
