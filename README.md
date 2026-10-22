@@ -105,10 +105,10 @@ action for that. The Lawin editor is also a CLI: `scripts/lawin-admin.sh info`.
 
 **Discord:** while a session runs, the launcher shows *Playing Project Tux
 Fortnite on Linux* in Discord, with the version and match phase underneath.
-Discord takes the name from a Discord application: create one named *Project
-Tux Fortnite on Linux* at
+Project Tux's Discord application (ID `1562653073317568513`) is built in; to use
+your own, create one at
 [discord.com/developers/applications](https://discord.com/developers/applications)
-and paste its **Application ID** into Settings → Discord. It talks only to the
+and put its **Application ID** in Settings → Discord. It talks only to the
 Discord app on your computer (native, Flatpak or Vesktop), never from inside
 the game's sandbox; untick the box to turn it off.
 
