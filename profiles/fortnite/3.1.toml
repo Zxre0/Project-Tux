@@ -8,8 +8,8 @@ arguments = ["-log", "-d3d11"]
 # layouts below come from a memory image of the running, network-isolated game.
 launch_profile = "private-development"
 eac_policy = "must-not-start"
-linux_status = "experimental; isolated Lawin login, lobby, local matchmaking and joining an Erbium server (warmup) verified"
-reboot_status = "Erbium game server verified through warmup with one player; Reboot unverified"
+linux_status = "experimental; isolated Lawin login, lobby, local matchmaking and an Erbium match through bus and storm verified"
+reboot_status = "Erbium game server verified through bus and storm with one player; Reboot unverified"
 private_path_verified = false
 http_interface_probe_allowed = true
 # Hash-gated: function RVA, vtable RVA, URL field, method slot (FCurlHttpRequest::ProcessRequest).

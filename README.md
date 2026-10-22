@@ -114,8 +114,9 @@ Full command notes and caveats: [docs/CLI.md](docs/CLI.md).
 ## Known limitations
 
 - Only 12.50 and 3.1 BR have been tested, with a single player.
-- 3.1 (Chapter 1 Season 3) also works: login, lobby and joining a local Erbium
-  match (warmup verified; [details](docs/FORTNITE_3_1.md)). Global chat does not.
+- 3.1 (Chapter 1 Season 3) also works from the launcher: login, lobby and a
+  local Erbium match through the bus and storm ([details](docs/FORTNITE_3_1.md)).
+  Global chat does not.
 - This Shipping build ignores `-nullrhi`, so the server still renders a window.
 - Erbium's ImGui control panel crashes the server under DXVK and is disabled,
   so the bus launches on the normal warmup timer.

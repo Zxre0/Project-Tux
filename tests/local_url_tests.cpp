@@ -23,6 +23,12 @@ int main() {
                   L"https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnite/parties",
                   result, 4096) == 1);
         check(std::wcscmp(result, L"http://127.0.0.1:3551/party/api/v1/Fortnite/parties") == 0);
+        // Friends list, blocklist and summary (Lawin serves them).
+        check(fol_local_url(L"https://friends-public-service-prod06.ol.epicgames.com/friends/api/"
+                            L"public/friends/0123456789abcdef0123456789abcdef",
+                            result, 4096) == 1);
+        check(std::wcscmp(result, L"http://127.0.0.1:3551/friends/api/public/friends/"
+                                  L"0123456789abcdef0123456789abcdef") == 0);
         // Arena: the lobby's events (divisions, hype) come from the server's backend.
         check(fol_local_url(L"https://events-public-service-live.ol.epicgames.com/api/v1/events/"
                             L"Fortnite/download/0123456789abcdef0123456789abcdef?region=NAE",
@@ -38,6 +44,7 @@ int main() {
               L"https://account.notol.epicgames.com/account/api/oauth/token",
               L"https://account.ol.epicgames.com/telemetry/",
               L"https://account.ol.epicgames.com/account/apix/token",
+              L"https://friends-public-service-prod06.ol.epicgames.com/friendsx/api/x",
               L"https://party-service-prod.ol.epicgames.com/party/api/v1/OtherGame/parties",
               L"https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnitex/parties",
               L"https://events-public-service-live.ol.epicgames.com/api/v1/events/OtherGame/x",

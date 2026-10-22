@@ -722,12 +722,20 @@ class Launcher : public QMainWindow {
             const char *marker, *label;
         } phases[] = {{"MatchState changed previous=EnteringMap current=WaitingToStart",
                        "Waiting for players"},
+                      // 3.1 logs "Match State Changed from X to Y" instead.
+                      {"Match State Changed from EnteringMap to WaitingToStart",
+                       "Waiting for players"},
                       {"Join succeeded", "Player joined"},
                       {"current=InProgress", "In progress (warmup)"},
+                      {"Match State Changed from WaitingToStart to InProgress",
+                       "In progress (warmup)"},
                       {"Set AthenaGamePhase to [Aircraft]", "Battle bus"},
                       {"Set AthenaGamePhase to [SafeZones]", "Storm phases"},
                       {"current=WaitingPostMatch", "Match over"},
-                      {"current=LeavingMap", "Server left the match"}};
+                      {"to WaitingPostMatch", "Match over"},
+                      {"current=LeavingMap", "Server left the match"},
+                      {"InProgress to LeavingMap", "Server left the match"},
+                      {"WaitingPostMatch to LeavingMap", "Server left the match"}};
         qsizetype best = -1;
         QString label;
         for (const auto &phase : phases) {
