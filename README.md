@@ -42,9 +42,11 @@ Fedora are supported (see [Fedora](docs/LINUX.md#fedora)).
   with the MSVC toolchain and a plain-Solo config (no cheats, no siphon).
 - **Glue:** `fol-inject.exe` starts each game process and loads
   `fol-match-router.dll` (redirects Epic service URLs to the local backend)
-  and, for the server, Erbium once sign-in completes. The version's profile
-  supplies the router's hook locations, launch arguments and the sign-in line
-  to wait for; the router only runs on the exact executable it was made for.
+  and, for the server, Erbium once sign-in completes. On 3.1 the player's game
+  also gets `fol-sprint.dll` (sprint by default, which 3.1 lacks). The
+  version's profile supplies the router's hook locations, launch arguments and
+  the sign-in line to wait for; the router only runs on the exact executable it
+  was made for.
 
 ## Quick start
 
