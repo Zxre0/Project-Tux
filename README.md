@@ -90,6 +90,23 @@ Fedora are supported (see [Fedora](docs/LINUX.md#fedora)).
    Mode** once, then **Ready**). **Stop** (or closing the game) ends everything.
    Prefer a terminal? `scripts/fortnite-match.sh` does the same thing.
 
+## Updating
+
+In the launcher, open **Settings → Updates**. It checks GitHub when it starts
+(the Play tab shows *Update available* when there is one). Press **Update now**,
+then restart when it asks. From a terminal:
+
+```sh
+./update.sh            # download the latest main and rebuild
+./update.sh --check    # only show what's new
+```
+
+It updates `main` (switch with `git switch main` if you're on another branch),
+rebuilds the launcher, CLI and Windows helpers, and leaves your settings, game
+files and Lawin locker alone. If you changed any of the project's files it stops
+and lists them. It tells you when the Erbium game server or the Lawin setup also
+needs redoing.
+
 ## Launcher
 
 | Tab | What it does |
@@ -98,7 +115,7 @@ Fedora are supported (see [Fedora](docs/LINUX.md#fedora)).
 | **Hosting** | *Host a local game server* (on by default). Turn it off to start only the backend and your game (lobby/locker work; Play queues with no server). Erbium DLL path. |
 | **Multiplayer** | Off by default. Join another player's server by IP/hostname, or host so LAN/VPN players can join yours (needs `passt`). When joining a [Project Tux Windows Server](https://github.com/Zxre0/Project-Tux-Windows-Server), use **the server's accounts** so your cosmetics show in its matches ([details](docs/MATCH.md#shared-accounts-joining-a-project-tux-windows-server)). The sandbox still can't reach Epic. |
 | **Lawin** | Edit the local backend: display name, level, Battle Pass tier, V-Bucks, add/remove cosmetics (all 6,000+ Lawin knows; the game skips items newer than your build), unlock everything, reset locker, edit the item shop. Available while the game isn't running. |
-| **Settings** | Game folder (its version is detected), Proton path, a setup checklist that tells you what's missing, and Discord status |
+| **Settings** | Game folder (its version is detected), Proton path, a setup checklist that tells you what's missing, Discord status, and updates |
 
 `project-tux --launch` starts straight away; the desktop entry has a *Play now*
 action for that. The Lawin editor is also a CLI: `scripts/lawin-admin.sh info`.
