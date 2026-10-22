@@ -8,8 +8,8 @@ arguments = ["-log", "-d3d11"]
 # layouts below come from a memory image of the running, network-isolated game.
 launch_profile = "private-development"
 eac_policy = "must-not-start"
-linux_status = "experimental; isolated startup to the frontend and local HTTP routing verified; login and gameplay unverified"
-reboot_status = "game-server integration unverified; local Lawin backend is separate"
+linux_status = "experimental; isolated Lawin login, lobby, local matchmaking and joining an Erbium server (warmup) verified"
+reboot_status = "Erbium game server verified through warmup with one player; Reboot unverified"
 private_path_verified = false
 http_interface_probe_allowed = true
 # Hash-gated: function RVA, vtable RVA, URL field, method slot (FCurlHttpRequest::ProcessRequest).
@@ -18,16 +18,16 @@ http_observer_sha256 = "648902b797d48bc6aafbb2c6ca45cfea11ea98c0b516165e86c88851
 http_observer_layout = "28163488,57480128,40,15"
 # FCurlHttpRequest::SetURL RVA and slot.
 http_router_layout = "28176416,10"
-runtime_recommendation = "Proton Experimental 11.0-20261014 verified for isolated startup and routing only; no performance ranking"
+runtime_recommendation = "Proton Experimental 11.0-20261014 verified for a local match; no performance ranking"
 graphics = "D3D11 diagnostic baseline; no component modifications"
 # Erbium's pre-Season 11 map selection names Athena_Terrain. No arbitrary URL input.
 solo_world_url = "Athena_Terrain"
 solo_listen_url = "Athena_Terrain?listen"
 # scripts/fortnite-match.sh: game arguments (before the -AUTH_* login), suspended
 # helper executables in Win64 kept beside each game, and the log line after which
-# the game server loads Erbium. 3.1 needs no launcher/EAC presence. The server
-# marker is unknown until local login works, so hosting is not enabled yet.
+# the game server loads Erbium. 3.1 needs no launcher/EAC presence and logs no
+# UI state changes; its login state machine reports completion instead.
 match_arguments = ["-epicportal", "-epicapp=Fortnite", "-epicenv=Prod", "-epiclocale=en-us",
                    "-skippatchcheck", "-nobe"]
 match_presence = []
-server_login_marker = ""
+server_login_marker = "Login: Completing Sign-in... (Completed)"
