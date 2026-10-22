@@ -101,7 +101,7 @@ clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-b
     -c helpers/windows/server_guard.c -o build/windows/server_guard.obj
 lld-link /dll /entry:guard_entry /subsystem:windows /nodefaultlib /machine:x64 /timestamp:0 \
     /out:build/windows/fol-server-guard.dll build/windows/server_guard.obj \
-    $WINE_LIB/libkernel32.a $WINE_LIB/libuser32.a
+    $WINE_LIB/libkernel32.a $WINE_LIB/libuser32.a $WINE_LIB/libiphlpapi.a
 file build/windows/fol-server-guard.dll
 clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
     -I$WINE_INCLUDE/windows -I$WINE_INCLUDE/msvcrt -Wall -Wextra -Werror -O1 \
