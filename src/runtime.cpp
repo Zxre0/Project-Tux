@@ -32,7 +32,12 @@ QJsonArray runtimes() {
     QStringList roots{QDir::homePath() + "/.local/share/Steam/steamapps/common",
                       QDir::homePath() + "/.steam/root/steamapps/common",
                       QDir::homePath() + "/.steam/root/compatibilitytools.d",
-                      QDir::homePath() + "/.local/share/Steam/compatibilitytools.d"};
+                      QDir::homePath() + "/.local/share/Steam/compatibilitytools.d",
+                      // Flatpak Steam (common on Fedora).
+                      QDir::homePath() +
+                          "/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common",
+                      QDir::homePath() + "/.var/app/com.valvesoftware.Steam/.local/share/Steam/"
+                                         "compatibilitytools.d"};
     QSet<QString> seen;
     for (const auto &root : roots) {
         for (const auto &dir : QDir(root).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
