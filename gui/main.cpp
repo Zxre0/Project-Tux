@@ -62,6 +62,36 @@ QString installHint(const QString &package) {
         return "sudo apt install " + package;
     return "install the " + package + " package";
 }
+// Release version embedded in the game executable ("12.50", "3.1"), or empty.
+// Cached per file so the checklist can ask on every refresh.
+QString gameVersion(const QString &gameDir) {
+    static QString cachedKey, cachedVersion;
+    const QFileInfo exe(gameDir + "/FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe");
+    const auto key = exe.absoluteFilePath() + "|" + QString::number(exe.size()) + "|" +
+                     exe.lastModified().toString(Qt::ISODateWithMs);
+    if (key == cachedKey)
+        return cachedVersion;
+    cachedKey = key;
+    cachedVersion.clear();
+    QFile file(exe.absoluteFilePath());
+    if (!file.open(QIODevice::ReadOnly))
+        return cachedVersion;
+    static const QRegularExpression release("\\+\\+Fortnite\\+Release-([0-9]{1,2}\\.[0-9]{1,2})[-+]");
+    QByteArray tail;
+    while (!file.atEnd()) {
+        const auto data = tail + file.read(1024 * 1024);
+        const auto at = data.indexOf("++Fortnite+Release-");
+        if (at >= 0) {
+            const auto match = release.match(QString::fromLatin1(data.mid(at, 40)));
+            if (match.hasMatch()) {
+                cachedVersion = match.captured(1);
+                break;
+            }
+        }
+        tail = data.right(64);
+    }
+    return cachedVersion;
+}
 
 enum class State { Off, Starting, Ready, Failed };
 QString dot(State state, const QString &text) {
@@ -151,7 +181,7 @@ class Launcher : public QMainWindow {
     QWidget *playTab() {
         auto *page = new QWidget;
         auto *layout = new QVBoxLayout(page);
-        auto *title = new QLabel("<h2>Project Tux</h2>Fortnite 12.50 · Battle Royale Solo");
+        title = new QLabel;
         layout->addWidget(title);
 
         auto *statusBox = new QGroupBox("Status");
@@ -212,7 +242,7 @@ class Launcher : public QMainWindow {
         hostCheck->setFont(font);
         layout->addWidget(hostCheck);
         auto *explain = new QLabel(
-            "When enabled, Launch first starts a headless Fortnite 12.50 game server "
+            "When enabled, Launch first starts a headless Fortnite game server "
             "(Erbium) and waits until it is listening, then starts your game. Pressing "
             "Play in the lobby matches you onto it.<br><br>When disabled, only the backend "
             "and your game start: the lobby and locker work, but Play stays in the queue "
@@ -388,7 +418,7 @@ class Launcher : public QMainWindow {
         protonEdit = new QLineEdit(
             settings.value("paths/proton", data + "/runtimes/experimental-20260924/proton")
                 .toString());
-        form->addRow("Fortnite 12.50 folder", pathRow(gameEdit, true, "paths/game"));
+        form->addRow("Fortnite folder", pathRow(gameEdit, true, "paths/game"));
         form->addRow("Proton script", pathRow(protonEdit, false, "paths/proton"));
         layout->addWidget(box);
         settingsBox = box;
@@ -445,12 +475,15 @@ class Launcher : public QMainWindow {
     QList<Check> checks() const {
         const bool host = hosting();
         const auto pasta = QStandardPaths::findExecutable("pasta");
+        const auto version = gameVersion(gameEdit->text());
         return {
-            {"Fortnite 12.50",
+            {version.isEmpty() ? "Fortnite" : "Fortnite " + version,
              gameEdit->text() + "/FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe",
              "Set the game folder in Settings", true},
+            {"Supported version", root + "/profiles/fortnite/" + version + ".toml",
+             "No profile for this build in profiles/fortnite", true},
             {"Proton", protonEdit->text(), "Import Proton: see docs/BACKEND.md", true},
-            {"Game prefix", data + "/proton-prefixes/12.50/pfx",
+            {"Game prefix", data + "/proton-prefixes/" + version + "/pfx",
              "Run the lobby launch once: see docs/BACKEND.md", true},
             {"Backend runner", root + "/build/fortnite-backend", "Run ./build.sh", true},
             {"Injector", root + "/build/windows/fol-inject.exe",
@@ -495,6 +528,9 @@ class Launcher : public QMainWindow {
 
     // ---- state ----
     void refresh() {
+        const auto version = gameVersion(gameEdit->text());
+        title->setText("<h2>Project Tux</h2>Fortnite " + (version.isEmpty() ? "" : version + " ") +
+                       "· Battle Royale Solo");
         QString list;
         for (const auto &check : checks()) {
             const bool ok = QFileInfo::exists(check.path);
@@ -674,8 +710,9 @@ class Launcher : public QMainWindow {
         }
         if (!hostCheck->isChecked() || server != State::Ready)
             return;
-        QFile file(data + "/proton-prefixes/12.50/pfx/drive_c/users/steamuser/AppData/Local/"
-                          "FortniteGame/Saved/Logs/FortniteGame.log");
+        QFile file(data + "/proton-prefixes/" + gameVersion(gameEdit->text()) +
+                   "/pfx/drive_c/users/steamuser/AppData/Local/FortniteGame/Saved/Logs/"
+                   "FortniteGame.log");
         if (!file.open(QIODevice::ReadOnly))
             return;
         if (file.size() > 256 * 1024)
@@ -719,7 +756,8 @@ class Launcher : public QMainWindow {
     QTimer killTimer, poll;
     bool running = false;
     State backend = State::Off, server = State::Off, client = State::Off;
-    QLabel *backendLabel, *serverLabel, *clientLabel, *matchLabel, *hint, *hostStatus, *checkList;
+    QLabel *title, *backendLabel, *serverLabel, *clientLabel, *matchLabel, *hint, *hostStatus,
+        *checkList;
     QPushButton *launchButton, *stopButton;
     QPlainTextEdit *output;
     QCheckBox *hostCheck;

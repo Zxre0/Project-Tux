@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-only
-# Local 12.50 BR Solo match: Lawin backend + headless Erbium game server +
+# Local BR Solo match: Lawin backend + headless Erbium game server +
 # rendered client, all inside one loopback-only network namespace.
 #
 #   scripts/fortnite-match.sh            # server + client
 #   scripts/fortnite-match.sh --server   # server only (join from another client)
 #
-# Override paths with FOL_GAME_DIR, FOL_PROTON, FOL_ERBIUM_DLL if needed.
+# The build's release string selects profiles/fortnite/<version>.toml.
+# Override with FOL_GAME_DIR, FOL_PROTON, FOL_ERBIUM_DLL, FOL_VERSION if needed.
 set -euo pipefail
 
 REPO=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
@@ -15,9 +16,20 @@ CONFIG=${XDG_CONFIG_HOME:-$HOME/.config}/fortnite-on-linux
 STATE=${XDG_STATE_HOME:-$HOME/.local/state}/fortnite-on-linux
 GAME_DIR=${FOL_GAME_DIR:-$HOME/Documents/Fortnite/++Fortnite+Release-12}
 PROTON=${FOL_PROTON:-$DATA/runtimes/experimental-20260924/proton}
-COMPAT=$DATA/proton-prefixes/12.50
-ERBIUM=${FOL_ERBIUM_DLL:-$(ls "$REPO"/build-erbium/*/erbium-solo.dll 2>/dev/null | head -1)}
+ERBIUM=${FOL_ERBIUM_DLL:-$(ls "$REPO"/build-erbium/*/erbium-solo.dll 2>/dev/null | head -1 || true)}
 WIN64="$GAME_DIR/FortniteGame/Binaries/Win64"
+VERSION=${FOL_VERSION:-$(grep -aoE -m1 '\+\+Fortnite\+Release-[0-9]{1,2}\.[0-9]{1,2}' \
+    "$WIN64/FortniteClient-Win64-Shipping.exe" 2>/dev/null | head -1 | sed 's/.*Release-//' || true)}
+PROFILE=$REPO/profiles/fortnite/$VERSION.toml
+[[ -n $VERSION && -f $PROFILE ]] ||
+    { echo "No supported Fortnite build in $GAME_DIR (detected: ${VERSION:-none})" >&2; exit 1; }
+export FOL_VERSION=$VERSION
+profile() {
+    python3 -c 'import sys, tomllib
+v = tomllib.load(open(sys.argv[1], "rb")).get(sys.argv[2], "")
+sys.stdout.write("".join(x + "\n" for x in v) if isinstance(v, list) else v + "\n")' "$PROFILE" "$1"
+}
+COMPAT=$DATA/proton-prefixes/$VERSION
 LOGS="$COMPAT/pfx/drive_c/users/steamuser/AppData/Local/FortniteGame/Saved/Logs"
 winpath() { printf 'Z:%s' "${1//\//\\}"; }
 LAWIN_CONFIG=$CONFIG/backend/lawin.json
@@ -37,14 +49,19 @@ PY
 }
 
 if [[ ${1:-} != --inner ]]; then
-    for f in "$PROTON" "$ERBIUM" "$REPO/build/windows/fol-inject.exe" \
-             "$REPO/build/windows/fol-match-router.dll" "$REPO/build/fortnite-backend" \
-             "$WIN64/FortniteClient-Win64-Shipping.exe"; do
-        [[ -e $f ]] || { echo "Missing: $f (run ./build.sh, helpers/windows/build.sh, Erbium build)" >&2; exit 1; }
+    export FOL_MATCH_MODE=${1:---both}
+    required=("$PROTON" "$REPO/build/windows/fol-inject.exe" "$REPO/build/windows/fol-match-router.dll"
+              "$REPO/build/fortnite-backend" "$WIN64/FortniteClient-Win64-Shipping.exe")
+    if [[ $FOL_MATCH_MODE != --client ]]; then
+        [[ -n $(profile server_login_marker) ]] ||
+            { echo "Hosting a game server isn't supported for $VERSION yet; turn off hosting" >&2; exit 1; }
+        required+=("$ERBIUM")
+    fi
+    for f in "${required[@]}"; do
+        [[ -n $f && -e $f ]] || { echo "Missing: ${f:-Erbium DLL} (run ./build.sh, helpers/windows/build.sh, Erbium build)" >&2; exit 1; }
     done
     SESSION=$(date -u +%Y-%m-%d_%H-%M-%S)_match
     export FOL_SESSION_ID=$SESSION FOL_MATCH_DIR="$STATE/logs/sessions/$SESSION"
-    export FOL_MATCH_MODE=${1:---both}
     mkdir -p "$FOL_MATCH_DIR"
     echo "Session logs: $FOL_MATCH_DIR"
     OUTER=$(stat -L -c '%d:%i' /proc/self/ns/net)
@@ -141,19 +158,20 @@ apply_multiplayer_routes() {
 LOGIN_FILE=$CONFIG/backend/local-login.json
 [[ ${FOL_MP_MODE:-} == join && ${FOL_MP_ACCOUNTS:-own} == server ]] && LOGIN_FILE=$CONFIG/backend/remote.json
 { read -r USERNAME; read -r PASSWORD; } < <(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["username"]); print(d["password"])' "$LOGIN_FILE")
-GAME_ARGS=(-epicportal -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -skippatchcheck -nobe
-           -fromfl=eac -fltoken=3db3ba5dcbd2e16703f3978d
-           "-AUTH_LOGIN=$USERNAME" "-AUTH_PASSWORD=$PASSWORD" -AUTH_TYPE=epic)
+mapfile -t GAME_ARGS < <(profile match_arguments)
+GAME_ARGS+=("-AUTH_LOGIN=$USERNAME" "-AUTH_PASSWORD=$PASSWORD" -AUTH_TYPE=epic)
 EXE=$(winpath "$WIN64/FortniteClient-Win64-Shipping.exe")
 # NVIDIA + XWayland (Hyprland, multi-monitor/high refresh): with the driver's
 # explicit-sync path the compositor only shows new frames when the cursor moves.
 export __NV_DISABLE_EXPLICIT_SYNC=${__NV_DISABLE_EXPLICIT_SYNC:-1}
-export FOL_HTTP_OBSERVER_LAYOUT='59236016,107847520,104,17' FOL_HTTP_ROUTER_LAYOUT='59245424,10'
+export FOL_HTTP_OBSERVER_LAYOUT=$(profile http_observer_layout)
+export FOL_HTTP_ROUTER_LAYOUT=$(profile http_router_layout)
 export FOL_INJECT_EARLY=$(winpath "$REPO/build/windows/fol-match-router.dll")
-# Suspended (never-run) launcher/EAC bootstrap processes next to each game:
-# 12.50's environment check otherwise shows "Fortnite was not started
-# correctly" and closes the game after a while.
-export FOL_INJECT_PRESENCE="$(winpath "$WIN64/FortniteLauncher.exe");$(winpath "$WIN64/FortniteClient-Win64-Shipping_EAC.exe")"
+# Suspended (never-run) launcher/EAC bootstrap processes next to each game,
+# for builds whose environment check otherwise closes the game (12.50).
+presence=()
+while read -r helper; do presence+=("$(winpath "$WIN64/$helper")"); done < <(profile match_presence)
+export FOL_INJECT_PRESENCE=$(IFS=';'; echo "${presence[*]}")
 cd "$WIN64"
 pids=()
 # Hyprland: with per-region damage tracking, fullscreen XWayland games only
@@ -236,7 +254,7 @@ run_server() {
     FOL_ERBIUM_LOG="$(winpath "$S")\\erbium-$1.log" \
     SteamGameId=$SERVER_APP_ID SteamAppId=$SERVER_APP_ID \
     FOL_INJECT_LOG='C:\users\steamuser\AppData\Local\FortniteGame\Saved\Logs\FortniteGame.log' \
-    FOL_INJECT_MARKER='UI State changing from [UI.State.Startup.Login]' \
+    FOL_INJECT_MARKER=$(profile server_login_marker) \
     WINEDEBUG='+timestamp,+pid,+seh,+loaddll' \
         "$PROTON" run "$REPO/build/windows/fol-inject.exe" "$EXE" -log -nullrhi -nosplash -nosound \
         -RenderOffScreen -windowed -ResX=640 -ResY=360 \
