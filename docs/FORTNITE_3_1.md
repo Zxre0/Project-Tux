@@ -13,24 +13,30 @@ Profile: [`profiles/fortnite/3.1.toml`](../profiles/fortnite/3.1.toml).
 ## Status
 
 Verified 2026-10-21 on Fedora 44 (KDE Wayland, NVIDIA) with Proton Experimental
-11.0-20261014, through `scripts/fortnite-match.sh` (the launcher runs the same script):
+11.0-20261014, through `scripts/fortnite-match.sh` and the launcher's **Launch**:
 
-- `fol-match-router.dll` with the 3.1 layouts sends account, Fortnite, content
-  and lightswitch requests to Lawin; login completes (`Login: Completing
+- `fol-match-router.dll` with the 3.1 layouts sends account, Fortnite, content,
+  lightswitch and friends requests to Lawin; login completes (`Login: Completing
   Sign-in... (Completed)`) and the Season 3 lobby loads with the starter locker.
 - The game server signs in, loads Erbium (partial upstream 3.1 support, map
   `Athena_Terrain`), and listens on 7777 about 20 s after start.
-- Ready → ticket → local matchmaker → join: the client spawns on the island in
-  warmup; moving and building work. The battle bus and a full match to the end
-  have not been observed yet.
+- Ready → ticket → local matchmaker → join → warmup → battle bus → jump →
+  storm phases (`Set AthenaGamePhase to [SafeZones]`). The end of a match has
+  not been observed yet.
+- The launcher shows each phase: 3.1 logs `Match State Changed from X to Y`
+  where 12.50 logs `MatchState changed previous=X current=Y`.
+
+In the game:
+
+- After sign-in 3.1 asks Battle Royale or Save the World; pick Battle Royale.
+- Pick Solo with **Change Mode** once; the choice is saved with your settings.
+  Erbium ignores playlists before 3.5, so the server's game mode is the build's
+  default either way.
 
 Not working / not checked:
 
 - Global chat ("Unable to connect to the chat server"): the Lawin XMPP adapter
   has no chat rooms (same as 12.50). Party messages work once XMPP connects.
-- Friends requests go to an unlisted Epic host and fail in the sandbox.
-- The lobby may start on SQUAD; use **Change Mode** if you want Solo. Erbium ignores
-  playlists before 3.5, so the server's game mode is the build's default either way.
 - Only one player has been tested.
 
 ## Setup notes
