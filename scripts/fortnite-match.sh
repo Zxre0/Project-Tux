@@ -76,6 +76,18 @@ if [[ ${1:-} != --inner ]]; then
     join|host)
         command -v pasta >/dev/null ||
             { echo "Multiplayer needs pasta: install the passt package (dnf install passt / pacman -S passt)" >&2; exit 1; }
+        # Fedora's SELinux policy confines pasta (pasta_t) to Podman's way of joining
+        # namespaces and denies opening /proc/PID/ns. Run it in the caller's own
+        # unconfined domain, as on distributions without SELinux. pasta re-executes
+        # pasta.avx2 on AVX2 CPUs (entering pasta_t again), so start that one directly.
+        PASTA_BIN=(pasta)
+        if command -v selinuxenabled >/dev/null && selinuxenabled && command -v runcon >/dev/null &&
+            [[ $(id -Z 2>/dev/null) == *:unconfined_t:* ]]; then
+            PASTA_BIN=(runcon -t unconfined_t -- "$(command -v pasta)")
+            if command -v pasta.avx2 >/dev/null && grep -qw avx2 /proc/cpuinfo; then
+                PASTA_BIN[-1]=$(command -v pasta.avx2)
+            fi
+        fi
         if [[ $FOL_MP_MODE == join ]]; then
             target=${FOL_MP_SERVER:-}
             port=7777
@@ -96,12 +108,12 @@ if [[ ${1:-} != --inner ]]; then
                 unset FOL_MP_PASSWORD
                 echo "Multiplayer: signing in to the server's accounts as $FOL_MP_LOGIN"
             fi
-            PASTA=(pasta --config-net --quiet --no-map-gw -t none -u none -T none -U none)
+            PASTA=("${PASTA_BIN[@]}" --config-net --quiet --no-map-gw -t none -u none -T none -U none)
         else
             [[ $FOL_MATCH_MODE == --client ]] &&
                 { echo "Hosting for others needs the local game server enabled" >&2; exit 1; }
             echo "Multiplayer: hosting on UDP 7777 for LAN/VPN players"
-            PASTA=(pasta --config-net --quiet --no-map-gw -t none -u 7777 -T none -U none)
+            PASTA=("${PASTA_BIN[@]}" --config-net --quiet --no-map-gw -t none -u 7777 -T none -U none)
         fi ;;
     *) echo "FOL_MP_MODE must be join or host" >&2; exit 1 ;;
     esac
