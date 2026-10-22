@@ -112,6 +112,24 @@ and put its **Application ID** in Settings → Discord. It talks only to the
 Discord app on your computer (native, Flatpak or Vesktop), never from inside
 the game's sandbox; untick the box to turn it off.
 
+**Multiplayer (joining with the server's accounts):** in the Multiplayer tab,
+tick **Enable multiplayer**, pick **Join another player's server**, enter its
+address (a Tailscale `100.x` address works), then pick **The server's accounts**
+and enter the login and password from the server's admin website
+(`http://server:8090`). Verified on Fedora 44 joining a Project Tux Windows
+Server over Tailscale, through to a match. Two bugs used to stop this:
+
+- *Choosing the server's accounts switched Join off.* All four options shared
+  one radio group; Join/Host and the account choice are now separate.
+- *"Multiplayer: pasta could not attach"* on Fedora and other SELinux systems,
+  with an SELinux (AVC) denial for `pasta.avx2` opening `/proc/<pid>/ns`.
+  Fedora's policy confines pasta to how Podman uses it, which doesn't include
+  joining the game sandbox by PID. When SELinux is on and you run unconfined
+  (the Fedora default), `scripts/fortnite-match.sh` now starts pasta with
+  `runcon -t unconfined_t`, the same as on systems without SELinux, and starts
+  `pasta.avx2` directly, since pasta's own switch to it would re-enter the
+  confined domain. Pull the latest `main` if you still see this.
+
 The server shows a small frozen Fortnite window and an Erbium console. Leave
 them open. Logs for every run go to
 `~/.local/state/fortnite-on-linux/logs/sessions/<date>_match/`.
