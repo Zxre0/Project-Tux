@@ -26,6 +26,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRegularExpression>
+#include <QScrollArea>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTabWidget>
@@ -112,6 +113,7 @@ class Launcher : public QMainWindow {
         setWindowTitle("Project Tux");
         setMinimumSize(760, 560);
         root = repoRoot();
+        self = QCoreApplication::applicationFilePath(); // before an update replaces it
         data = xdg("XDG_DATA_HOME", ".local/share");
         config = xdg("XDG_CONFIG_HOME", ".config");
 
@@ -121,7 +123,12 @@ class Launcher : public QMainWindow {
         tabs->addTab(multiplayerTab(), "Multiplayer");
         lawin = new LawinTab(root);
         tabs->addTab(lawin, "Lawin");
-        tabs->addTab(settingsTab(), "Settings");
+        // Scrolls on small screens: paths, setup check, Discord and updates.
+        auto *settingsScroll = new QScrollArea;
+        settingsScroll->setWidget(settingsTab());
+        settingsScroll->setWidgetResizable(true);
+        settingsScroll->setFrameShape(QFrame::NoFrame);
+        tabs->addTab(settingsScroll, "Settings");
         QObject::connect(tabs, &QTabWidget::currentChanged, this, [this](int index) {
             if (tabs->widget(index) == lawin && !lawinLoaded && !running) {
                 lawinLoaded = true;
@@ -152,6 +159,21 @@ class Launcher : public QMainWindow {
         QObject::connect(&killTimer, &QTimer::timeout, this, [this] { signalGroup(SIGKILL); });
         poll.setInterval(2000);
         QObject::connect(&poll, &QTimer::timeout, this, [this] { pollMatch(); });
+        updater.setProcessChannelMode(QProcess::MergedChannels);
+        QObject::connect(&updater, &QProcess::readyReadStandardOutput, this, [this] {
+            const auto text = QString::fromUtf8(updater.readAllStandardOutput());
+            updateText += text;
+            if (!checking) {
+                updateLog->moveCursor(QTextCursor::End);
+                updateLog->insertPlainText(text);
+                updateLog->ensureCursorVisible();
+            }
+        });
+        QObject::connect(&updater, &QProcess::finished, this,
+                         [this](int code, QProcess::ExitStatus) { updateFinished(code); });
+        // Look for updates shortly after start (a git fetch; nothing is installed).
+        if (QFileInfo::exists(root + "/update.sh"))
+            QTimer::singleShot(1500, this, [this] { runUpdate(true); });
         protectSettings();
         refresh();
     }
@@ -165,6 +187,13 @@ class Launcher : public QMainWindow {
 
   protected:
     void closeEvent(QCloseEvent *event) override {
+        if (updating && !checking &&
+            QMessageBox::question(this, "Project Tux",
+                                  "An update is still running. Quit anyway? Run ./update.sh "
+                                  "again later to finish it.") != QMessageBox::Yes) {
+            event->ignore();
+            return;
+        }
         if (running &&
             QMessageBox::question(this, "Project Tux", "Stop the running game and server?") !=
                 QMessageBox::Yes) {
@@ -185,6 +214,7 @@ class Launcher : public QMainWindow {
         auto *page = new QWidget;
         auto *layout = new QVBoxLayout(page);
         title = new QLabel;
+        QObject::connect(title, &QLabel::linkActivated, this, [this] { showTab("Settings"); });
         layout->addWidget(title);
 
         auto *statusBox = new QGroupBox("Status");
@@ -471,6 +501,30 @@ class Launcher : public QMainWindow {
             settings.setValue("discord/application_id", text.trimmed());
             refresh();
         });
+        // Updates: update.sh downloads the latest main from GitHub and rebuilds.
+        auto *updateBox = new QGroupBox("Updates");
+        auto *updateLayout = new QVBoxLayout(updateBox);
+        updateLabel = new QLabel("Not checked yet.");
+        updateLabel->setWordWrap(true);
+        updateLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        updateLayout->addWidget(updateLabel);
+        auto *updateRow = new QHBoxLayout;
+        checkButton = new QPushButton("Check for updates");
+        updateButton = new QPushButton("Update now");
+        updateRow->addWidget(checkButton);
+        updateRow->addWidget(updateButton);
+        updateRow->addStretch();
+        updateLayout->addLayout(updateRow);
+        updateLog = new QPlainTextEdit;
+        updateLog->setReadOnly(true);
+        updateLog->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+        updateLog->setMinimumHeight(160);
+        updateLog->hide();
+        updateLayout->addWidget(updateLog);
+        layout->addWidget(updateBox);
+        updateBox->setVisible(QFileInfo::exists(root + "/update.sh"));
+        QObject::connect(checkButton, &QPushButton::clicked, this, [this] { runUpdate(true); });
+        QObject::connect(updateButton, &QPushButton::clicked, this, [this] { runUpdate(false); });
         layout->addWidget(new QLabel(QString("Project folder: %1").arg(root)));
         layout->addStretch();
         return page;
@@ -568,7 +622,8 @@ class Launcher : public QMainWindow {
     void refresh() {
         const auto version = gameVersion(gameEdit->text());
         title->setText("<h2>Project Tux</h2>Fortnite " + (version.isEmpty() ? "" : version + " ") +
-                       "· Battle Royale Solo");
+                       "· Battle Royale Solo" +
+                       (updates > 0 ? " · <a href='#updates'>Update available</a>" : ""));
         QString list;
         for (const auto &check : checks()) {
             const bool ok = QFileInfo::exists(check.path);
@@ -610,7 +665,10 @@ class Launcher : public QMainWindow {
 
         QStringList missing;
         const bool canLaunch = ready(&missing);
-        launchButton->setEnabled(!running && canLaunch);
+        launchButton->setEnabled(!running && !updating && canLaunch);
+        checkButton->setEnabled(!running && !updating);
+        updateButton->setEnabled(!running && !updating && updates > 0);
+        updateButton->setToolTip(running ? "Stop the game first" : QString());
         launchButton->setText(running ? "Running…" : "Launch");
         stopButton->setEnabled(running);
         lawin->setSessionRunning(running);
@@ -657,6 +715,61 @@ class Launcher : public QMainWindow {
     }
 
     void log(const QString &line) { output->appendPlainText(line); }
+
+    // ---- updates ----
+    void runUpdate(bool check) {
+        if (running || updating)
+            return;
+        updating = true;
+        checking = check;
+        updateText.clear();
+        if (check) {
+            updateLabel->setText("Checking for updates…");
+        } else {
+            updateLabel->setText("Updating… this takes a few minutes while it rebuilds.");
+            updateLog->clear();
+            updateLog->show();
+        }
+        updater.setWorkingDirectory(root);
+        updater.start("/bin/bash", check ? QStringList{root + "/update.sh", "--check"}
+                                         : QStringList{root + "/update.sh"});
+        refresh();
+    }
+    void updateFinished(int code) {
+        updating = false;
+        const auto lines = updateText.trimmed().split('\n');
+        const auto last = lines.isEmpty() ? QString() : lines.last().trimmed();
+        if (checking) {
+            // update.sh --check: 0 up to date, 100 updates available, else an error.
+            updates = code == 100 ? qMax(1, lines.first().section(' ', 0, 0).toInt()) : 0;
+            if (code == 0 || code == 100) {
+                QString text = "<b>" + lines.first().toHtmlEscaped() + "</b>";
+                for (const auto &line : lines.mid(1))
+                    text += "<br>" + line.trimmed().toHtmlEscaped();
+                updateLabel->setText(text);
+            } else {
+                updateLabel->setText("<span style='color:#e04040'>Couldn't check: " +
+                                     last.toHtmlEscaped() + "</span>");
+            }
+        } else if (code == 0 && updateText.startsWith("Up to date")) {
+            updates = 0;
+            updateLabel->setText("<b>" + last.toHtmlEscaped() + "</b>");
+        } else if (code == 0) {
+            updates = 0;
+            updateLabel->setText("<b>Updated.</b> Restart Project Tux to use the new version.");
+            if (QMessageBox::question(this, "Project Tux",
+                                      "Project Tux was updated. Restart it now?") ==
+                QMessageBox::Yes) {
+                QProcess::startDetached(self, {"--tab", "Settings"});
+                close();
+                return;
+            }
+        } else {
+            updateLabel->setText("<span style='color:#e04040'>Update failed: " +
+                                 last.toHtmlEscaped() + " (full output below)</span>");
+        }
+        refresh();
+    }
 
     void launch() {
         if (running || !ready())
@@ -808,7 +921,13 @@ class Launcher : public QMainWindow {
         QFile::setPermissions(settings.fileName(),
                               QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     }
-    QString root, data, config, session, match;
+    QString root, self, data, config, session, match, updateText;
+    QProcess updater;
+    QLabel *updateLabel;
+    QPushButton *checkButton, *updateButton;
+    QPlainTextEdit *updateLog;
+    bool updating = false, checking = false;
+    int updates = 0;
     DiscordPresence discord;
     qint64 startedAt = 0;
     QCheckBox *discordCheck;
