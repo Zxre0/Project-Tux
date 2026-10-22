@@ -113,7 +113,10 @@ Full command notes and caveats: [docs/CLI.md](docs/CLI.md).
 
 ## Known limitations
 
-- Only 12.50 and BR Solo have been tested, with a single player.
+- Only 12.50 and 3.1 BR have been tested, with a single player.
+- 3.1 (Chapter 1 Season 3) also works from the launcher: login, lobby and a
+  local Erbium match through the bus and storm ([details](docs/FORTNITE_3_1.md)).
+  Global chat does not.
 - This Shipping build ignores `-nullrhi`, so the server still renders a window.
 - Erbium's ImGui control panel crashes the server under DXVK and is disabled,
   so the bus launches on the normal warmup timer.
@@ -130,6 +133,7 @@ Full command notes and caveats: [docs/CLI.md](docs/CLI.md).
 | [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common problems |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Code layout |
 | [FORTNITE_12_50.md](docs/FORTNITE_12_50.md) | 12.50 build notes and startup history |
+| [FORTNITE_3_1.md](docs/FORTNITE_3_1.md) | 3.1 port: encrypted executable, HTTP layouts, status |
 | [PROGRESS.md](docs/PROGRESS.md) | Full development log |
 
 ## Credits

@@ -50,7 +50,7 @@ static int fol_local_url(const wchar_t *input, wchar_t *output, unsigned capacit
         return 0;
     if (!(fol_wide_prefix(path, L"/account/api/") || fol_wide_prefix(path, L"/fortnite/api/") ||
           fol_wide_prefix(path, L"/lightswitch/api/") || fol_wide_prefix(path, L"/content/api/") ||
-          fol_wide_prefix(path, L"/launcher/api/") ||
+          fol_wide_prefix(path, L"/launcher/api/") || fol_wide_prefix(path, L"/friends/api/") ||
           fol_wide_prefix(path, L"/party/api/v1/Fortnite/") ||
           fol_wide_prefix(path, L"/api/v1/events/Fortnite/") ||
           fol_wide_prefix(path, L"/api/v1/leaderboards/Fortnite/")))
