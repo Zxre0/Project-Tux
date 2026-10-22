@@ -2,6 +2,7 @@
 // Project Tux launcher: one-click start of the local backend, game server and
 // client through scripts/fortnite-match.sh.
 #include <QApplication>
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QDateTime>
@@ -311,6 +312,11 @@ class Launcher : public QMainWindow {
         auto *form = new QVBoxLayout(mpBox);
         mpJoin = new QRadioButton("Join another player's server");
         mpHost = new QRadioButton("Host: let other players join my server");
+        // Radio buttons in one box are otherwise all mutually exclusive: picking
+        // the server's accounts would switch Join off. Two separate choices.
+        auto *modeGroup = new QButtonGroup(mpBox);
+        modeGroup->addButton(mpJoin);
+        modeGroup->addButton(mpHost);
         (settings.value("multiplayer/mode", "join").toString() == "host" ? mpHost : mpJoin)
             ->setChecked(true);
         form->addWidget(mpJoin);
@@ -325,6 +331,9 @@ class Launcher : public QMainWindow {
         // admin website manages lockers, so cosmetics show up in its matches).
         mpOwnAccount = new QRadioButton("My own account and locker on this PC");
         mpServerAccount = new QRadioButton("The server's accounts (cosmetics work in its matches)");
+        auto *accountGroup = new QButtonGroup(mpBox);
+        accountGroup->addButton(mpOwnAccount);
+        accountGroup->addButton(mpServerAccount);
         (settings.value("multiplayer/accounts", "own").toString() == "server" ? mpServerAccount
                                                                               : mpOwnAccount)
             ->setChecked(true);
