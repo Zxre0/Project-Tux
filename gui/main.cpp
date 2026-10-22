@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QCloseEvent>
+#include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
@@ -31,6 +32,7 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include "discord_presence.h"
 #include "lawin_tab.h"
 
 #include <csignal>
@@ -433,6 +435,33 @@ class Launcher : public QMainWindow {
         checksLayout->addWidget(recheck, 0, Qt::AlignLeft);
         QObject::connect(recheck, &QPushButton::clicked, this, [this] { refresh(); });
         layout->addWidget(checks);
+
+        // Discord shows "Playing <name of the Discord application with this ID>":
+        // Project Tux's own application, "Project Tux Fortnite on Linux".
+        auto *discordBox = new QGroupBox("Discord");
+        auto *discordForm = new QFormLayout(discordBox);
+        discordCheck = new QCheckBox("Show what you're playing in Discord");
+        discordCheck->setChecked(settings.value("discord/enabled", true).toBool());
+        discordId = new QLineEdit(
+            settings.value("discord/application_id", "1562653073317568513").toString());
+        discordId->setPlaceholderText("Discord application ID");
+        discordForm->addRow(discordCheck);
+        discordForm->addRow("Application ID", discordId);
+        auto *discordHelp = new QLabel(
+            "<small>Shows <i>Playing Project Tux Fortnite on Linux</i>. Discord takes the "
+            "name from the application with this ID; change it only to use your own "
+            "application from discord.com/developers/applications.</small>");
+        discordHelp->setWordWrap(true);
+        discordForm->addRow(discordHelp);
+        layout->addWidget(discordBox);
+        QObject::connect(discordCheck, &QCheckBox::toggled, this, [this](bool on) {
+            settings.setValue("discord/enabled", on);
+            refresh();
+        });
+        QObject::connect(discordId, &QLineEdit::textChanged, this, [this](const QString &text) {
+            settings.setValue("discord/application_id", text.trimmed());
+            refresh();
+        });
         layout->addWidget(new QLabel(QString("Project folder: %1").arg(root)));
         layout->addStretch();
         return page;
@@ -560,6 +589,16 @@ class Launcher : public QMainWindow {
                                             : server == State::Failed   ? "Failed (see logs)"
                                                                         : "Not running"));
 
+        if (running && discordCheck->isChecked())
+            discord.show(discordId->text().trimmed(),
+                         "Fortnite " + (version.isEmpty() ? "" : version + " ") + "· Battle Royale",
+                         !match.isEmpty()              ? match
+                         : client == State::Ready      ? "In the lobby"
+                                                       : "Starting…",
+                         startedAt);
+        else
+            discord.clear();
+
         QStringList missing;
         const bool canLaunch = ready(&missing);
         launchButton->setEnabled(!running && canLaunch);
@@ -646,6 +685,7 @@ class Launcher : public QMainWindow {
             return;
         }
         running = true;
+        startedAt = QDateTime::currentSecsSinceEpoch();
         poll.start();
         refresh();
     }
@@ -760,6 +800,10 @@ class Launcher : public QMainWindow {
                               QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     }
     QString root, data, config, session, match;
+    DiscordPresence discord;
+    qint64 startedAt = 0;
+    QCheckBox *discordCheck;
+    QLineEdit *discordId;
     QProcess process;
     QTimer killTimer, poll;
     bool running = false;
