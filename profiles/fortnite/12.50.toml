@@ -33,3 +33,11 @@ graphics = "D3D11 diagnostic baseline; no component modifications"
 # Erbium's Season 11+ map selection names Apollo_Terrain. No arbitrary URL input.
 solo_world_url = "Apollo_Terrain"
 solo_listen_url = "Apollo_Terrain?listen"
+# scripts/fortnite-match.sh: game arguments (before the -AUTH_* login), suspended
+# helper executables in Win64 kept beside each game (12.50's environment check
+# otherwise shows "Fortnite was not started correctly" and closes the game), and
+# the log line after which the game server loads Erbium.
+match_arguments = ["-epicportal", "-epicapp=Fortnite", "-epicenv=Prod", "-epiclocale=en-us",
+                   "-skippatchcheck", "-nobe", "-fromfl=eac", "-fltoken=3db3ba5dcbd2e16703f3978d"]
+match_presence = ["FortniteLauncher.exe", "FortniteClient-Win64-Shipping_EAC.exe"]
+server_login_marker = "UI State changing from [UI.State.Startup.Login]"
