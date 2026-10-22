@@ -13,8 +13,8 @@ cat >"$APPS/project-tux.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Project Tux
-GenericName=Fortnite 12.50 Launcher
-Comment=Start the local backend, game server and Fortnite 12.50
+GenericName=Fortnite Launcher
+Comment=Start the local backend, game server and Fortnite
 Exec="$BIN"
 Icon=project-tux
 Terminal=false

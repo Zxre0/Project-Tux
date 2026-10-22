@@ -92,7 +92,8 @@ unimplemented profile-token verification are not enabled. Profile-token requests
 fail explicitly rather than receiving fabricated verification success.
 
 The local content-pages adapter removes the provider's `LawinServer V2` lobby
-notice from both emergency-notice formats. Other notices and version-specific
+notice from both emergency-notice formats, its news-feed promotions, and its
+login message (a pop-up in older builds such as 3.1). Other notices and version-specific
 backgrounds are preserved. Upstream license and credits remain in this guide
 and in the deployment.
 

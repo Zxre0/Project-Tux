@@ -115,7 +115,7 @@ class LawinTab : public QScrollArea {
         bulk->addStretch();
         lockerLayout->addLayout(bulk);
         lockerLayout->addWidget(new QLabel(
-            "<small>Items from seasons after 12.50 can't be shown by the game and are skipped "
+            "<small>Items from seasons after your game's version can't be shown by the game and are skipped "
             "in the locker. Changes apply the next time you launch.</small>"));
         lockerBox->setMinimumHeight(420);
         layout->addWidget(lockerBox);
