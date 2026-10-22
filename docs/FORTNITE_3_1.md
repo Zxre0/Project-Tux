@@ -81,6 +81,17 @@ a match on the Project Tux Windows server: W alone sprinted (movement style
 Sprinting, 550 units/s against a 410 jog) in warmup and after the bus and
 landing, with no server corrections. Not yet run under Proton.
 
+## Game server memory
+
+The game server's hidden window kept being painted by Slate, and on 3.1
+(4.20, `-nullrhi`) its vertex buffers were never consumed: three `FSlateVertex`
+arrays grew by about 1,800 vertices a second each, so an idle server reached
+~29 GB and ran out of memory after 6-7 hours ("Ran out of memory allocating
+10521542656 bytes"; 12.50 servers ran for 20 hours without it). Slate skips
+minimized windows, so `fol-server-guard.dll` minimizes the server's windows
+once UDP 7777 is bound. Minimizing during start-up stalls the engine before
+`InitComplete`, hence the wait. Found and verified on the Windows server; not
+yet run under Proton.
 ## HTTP layouts
 
 `FCurlHttpRequest`'s vtable follows 4.20's `IHttpBase`/`IHttpRequest` declaration
