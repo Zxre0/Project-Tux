@@ -1,6 +1,6 @@
 # Fortnite 3.1 (Chapter 1 Season 3)
 
-Port in progress. Profile: [`profiles/fortnite/3.1.toml`](../profiles/fortnite/3.1.toml).
+Profile: [`profiles/fortnite/3.1.toml`](../profiles/fortnite/3.1.toml).
 
 | | |
 | --- | --- |
@@ -12,13 +12,34 @@ Port in progress. Profile: [`profiles/fortnite/3.1.toml`](../profiles/fortnite/3
 
 ## Status
 
-- **Verified (2026-10-21, Fedora, Proton Experimental 11.0-20261014):** startup to
-  the frontend in the loopback-only namespace; `fol-match-router.dll` with the 3.1
-  layouts rewrites account (`/account/api/oauth/token`) and version-check requests
-  to `http://127.0.0.1:3551`.
-- **Not yet:** Lawin login, lobby, the game server's Erbium login marker
-  (`server_login_marker`, so the match script refuses to host for 3.1), gameplay.
-  3.1 logs no `UI State changing` lines, so the 12.50 marker does not apply.
+Verified 2026-10-21 on Fedora 44 (KDE Wayland, NVIDIA) with Proton Experimental
+11.0-20261014, through `scripts/fortnite-match.sh` (the launcher runs the same script):
+
+- `fol-match-router.dll` with the 3.1 layouts sends account, Fortnite, content
+  and lightswitch requests to Lawin; login completes (`Login: Completing
+  Sign-in... (Completed)`) and the Season 3 lobby loads with the starter locker.
+- The game server signs in, loads Erbium (partial upstream 3.1 support, map
+  `Athena_Terrain`), and listens on 7777 about 20 s after start.
+- Ready → ticket → local matchmaker → join: the client spawns on the island in
+  warmup; moving and building work. The battle bus and a full match to the end
+  have not been observed yet.
+
+Not working / not checked:
+
+- Global chat ("Unable to connect to the chat server"): the Lawin XMPP adapter
+  has no chat rooms (same as 12.50). Party messages work once XMPP connects.
+- Friends requests go to an unlisted Epic host and fail in the sandbox.
+- The lobby may start on SQUAD; use **Change Mode** if you want Solo. Erbium ignores
+  playlists before 3.5, so the server's game mode is the build's default either way.
+- Only one player has been tested.
+
+## Setup notes
+
+- The Erbium toolchain (msvc-wine) needs `msiextract`: `sudo dnf install msitools`
+  (Fedora) or `pacman -S msitools`. Without root, extract the Fedora `msitools`,
+  `libmsi1` and `libgcab1` RPMs locally and put them on `PATH`/`LD_LIBRARY_PATH`.
+- msvc-wine's default is VS 18; this build used `--major 17` (MSVC 14.44.35207,
+  SDK 10.0.26100.0).
 
 ## Encrypted executable
 
