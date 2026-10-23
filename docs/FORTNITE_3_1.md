@@ -32,6 +32,10 @@ In the game:
 - Pick Solo with **Change Mode** once; the choice is saved with your settings.
   Erbium ignores playlists before 3.5, so the server's game mode is the build's
   default either way.
+- You sprint by default, like 12.50's Sprint by Default setting (3.1 only has
+  Toggle Sprint): the player's game loads `fol-sprint.dll`, see
+  [Sprint by default](#sprint-by-default). Turn on Toggle Sprint in the game's
+  settings to keep the old behaviour.
 
 Not working / not checked:
 
@@ -55,6 +59,39 @@ strings) is plain. The router layouts therefore came from a memory image of the
 running game, read from `/proc/<pid>/mem` after startup (entropy 6.54), not from
 the file.
 
+## Sprint by default
+
+`fol-sprint.dll` (`helpers/windows/sprint_default.c`) runs only in the player's
+game. The controller's forward-movement handler (RVA `0xe590d0`, slot 630 of
+the match controller's vtable at `0x30dbcf8`, the same slot in every
+`FortPlayerController` vtable) starts sprinting again while
+`bHoldingSprint` (`+0xfe6`) is set and `bSprintToggleable` (`+0xfe7`) is off,
+unless the game blocks it (aiming, building, reloading). The DLL swaps that
+slot and sets `bHoldingSprint` first, as if the key were held, so sprinting
+still goes through the game's own ability and the server accepts it.
+
+The handler reads `MyFortPawn` (`+0x730`) without a null check once the flag is
+set (the game never holds sprint without a pawn), so the DLL clears the flag
+while there is no pawn. A first version that set the flag from a background
+thread crashed the game during map travel (most likely a write into the freed
+lobby controller); the vtable hook runs on the game thread.
+
+`sprint_layout = "15044816,51231992,630,1840,4070,4071"`. Verified on Windows in
+a match on the Project Tux Windows server: W alone sprinted (movement style
+Sprinting, 550 units/s against a 410 jog) in warmup and after the bus and
+landing, with no server corrections. Not yet run under Proton.
+
+## Game server memory
+
+The game server's hidden window kept being painted by Slate, and on 3.1
+(4.20, `-nullrhi`) its vertex buffers were never consumed: three `FSlateVertex`
+arrays grew by about 1,800 vertices a second each, so an idle server reached
+~29 GB and ran out of memory after 6-7 hours ("Ran out of memory allocating
+10521542656 bytes"; 12.50 servers ran for 20 hours without it). Slate skips
+minimized windows, so `fol-server-guard.dll` minimizes the server's windows
+once UDP 7777 is bound. Minimizing during start-up stalls the engine before
+`InitComplete`, hence the wait. Found and verified on the Windows server; not
+yet run under Proton.
 ## HTTP layouts
 
 `FCurlHttpRequest`'s vtable follows 4.20's `IHttpBase`/`IHttpRequest` declaration
