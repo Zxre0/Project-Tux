@@ -14,7 +14,7 @@ cat >"$APPS/project-tux.desktop" <<EOF
 Type=Application
 Name=Project Tux
 GenericName=Fortnite Launcher
-Comment=Start the local backend, game server and Fortnite
+Comment=Join a Project Tux multiplayer server
 Exec="$BIN"
 Icon=project-tux
 Terminal=false

@@ -22,6 +22,13 @@ find_package(Qt6 6.4 QUIET COMPONENTS Widgets)
 if(Qt6Widgets_FOUND)
     add_executable(project-tux gui/main.cpp)
     target_link_libraries(project-tux PRIVATE Qt6::Widgets Qt6::Network)
+    qt_add_resources(project-tux "fonts" PREFIX "/fonts" BASE gui/fonts FILES
+        gui/fonts/WorkSans-Regular.ttf
+        gui/fonts/WorkSans-Medium.ttf
+        gui/fonts/WorkSans-SemiBold.ttf
+        gui/fonts/WorkSans-Bold.ttf
+        gui/fonts/WorkSans-Black.ttf)
+    qt_add_resources(project-tux "icon" PREFIX "/" BASE gui FILES gui/project-tux.svg)
     target_compile_definitions(project-tux PRIVATE PROJECT_TUX_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_options(project-tux PRIVATE -Wall -Wextra -Wpedantic -Werror)
     install(TARGETS project-tux RUNTIME DESTINATION bin)

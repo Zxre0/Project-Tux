@@ -86,8 +86,9 @@ Fedora are supported (see [Fedora](docs/LINUX.md#fedora)).
    build/project-tux                 # or: scripts/install-desktop.sh, then "Project Tux" in your app menu
    ```
 
-   Press **Launch**. It starts the backend, the game server and your game, and
-   shows each one's status. In the lobby choose **Battle Royale → Solo → Play**
+   Enter the server's address, login and password in the **Server** tab, then
+   press **Launch**. The status block in the bottom-left shows sign-in and game
+   progress, and points you to whatever is missing. In the lobby choose **Battle Royale → Solo → Play**
    (on 3.1: pick **Battle Royale** after sign-in, set **Solo** with **Change
    Mode** once, then **Ready**). **Stop** (or closing the game) ends everything.
    Prefer a terminal? `scripts/fortnite-match.sh` does the same thing.
@@ -95,7 +96,7 @@ Fedora are supported (see [Fedora](docs/LINUX.md#fedora)).
 ## Updating
 
 In the launcher, open **Settings → Updates**. It checks GitHub when it starts
-(the Play tab shows *Update available* when there is one). Press **Update now**,
+(the top bar shows *Update available* when there is one). Press **Update now**,
 then restart when it asks. From a terminal:
 
 ```sh
@@ -113,14 +114,23 @@ needs redoing.
 
 | Tab | What it does |
 | --- | --- |
-| **Play** | One-click Launch/Stop, live status of backend, game server and game, match phase, session log |
-| **Hosting** | *Host a local game server* (on by default). Turn it off to start only the backend and your game (lobby/locker work; Play queues with no server). Erbium DLL path. |
-| **Multiplayer** | Off by default. Join another player's server by IP/hostname, or host so LAN/VPN players can join yours (needs `passt`). When joining a [Project Tux Windows Server](https://github.com/Zxre0/Project-Tux-Windows-Server), use **the server's accounts** so your cosmetics show in its matches ([details](docs/MATCH.md#shared-accounts-joining-a-project-tux-windows-server)). The sandbox still can't reach Epic. |
-| **Lawin** | Edit the local backend: display name, level, Battle Pass tier, V-Bucks, add/remove cosmetics (all 6,000+ Lawin knows; the game skips items newer than your build), unlock everything, reset locker, edit the item shop. Available while the game isn't running. |
-| **Settings** | Game folder (its version is detected), Proton path, a setup checklist that tells you what's missing, Discord status, and updates |
+The launcher is a client: it joins a [Project Tux Windows Server](https://github.com/Zxre0/Project-Tux-Windows-Server)
+with the server's accounts ([details](docs/MATCH.md#shared-accounts-joining-a-project-tux-windows-server)).
+Hosting and the local Lawin editor are command-line only now (`scripts/fortnite-match.sh`,
+`scripts/lawin-admin.sh`).
+
+| Tab | What it does |
+| --- | --- |
+| **Play** | Server announcements and Project Tux updates, the player count and your account in the top bar, a status block bottom-left and **Launch**/**Stop** bottom-right |
+| **Server** | The server's address and your login and password from its admin website. The address is never shown anywhere else in the launcher. |
+| **Settings** | Game folder (its version is detected), Proton path, a setup checklist that tells you what's missing, background image, Discord status, and updates |
+| **Logs** | The session log, with *Copy log* and *Open log folder* |
+
+Ctrl+1–4 switch tabs and Ctrl+Enter launches. Servers can publish a name,
+player count and news for the Play tab: see [docs/LAUNCHER_FEED.md](docs/LAUNCHER_FEED.md).
 
 `project-tux --launch` starts straight away; the desktop entry has a *Play now*
-action for that. The Lawin editor is also a CLI: `scripts/lawin-admin.sh info`.
+action for that. The Lawin editor is a CLI: `scripts/lawin-admin.sh info`.
 
 **Discord:** while a session runs, the launcher shows *Playing Project Tux
 Fortnite on Linux* in Discord, with the version and match phase underneath.
@@ -131,11 +141,9 @@ and put its **Application ID** in Settings → Discord. It talks only to the
 Discord app on your computer (native, Flatpak or Vesktop), never from inside
 the game's sandbox; untick the box to turn it off.
 
-**Multiplayer (joining with the server's accounts):** in the Multiplayer tab,
-tick **Enable multiplayer**, pick **Join another player's server**, enter its
-address (a Tailscale `100.x` address works), then pick **The server's accounts**
-and enter the login and password from the server's admin website
-(`http://server:8090`). Verified on Fedora 44 joining a Project Tux Windows
+**Multiplayer (joining with the server's accounts):** in the Server tab, enter
+its address (a Tailscale `100.x` address works) and the login and password from
+the server's admin website (`http://server:8090`). Verified on Fedora 44 joining a Project Tux Windows
 Server over Tailscale, through to a match. Two bugs used to stop this:
 
 - *Choosing the server's accounts switched Join off.* All four options shared
