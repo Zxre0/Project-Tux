@@ -67,6 +67,14 @@ static const wchar_t *base_name(const wchar_t *path) {
 }
 static ULONG_PTR image_base(DWORD pid, const wchar_t *name) {
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
+    /* The snapshot fails with ERROR_BAD_LENGTH while the child is loading or
+     * unloading modules (e.g. a DLL just injected starting its own thread). */
+    for (unsigned retry = 0; snapshot == INVALID_HANDLE_VALUE && GetLastError() == ERROR_BAD_LENGTH &&
+                             retry < 50;
+         ++retry) {
+        Sleep(20);
+        snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
+    }
     if (snapshot == INVALID_HANDLE_VALUE)
         return 0;
     MODULEENTRY32W item = {0};
