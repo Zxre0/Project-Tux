@@ -31,3 +31,9 @@ match_arguments = ["-epicportal", "-epicapp=Fortnite", "-epicenv=Prod", "-epiclo
                    "-skippatchcheck", "-nobe"]
 match_presence = []
 server_login_marker = "Login: Completing Sign-in... (Completed)"
+# Sprint by default (3.1 only has Toggle Sprint): fol-sprint.dll in the client,
+# helpers/windows/sprint_default.c. Forward-movement handler RVA, match
+# controller vtable RVA and slot, then the controller's MyFortPawn,
+# bHoldingSprint and bSprintToggleable offsets. Verified in a 3.1 match on
+# Windows against the Project Tux Windows server.
+sprint_layout = "15044816,51231992,630,1840,4070,4071"

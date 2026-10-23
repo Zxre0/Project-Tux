@@ -57,6 +57,8 @@ if [[ ${1:-} != --inner ]]; then
             { echo "Hosting a game server isn't supported for $VERSION yet; turn off hosting" >&2; exit 1; }
         required+=("$ERBIUM")
     fi
+    [[ $FOL_MATCH_MODE != --server && -n $(profile sprint_layout) ]] &&
+        required+=("$REPO/build/windows/fol-sprint.dll")
     for f in "${required[@]}"; do
         [[ -n $f && -e $f ]] || { echo "Missing: ${f:-Erbium DLL} (run ./build.sh, helpers/windows/build.sh, Erbium build)" >&2; exit 1; }
     done
@@ -337,8 +339,14 @@ fi
 [[ $FOL_MATCH_MODE == --client ]] && rm -f "$LOGS/FortniteGame.log"
 echo "Starting client..."
 server_pid=$(pgrep -f 'Win64-Shipping.exe' | head -1 || true)
+# Sprint by default for builds without the game's own option (3.1); the
+# player's game only, never the server.
+CLIENT_EARLY=$FOL_INJECT_EARLY
+SPRINT_LAYOUT=$(profile sprint_layout)
+[[ -n $SPRINT_LAYOUT ]] && CLIENT_EARLY="$CLIENT_EARLY;$(winpath "$REPO/build/windows/fol-sprint.dll")"
 FOL_HTTP_MODULE_REPORT="$(winpath "$S")\\router-client.json" WINEDEBUG='-all' \
 FOL_INJECT_STATUS="$(winpath "$S")\\inject-client.txt" \
+FOL_INJECT_EARLY="$CLIENT_EARLY" FOL_SPRINT_LAYOUT="$SPRINT_LAYOUT" \
     "$PROTON" run "$REPO/build/windows/fol-inject.exe" "$EXE" -log -d3d11 "${GAME_ARGS[@]}" \
     >"$S/client-wine.log" 2>&1 &
 client=$!
