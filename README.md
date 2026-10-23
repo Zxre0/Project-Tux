@@ -107,8 +107,9 @@ then restart when it asks. From a terminal:
 It updates `main` (switch with `git switch main` if you're on another branch),
 rebuilds the launcher, CLI and Windows helpers, and leaves your settings, game
 files and Lawin locker alone. If you changed any of the project's files it stops
-and lists them. It tells you when the Erbium game server or the Lawin setup also
-needs redoing.
+and lists them. If the project's history on GitHub was rewritten (same files,
+new commit IDs), it notices that your files match and switches to it. It tells
+you when the Erbium game server or the Lawin setup also needs redoing.
 
 ## Launcher
 

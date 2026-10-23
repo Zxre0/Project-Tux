@@ -26,20 +26,41 @@ current=$(git symbolic-ref --quiet --short HEAD || echo "a detached HEAD")
 git fetch --quiet origin "$BRANCH" || die "Couldn't reach GitHub. Check your internet connection."
 old=$(git rev-parse HEAD)
 new=$(git rev-parse FETCH_HEAD)
-behind=$(git rev-list --count "$old..$new")
-ahead=$(git rev-list --count "$new..$old")
+# base: the commit on GitHub this checkout matches. Normally HEAD itself. If
+# GitHub's history was rewritten (same files, new commit IDs), it's the
+# GitHub commit with exactly our files, so nothing local is lost by moving.
+rewritten=false
+if git merge-base --is-ancestor "$old" "$new"; then
+    base=$old
+elif git merge-base --is-ancestor "$new" "$old"; then
+    echo "Up to date ($(git rev-parse --short HEAD), plus $(git rev-list --count "$new..$old") local commit(s))."
+    exit 0
+else
+    base=$(git log --format='%H %T' "$new" |
+        awk -v tree="$(git rev-parse "HEAD^{tree}")" '$2 == tree { print $1; exit }')
+    [[ -n $base ]] ||
+        die "Your $BRANCH has commits GitHub doesn't, so it can't be updated automatically."
+    rewritten=true
+fi
+behind=$(git rev-list --count "$base..$new")
 
 if ((behind == 0)); then
-    echo "Up to date ($(git rev-parse --short HEAD))."
+    if ! $rewritten; then
+        echo "Up to date ($(git rev-parse --short HEAD))."
+    elif $CHECK; then
+        echo "Up to date. GitHub's history was rewritten (same files, new commit IDs); ./update.sh will switch to it."
+    elif git reset --quiet --keep "$new"; then
+        echo "Up to date. GitHub's history was rewritten; switched to it ($(git rev-parse --short HEAD), same files)."
+    else
+        die "Couldn't switch to GitHub's rewritten history; see the message above."
+    fi
     exit 0
 fi
 ((behind == 1)) && noun=update || noun=updates
 echo "$behind $noun available:"
-git log --format='  %h %s' "$old..$new"
+git log --format='  %h %s' "$base..$new"
 $CHECK && exit 100
 
-((ahead == 0)) ||
-    die "Your $BRANCH has $ahead commit(s) GitHub doesn't, so it can't be updated automatically."
 if ! git diff --quiet HEAD --; then
     echo "You changed these files, so they weren't updated:" >&2
     git diff --name-only HEAD -- | sed 's/^/  /' >&2
@@ -48,7 +69,12 @@ fi
 
 echo
 echo "Updating $(git rev-parse --short "$old") → $(git rev-parse --short "$new")…"
-git merge --quiet --ff-only "$new"
+if $rewritten; then
+    echo "(GitHub's history was rewritten since your last update; switching to it.)"
+    git reset --quiet --keep "$new"
+else
+    git merge --quiet --ff-only "$new"
+fi
 changed() { ! git diff --quiet "$old" "$new" -- "$@"; }
 
 echo "Building the launcher and CLI…"
