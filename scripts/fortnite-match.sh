@@ -57,8 +57,12 @@ if [[ ${1:-} != --inner ]]; then
             { echo "Hosting a game server isn't supported for $VERSION yet; turn off hosting" >&2; exit 1; }
         required+=("$ERBIUM")
     fi
-    [[ $FOL_MATCH_MODE != --server && -n $(profile sprint_layout) ]] &&
-        required+=("$REPO/build/windows/fol-sprint.dll")
+    if [[ $FOL_MATCH_MODE != --server ]]; then
+        [[ ${FOL_SPRINT_BY_DEFAULT:-1} == 1 && -n $(profile sprint_layout) ]] &&
+            required+=("$REPO/build/windows/fol-sprint.dll")
+        [[ -n $(profile turbo_layout) || ( ${FOL_EDIT_ON_RELEASE:-0} == 1 && -n $(profile edit_layout) ) ]] &&
+            required+=("$REPO/build/windows/fol-building.dll")
+    fi
     for f in "${required[@]}"; do
         [[ -n $f && -e $f ]] || { echo "Missing: ${f:-Erbium DLL} (run ./build.sh, helpers/windows/build.sh, Erbium build)" >&2; exit 1; }
     done
@@ -339,14 +343,24 @@ fi
 [[ $FOL_MATCH_MODE == --client ]] && rm -f "$LOGS/FortniteGame.log"
 echo "Starting client..."
 server_pid=$(pgrep -f 'Win64-Shipping.exe' | head -1 || true)
-# Sprint by default for builds without the game's own option (3.1); the
-# player's game only, never the server.
+# 12.50's gameplay options for builds without them (3.1), in the player's game
+# only, never the server: sprint by default and edit on release when the
+# launcher's options ask for them (FOL_SPRINT_BY_DEFAULT, default on;
+# FOL_EDIT_ON_RELEASE, default off), 12.50's turbo building timing always.
 CLIENT_EARLY=$FOL_INJECT_EARLY
 SPRINT_LAYOUT=$(profile sprint_layout)
+EDIT_LAYOUT=$(profile edit_layout)
+TURBO_LAYOUT=$(profile turbo_layout)
+[[ ${FOL_SPRINT_BY_DEFAULT:-1} == 1 ]] || SPRINT_LAYOUT=
+[[ ${FOL_EDIT_ON_RELEASE:-0} == 1 ]] || EDIT_LAYOUT=
 [[ -n $SPRINT_LAYOUT ]] && CLIENT_EARLY="$CLIENT_EARLY;$(winpath "$REPO/build/windows/fol-sprint.dll")"
+# One helper for both: they share its per-frame hook.
+[[ -n $EDIT_LAYOUT || -n $TURBO_LAYOUT ]] &&
+    CLIENT_EARLY="$CLIENT_EARLY;$(winpath "$REPO/build/windows/fol-building.dll")"
 FOL_HTTP_MODULE_REPORT="$(winpath "$S")\\router-client.json" WINEDEBUG='-all' \
 FOL_INJECT_STATUS="$(winpath "$S")\\inject-client.txt" \
 FOL_INJECT_EARLY="$CLIENT_EARLY" FOL_SPRINT_LAYOUT="$SPRINT_LAYOUT" \
+FOL_EDIT_LAYOUT="$EDIT_LAYOUT" FOL_TURBO_LAYOUT="$TURBO_LAYOUT" \
     "$PROTON" run "$REPO/build/windows/fol-inject.exe" "$EXE" -log -d3d11 "${GAME_ARGS[@]}" \
     >"$S/client-wine.log" 2>&1 &
 client=$!

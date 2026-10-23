@@ -110,3 +110,10 @@ lld-link /dll /entry:sprint_entry /subsystem:windows /nodefaultlib /machine:x64 
     /out:build/windows/fol-sprint.dll build/windows/sprint_default.obj \
     $WINE_LIB/libkernel32.a
 file build/windows/fol-sprint.dll
+clang --target=x86_64-w64-windows-gnu -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables \
+    -I$WINE_INCLUDE/windows -I$WINE_INCLUDE/msvcrt -Wall -Wextra -Werror -O1 \
+    -c helpers/windows/building.c -o build/windows/building.obj
+lld-link /dll /entry:building_entry /subsystem:windows /nodefaultlib /machine:x64 /timestamp:0 \
+    /out:build/windows/fol-building.dll build/windows/building.obj \
+    $WINE_LIB/libkernel32.a
+file build/windows/fol-building.dll
