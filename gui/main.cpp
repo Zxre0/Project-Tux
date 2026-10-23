@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Project Tux launcher: one-click start of the local backend, game server and
-// client through scripts/fortnite-match.sh.
+// Project Tux launcher: joins a multiplayer server with the server's accounts
+// through scripts/fortnite-match.sh. Client only: the game server, its backend
+// and the accounts all live on the server.
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QCloseEvent>
 #include <QDateTime>
 #include <QDesktopServices>
@@ -13,30 +15,35 @@
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QFormLayout>
-#include <QGridLayout>
+#include <QFrame>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
+#include <QMenu>
 #include <QMessageBox>
-#include <QNetworkInterface>
 #include <QPlainTextEdit>
 #include <QProcess>
 #include <QPushButton>
-#include <QRadioButton>
 #include <QRegularExpression>
 #include <QScrollArea>
 #include <QSettings>
+#include <QShortcut>
 #include <QStandardPaths>
+#include <QStyle>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include "announcements.h"
 #include "discord_presence.h"
-#include "lawin_tab.h"
+#include "theme.h"
 
+#include <algorithm>
 #include <csignal>
 #include <unistd.h>
 
@@ -66,76 +73,127 @@ QString installHint(const QString &package) {
         return "sudo apt install " + package;
     return "install the " + package + " package";
 }
-// Release version embedded in the game executable ("12.50", "3.1"), or empty.
-// Cached per file so the checklist can ask on every refresh.
-QString gameVersion(const QString &gameDir) {
-    static QString cachedKey, cachedVersion;
+// Release version embedded in the game executable ("12.50", "3.1"), or empty,
+// and its changelist ("3917250"). The ASCII build strings are source paths
+// without the changelist; the full "++Fortnite+Release-3.1-CL-3917250" is a
+// UTF-16 string further in. Cached per file so the checklist can ask on every
+// refresh.
+QString gameVersion(const QString &gameDir, QString *changelist = nullptr) {
+    static QString cachedKey, cachedVersion, cachedChangelist;
     const QFileInfo exe(gameDir + "/FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe");
     const auto key = exe.absoluteFilePath() + "|" + QString::number(exe.size()) + "|" +
                      exe.lastModified().toString(Qt::ISODateWithMs);
-    if (key == cachedKey)
-        return cachedVersion;
-    cachedKey = key;
-    cachedVersion.clear();
-    QFile file(exe.absoluteFilePath());
-    if (!file.open(QIODevice::ReadOnly))
-        return cachedVersion;
-    static const QRegularExpression release("\\+\\+Fortnite\\+Release-([0-9]{1,2}\\.[0-9]{1,2})[-+]");
-    QByteArray tail;
-    while (!file.atEnd()) {
-        const auto data = tail + file.read(1024 * 1024);
-        const auto at = data.indexOf("++Fortnite+Release-");
-        if (at >= 0) {
-            const auto match = release.match(QString::fromLatin1(data.mid(at, 40)));
-            if (match.hasMatch()) {
-                cachedVersion = match.captured(1);
-                break;
+    if (key != cachedKey) {
+        cachedKey = key;
+        cachedVersion.clear();
+        cachedChangelist.clear();
+        QFile file(exe.absoluteFilePath());
+        static const QRegularExpression release(
+            "\\+\\+Fortnite\\+Release-([0-9]{1,2}\\.[0-9]{1,2})[-+](?:CL-([0-9]+))?");
+        static const QString marker = "++Fortnite+Release-";
+        static const QByteArray wide(reinterpret_cast<const char *>(marker.utf16()),
+                                     marker.size() * 2);
+        QByteArray tail;
+        const bool opened = file.open(QIODevice::ReadOnly);
+        while (opened && !file.atEnd() && (cachedVersion.isEmpty() || cachedChangelist.isEmpty())) {
+            const auto data = tail + file.read(1024 * 1024);
+            if (const auto at = data.indexOf(marker.toLatin1()); at >= 0 && cachedVersion.isEmpty())
+                if (const auto match = release.match(QString::fromLatin1(data.mid(at, 40)));
+                    match.hasMatch())
+                    cachedVersion = match.captured(1);
+            if (const auto at = data.indexOf(wide); at >= 0) {
+                const auto text = data.mid(at, 100);
+                const auto match = release.match(QString::fromUtf16(
+                    reinterpret_cast<const char16_t *>(text.constData()), text.size() / 2));
+                if (match.hasMatch() && !match.captured(2).isEmpty()) {
+                    cachedVersion = match.captured(1);
+                    cachedChangelist = match.captured(2);
+                }
             }
+            tail = data.right(128);
         }
-        tail = data.right(64);
     }
+    if (changelist)
+        *changelist = cachedChangelist;
     return cachedVersion;
+}
+// Server address check: host or IPv4, optional :port. Empty when valid.
+QString addressProblem(const QString &address) {
+    static const QRegularExpression shape("^([A-Za-z0-9.-]+)(?::([0-9]{1,5}))?$");
+    if (address.isEmpty())
+        return {};
+    const auto match = shape.match(address);
+    if (!match.hasMatch())
+        return "Use an IP address or hostname, optionally followed by :port.";
+    if (!match.captured(2).isEmpty()) {
+        const int port = match.captured(2).toInt();
+        if (port < 1 || port > 65535)
+            return "The port must be between 1 and 65535.";
+    }
+    return {};
+}
+QString portOf(const QString &address) {
+    return address.contains(':') ? address.section(':', -1) : QString("7777");
 }
 
 enum class State { Off, Starting, Ready, Failed };
-QString dot(State state, const QString &text) {
-    const char *colour = state == State::Ready      ? "#2fbf4f"
-                         : state == State::Starting ? "#e0a020"
-                         : state == State::Failed   ? "#e04040"
-                                                    : "#808080";
-    return QString("<span style='color:%1;font-size:16pt'>●</span>&nbsp;%2")
-        .arg(colour, text.toHtmlEscaped());
+void setTone(QLabel *label, const char *tone) {
+    label->setProperty("tone", tone);
+    label->style()->unpolish(label);
+    label->style()->polish(label);
 }
 
 class Launcher : public QMainWindow {
+    enum Tab { PlayTab, ServerTab, SettingsTab, LogsTab };
+    struct Problem {
+        QString text;
+        Tab fix = LogsTab;
+    };
+    struct Row {
+        theme::Dot *dot;
+        QLabel *value;
+    };
+
   public:
     Launcher() {
         setWindowTitle("Project Tux");
-        setMinimumSize(760, 560);
+        setMinimumSize(1100, 700);
+        resize(1280, 800);
         root = repoRoot();
         self = QCoreApplication::applicationFilePath(); // before an update replaces it
         data = xdg("XDG_DATA_HOME", ".local/share");
         config = xdg("XDG_CONFIG_HOME", ".config");
 
+        // The tab bar is replaced by the text tabs in the top bar.
         tabs = new QTabWidget;
+        tabs->tabBar()->hide();
         tabs->addTab(playTab(), "Play");
-        tabs->addTab(hostingTab(), "Hosting");
-        tabs->addTab(multiplayerTab(), "Multiplayer");
-        lawin = new LawinTab(root);
-        tabs->addTab(lawin, "Lawin");
-        // Scrolls on small screens: paths, setup check, Discord and updates.
-        auto *settingsScroll = new QScrollArea;
-        settingsScroll->setWidget(settingsTab());
-        settingsScroll->setWidgetResizable(true);
-        settingsScroll->setFrameShape(QFrame::NoFrame);
-        tabs->addTab(settingsScroll, "Settings");
-        QObject::connect(tabs, &QTabWidget::currentChanged, this, [this](int index) {
-            if (tabs->widget(index) == lawin && !lawinLoaded && !running) {
-                lawinLoaded = true;
-                lawin->load();
-            }
+        tabs->addTab(page(serverTab(), "Server"), "Server");
+        tabs->addTab(page(settingsTab(), "Settings"), "Settings");
+        tabs->addTab(logsTab(), "Logs");
+        backdrop = new theme::Backdrop;
+        auto *column = new QVBoxLayout(backdrop);
+        column->setContentsMargins(0, 0, 0, 0);
+        column->setSpacing(0);
+        column->addWidget(topBar());
+        column->addWidget(tabs, 1);
+        setCentralWidget(backdrop);
+        // State and Launch sit in the bottom corners above every page, so pages run to
+        // the bottom edge.
+        status = new theme::StatusBlock;
+        QObject::connect(status, &QAbstractButton::clicked, this, [this] {
+            if (!status->action().isEmpty())
+                tabs->setCurrentIndex(recoverTab);
         });
-        setCentralWidget(tabs);
+        backdrop->setCorner(status, Qt::BottomLeftCorner);
+        backdrop->setCorner(footer(), Qt::BottomRightCorner);
+        QObject::connect(tabs, &QTabWidget::currentChanged, this,
+                         [this](int index) { backdrop->setDimmed(index != PlayTab); });
+        for (int i = 0; i < tabs->count(); ++i)
+            QObject::connect(new QShortcut(QKeySequence(Qt::CTRL | Qt::Key(Qt::Key_1 + i)), this),
+                             &QShortcut::activated, this, [this, i] { tabs->setCurrentIndex(i); });
+        QObject::connect(new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Return), this),
+                         &QShortcut::activated, this, [this] { primaryAction(); });
 
         process.setProcessChannelMode(QProcess::MergedChannels);
         process.setChildProcessModifier([] { ::setsid(); }); // own process group for Stop
@@ -148,15 +206,33 @@ class Launcher : public QMainWindow {
                              if (killTimer.isActive())
                                  killTimer.stop();
                              log(QString("— session ended (%1) —").arg(code));
-                             if (server != State::Failed)
-                                 server = State::Off;
-                             backend = client = State::Off;
+                             if (code != 0 && !stopping && problem.text.isEmpty())
+                                 fail(QString("The launch stopped unexpectedly (exit code %1). "
+                                              "The log has the details.")
+                                          .arg(code),
+                                      LogsTab);
+                             if (relay != State::Failed)
+                                 relay = State::Off;
+                             client = State::Off;
                              match.clear();
-                             running = false;
+                             running = stopping = false;
                              refresh();
                          });
         killTimer.setSingleShot(true);
         QObject::connect(&killTimer, &QTimer::timeout, this, [this] { signalGroup(SIGKILL); });
+        // Server news and player count follow the address once typing pauses.
+        feed.changed = [this](const ServerFeed::Snapshot &snapshot) {
+            serverName = snapshot.name;
+            news->setServer(snapshot);
+            showPlayers(snapshot);
+        };
+        updates.done = [this](bool ok, const QList<Post> &posts) { news->setUpdates(ok, posts); };
+        updates.fetch();
+        feedDelay.setSingleShot(true);
+        feedDelay.setInterval(700);
+        QObject::connect(&feedDelay, &QTimer::timeout, this, [this] {
+            feed.setHost(addressProblem(address()).isEmpty() ? host() : QString());
+        });
         poll.setInterval(2000);
         QObject::connect(&poll, &QTimer::timeout, this, [this] { pollMatch(); });
         updater.setProcessChannelMode(QProcess::MergedChannels);
@@ -176,6 +252,7 @@ class Launcher : public QMainWindow {
             QTimer::singleShot(1500, this, [this] { runUpdate(true); });
         protectSettings();
         refresh();
+        launchButton->setFocus();
     }
 
     void launchNow() { launch(); }
@@ -194,9 +271,8 @@ class Launcher : public QMainWindow {
             event->ignore();
             return;
         }
-        if (running &&
-            QMessageBox::question(this, "Project Tux", "Stop the running game and server?") !=
-                QMessageBox::Yes) {
+        if (running && QMessageBox::question(this, "Project Tux", "Stop the running game?") !=
+                           QMessageBox::Yes) {
             event->ignore();
             return;
         }
@@ -209,250 +285,215 @@ class Launcher : public QMainWindow {
     }
 
   private:
-    // ---- tabs ----
+    // ---- frame ----
+    QWidget *topBar() {
+        auto *bar = new QWidget;
+        bar->setFixedHeight(68);
+        auto *row = new QHBoxLayout(bar);
+        row->setContentsMargins(22, 6, 22, 0);
+        row->setSpacing(6);
+        brand = new theme::Brand;
+        row->addWidget(brand);
+        row->addSpacing(14);
+        auto *group = new QButtonGroup(bar);
+        for (int i = 0; i < tabs->count(); ++i) {
+            auto *button = new theme::NavButton(tabs->tabText(i).toUpper());
+            button->setToolTip(QString("%1 (Ctrl+%2)").arg(tabs->tabText(i)).arg(i + 1));
+            group->addButton(button, i);
+            row->addWidget(button);
+        }
+        group->button(PlayTab)->setChecked(true);
+        QObject::connect(group, &QButtonGroup::idClicked, tabs, &QTabWidget::setCurrentIndex);
+        // Keep focus on the tab itself so switching pages never lands it on a page's
+        // first button.
+        QObject::connect(tabs, &QTabWidget::currentChanged, group, [group](int index) {
+            group->button(index)->setChecked(true);
+            group->button(index)->setFocus(Qt::OtherFocusReason);
+        });
+        row->addStretch();
+        updateChip = new theme::StatusChip;
+        QObject::connect(updateChip, &QAbstractButton::clicked, this,
+                         [this] { tabs->setCurrentIndex(SettingsTab); });
+        updateChip->hide();
+        row->addWidget(updateChip);
+        row->addSpacing(6);
+        players = new theme::StatusChip;
+        QObject::connect(players, &QAbstractButton::clicked, this,
+                         [this] { tabs->setCurrentIndex(ServerTab); });
+        players->hide();
+        row->addWidget(players);
+        row->addSpacing(6);
+        account = new theme::StatusChip;
+        QObject::connect(account, &QAbstractButton::clicked, this,
+                         [this] { tabs->setCurrentIndex(ServerTab); });
+        row->addWidget(account);
+        return bar;
+    }
+
+    // The launch block and its Options menu, kept in the bottom-right corner.
+    QWidget *footer() {
+        auto *bar = new QWidget;
+        auto *row = new QHBoxLayout(bar);
+        row->setContentsMargins(0, 0, 0, 0);
+        row->setSpacing(0);
+        auto *options = new theme::OptionsButton;
+        auto *menu = new QMenu(options);
+        menu->addAction("Server", this, [this] { tabs->setCurrentIndex(ServerTab); });
+        menu->addAction("Settings", this, [this] { tabs->setCurrentIndex(SettingsTab); });
+        menu->addAction("Logs", this, [this] { tabs->setCurrentIndex(LogsTab); });
+        menu->addSeparator();
+        menu->addAction("Open log folder", this, [this] { openLogFolder(); });
+        QObject::connect(options, &QPushButton::clicked, this, [options, menu] {
+            menu->popup(options->mapToGlobal(QPoint(0, -menu->sizeHint().height() - 6)));
+        });
+        launchButton = new theme::PlayButton;
+        launchButton->setToolTip("Ctrl+Enter");
+        QObject::connect(launchButton, &QPushButton::clicked, this, [this] { primaryAction(); });
+        row->addWidget(options);
+        row->addWidget(launchButton);
+        return bar;
+    }
+    void openLogFolder() {
+        const auto dir = session.isEmpty()
+                             ? xdg("XDG_STATE_HOME", ".local/state") + "/logs/sessions"
+                             : session;
+        QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+    }
+
+    // Form page: a title over a column of a readable width.
+    QWidget *page(QWidget *content, const QString &heading) {
+        auto *inner = new QWidget;
+        auto *layout = new QVBoxLayout(inner);
+        layout->setContentsMargins(48, 18, 48, 120);
+        auto *title = new QLabel(heading.toUpper());
+        title->setFont(theme::display(theme::Page));
+        layout->addWidget(title);
+        content->setFixedWidth(680);
+        layout->addWidget(content, 1, Qt::AlignLeft);
+        auto *scroll = new QScrollArea;
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setWidget(inner);
+        return scroll;
+    }
+
+    // ---- Play ----
+    // The art with the announcements pinned under the Project Tux title. State lives
+    // in the corner bar, next to Launch.
     QWidget *playTab() {
         auto *page = new QWidget;
-        auto *layout = new QVBoxLayout(page);
-        title = new QLabel;
-        QObject::connect(title, &QLabel::linkActivated, this, [this] { showTab("Settings"); });
-        layout->addWidget(title);
-
-        auto *statusBox = new QGroupBox("Status");
-        auto *grid = new QGridLayout(statusBox);
-        backendLabel = new QLabel;
-        serverLabel = new QLabel;
-        clientLabel = new QLabel;
-        matchLabel = new QLabel;
-        grid->addWidget(backendLabel, 0, 0);
-        grid->addWidget(serverLabel, 0, 1);
-        grid->addWidget(clientLabel, 0, 2);
-        grid->addWidget(matchLabel, 1, 0, 1, 3);
-        layout->addWidget(statusBox);
-
-        auto *buttons = new QHBoxLayout;
-        launchButton = new QPushButton("Launch");
-        launchButton->setMinimumHeight(52);
-        auto font = launchButton->font();
-        font.setPointSizeF(font.pointSizeF() * 1.4);
-        font.setBold(true);
-        launchButton->setFont(font);
-        stopButton = new QPushButton("Stop");
-        stopButton->setMinimumHeight(52);
-        auto *logsButton = new QPushButton("Open logs");
-        logsButton->setMinimumHeight(52);
-        buttons->addWidget(launchButton, 3);
-        buttons->addWidget(stopButton, 1);
-        buttons->addWidget(logsButton, 1);
-        layout->addLayout(buttons);
-        QObject::connect(launchButton, &QPushButton::clicked, this, [this] { launch(); });
-        QObject::connect(stopButton, &QPushButton::clicked, this, [this] { stop(); });
-        QObject::connect(logsButton, &QPushButton::clicked, this, [this] {
-            const auto dir = session.isEmpty()
-                                 ? xdg("XDG_STATE_HOME", ".local/state") + "/logs/sessions"
-                                 : session;
-            QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
-        });
-
-        hint = new QLabel;
-        hint->setWordWrap(true);
-        layout->addWidget(hint);
-
-        output = new QPlainTextEdit;
-        output->setReadOnly(true);
-        output->setMaximumBlockCount(5000);
-        output->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-        layout->addWidget(output, 1);
+        auto *row = new QHBoxLayout(page);
+        row->setContentsMargins(22, 8, 48, 0);
+        auto *left = new QVBoxLayout;
+        news = new AnnouncementsCard;
+        left->addWidget(news);
+        left->addStretch();
+        row->addLayout(left);
+        row->addStretch(1);
         return page;
     }
 
-    QWidget *hostingTab() {
-        auto *page = new QWidget;
-        auto *layout = new QVBoxLayout(page);
-        hostCheck = new QCheckBox("Host a local game server");
-        hostCheck->setChecked(settings.value("hosting/enabled", true).toBool());
-        auto font = hostCheck->font();
-        font.setBold(true);
-        hostCheck->setFont(font);
-        layout->addWidget(hostCheck);
-        auto *explain = new QLabel(
-            "When enabled, Launch first starts a headless Fortnite game server "
-            "(Erbium) and waits until it is listening, then starts your game. Pressing "
-            "Play in the lobby matches you onto it.<br><br>When disabled, only the backend "
-            "and your game start: the lobby and locker work, but Play stays in the queue "
-            "because there is no server to join.");
-        explain->setWordWrap(true);
-        layout->addWidget(explain);
+    // ---- Server ----
+    QWidget *serverTab() {
+        auto *content = new QWidget;
+        auto *layout = new QVBoxLayout(content);
+        layout->setContentsMargins(0, 0, 0, 0);
+        auto *intro = new QLabel("Your host gives you the server address and a login for its "
+                                 "admin website. Enter both here, then press Play.");
+        intro->setWordWrap(true);
+        intro->setFont(theme::font(theme::Label));
+        setTone(intro, "muted");
+        layout->addWidget(intro);
 
-        auto *box = new QGroupBox("Game server");
-        auto *form = new QFormLayout(box);
-        erbiumEdit = new QLineEdit(settings.value("hosting/erbium", defaultErbium()).toString());
-        auto *browse = new QPushButton("Browse…");
-        auto *row = new QHBoxLayout;
-        row->addWidget(erbiumEdit, 1);
-        row->addWidget(browse);
-        form->addRow("Erbium DLL", row);
-        form->addRow("Playlist", new QLabel("Solo (Playlist_DefaultSolo), no cheats, no siphon"));
-        form->addRow("Address",
-                     new QLabel("127.0.0.1:7777 (isolated, not reachable from outside)"));
-        hostStatus = new QLabel;
-        form->addRow("Server", hostStatus);
+        auto *box = new QGroupBox("ADDRESS");
+        auto *form = new QVBoxLayout(box);
+        serverAddress = new QLineEdit(settings.value("multiplayer/address").toString());
+        serverAddress->setPlaceholderText("100.64.0.12 or tux.example.net");
+        serverAddress->setAccessibleName("Server address");
+        serverAddress->setMaximumWidth(420);
+        form->addWidget(serverAddress);
+        addressNote = new QLabel;
+        addressNote->setWordWrap(true);
+        form->addWidget(addressNote);
+        auto *addressHelp = new QLabel(
+            "Add a port only if your host moved the game off the usual 7777, for example "
+            "100.64.0.12:7778.");
+        addressHelp->setWordWrap(true);
+        setTone(addressHelp, "faint");
+        form->addWidget(addressHelp);
         layout->addWidget(box);
-        auto *note = new QLabel(
-            "The server shows a small frozen Fortnite window and an Erbium console while "
-            "it runs. Leave them open. The bus leaves after the normal warmup.");
+
+        auto *accountBox = new QGroupBox("ACCOUNT");
+        auto *accountForm = new QFormLayout(accountBox);
+        accountForm->setHorizontalSpacing(16);
+        accountForm->setVerticalSpacing(10);
+        serverLogin = new QLineEdit(settings.value("multiplayer/login").toString());
+        serverLogin->setPlaceholderText("nocto@tux");
+        serverLogin->setMaximumWidth(320);
+        serverPassword = new QLineEdit(settings.value("multiplayer/password").toString());
+        serverPassword->setEchoMode(QLineEdit::Password);
+        serverPassword->setMaximumWidth(320);
+        auto *reveal = new QPushButton("Show");
+        reveal->setCheckable(true);
+        reveal->setAccessibleName("Show password");
+        auto *passwordRow = new QHBoxLayout;
+        passwordRow->addWidget(serverPassword);
+        passwordRow->addWidget(reveal);
+        passwordRow->addStretch();
+        accountForm->addRow("Login", serverLogin);
+        accountForm->addRow("Password", passwordRow);
+        auto *accountHelp =
+            new QLabel("Your locker and cosmetics live on the server, so they show up in its "
+                       "matches.");
+        accountHelp->setWordWrap(true);
+        setTone(accountHelp, "faint");
+        accountForm->addRow(accountHelp);
+        layout->addWidget(accountBox);
+        serverBoxes = {box, accountBox};
+
+        auto *note = new QLabel("Playing with friends over the internet works best through a "
+                                "VPN such as Tailscale or ZeroTier.");
         note->setWordWrap(true);
-        layout->addWidget(note);
-        layout->addStretch();
-        hostBox = box;
-
-        QObject::connect(hostCheck, &QCheckBox::toggled, this, [this](bool on) {
-            settings.setValue("hosting/enabled", on);
-            refresh();
-        });
-        QObject::connect(erbiumEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
-            settings.setValue("hosting/erbium", text);
-            refresh();
-        });
-        QObject::connect(browse, &QPushButton::clicked, this, [this] {
-            const auto file =
-                QFileDialog::getOpenFileName(this, "Erbium DLL", erbiumEdit->text(), "DLL (*.dll)");
-            if (!file.isEmpty())
-                erbiumEdit->setText(file);
-        });
-        return page;
-    }
-
-    QWidget *multiplayerTab() {
-        auto *page = new QWidget;
-        auto *layout = new QVBoxLayout(page);
-        mpEnable = new QCheckBox("Enable multiplayer");
-        mpEnable->setChecked(settings.value("multiplayer/enabled", false).toBool());
-        auto font = mpEnable->font();
-        font.setBold(true);
-        mpEnable->setFont(font);
-        layout->addWidget(mpEnable);
-        auto *explain = new QLabel(
-            "Off by default: normally everything runs in a sealed sandbox with no network. "
-            "Multiplayer gives the sandbox real networking, limited to what you choose below "
-            "(it can never reach Epic's servers).");
-        explain->setWordWrap(true);
-        layout->addWidget(explain);
-
-        mpBox = new QGroupBox("Mode");
-        auto *form = new QVBoxLayout(mpBox);
-        mpJoin = new QRadioButton("Join another player's server");
-        mpHost = new QRadioButton("Host: let other players join my server");
-        // Radio buttons in one box are otherwise all mutually exclusive: picking
-        // the server's accounts would switch Join off. Two separate choices.
-        auto *modeGroup = new QButtonGroup(mpBox);
-        modeGroup->addButton(mpJoin);
-        modeGroup->addButton(mpHost);
-        (settings.value("multiplayer/mode", "join").toString() == "host" ? mpHost : mpJoin)
-            ->setChecked(true);
-        form->addWidget(mpJoin);
-        auto *joinRow = new QHBoxLayout;
-        joinRow->addSpacing(24);
-        joinRow->addWidget(new QLabel("Server address"));
-        mpAddress = new QLineEdit(settings.value("multiplayer/address").toString());
-        mpAddress->setPlaceholderText("IP or hostname, optional :port (default 7777)");
-        joinRow->addWidget(mpAddress, 1);
-        form->addLayout(joinRow);
-        // Accounts: this PC's own backend, or the server's shared accounts (its
-        // admin website manages lockers, so cosmetics show up in its matches).
-        mpOwnAccount = new QRadioButton("My own account and locker on this PC");
-        mpServerAccount = new QRadioButton("The server's accounts (cosmetics work in its matches)");
-        auto *accountGroup = new QButtonGroup(mpBox);
-        accountGroup->addButton(mpOwnAccount);
-        accountGroup->addButton(mpServerAccount);
-        (settings.value("multiplayer/accounts", "own").toString() == "server" ? mpServerAccount
-                                                                              : mpOwnAccount)
-            ->setChecked(true);
-        auto *accounts = new QGridLayout;
-        accounts->setContentsMargins(24, 0, 0, 0);
-        accounts->setColumnMinimumWidth(0, 24);
-        accounts->addWidget(mpOwnAccount, 0, 0, 1, 3);
-        accounts->addWidget(mpServerAccount, 1, 0, 1, 3);
-        mpLogin = new QLineEdit(settings.value("multiplayer/login").toString());
-        mpLogin->setPlaceholderText("e.g. nocto@tux");
-        mpPassword = new QLineEdit(settings.value("multiplayer/password").toString());
-        mpPassword->setEchoMode(QLineEdit::Password);
-        accounts->addWidget(new QLabel("Login"), 2, 1);
-        accounts->addWidget(mpLogin, 2, 2);
-        accounts->addWidget(new QLabel("Password"), 3, 1);
-        accounts->addWidget(mpPassword, 3, 2);
-        accounts->setColumnStretch(2, 1);
-        form->addLayout(accounts);
-        auto *joinNote = new QLabel(
-            "No local game server is started; Play connects you to that address. With the "
-            "server's accounts, the host gives you a login on its admin website "
-            "(http://server:8090) and manages your locker there.");
-        joinNote->setWordWrap(true);
-        joinNote->setContentsMargins(24, 0, 0, 8);
-        form->addWidget(joinNote);
-        form->addWidget(mpHost);
-        mpAddresses = new QLabel;
-        mpAddresses->setWordWrap(true);
-        mpAddresses->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        mpAddresses->setContentsMargins(24, 0, 0, 0);
-        form->addWidget(mpAddresses);
-        layout->addWidget(mpBox);
-
-        mpStatus = new QLabel;
-        mpStatus->setWordWrap(true);
-        layout->addWidget(mpStatus);
-        auto *note = new QLabel(
-            "<small>Hosting accepts players from your LAN and VPN ranges (10.x, 172.16-31.x, "
-            "192.168.x, Tailscale 100.64.x). Over the internet, use a VPN such as Tailscale or "
-            "ZeroTier rather than router port forwarding. Players need UDP port 7777. "
-            "Requires <b>pasta</b> (package <i>passt</i>).</small>");
-        note->setWordWrap(true);
+        setTone(note, "faint");
+        layout->addSpacing(14);
         layout->addWidget(note);
         layout->addStretch();
 
-        QObject::connect(mpEnable, &QCheckBox::toggled, this, [this](bool on) {
-            settings.setValue("multiplayer/enabled", on);
-            refresh();
+        QObject::connect(reveal, &QPushButton::toggled, this, [this, reveal](bool on) {
+            serverPassword->setEchoMode(on ? QLineEdit::Normal : QLineEdit::Password);
+            reveal->setText(on ? "Hide" : "Show");
         });
-        QObject::connect(mpJoin, &QRadioButton::toggled, this, [this](bool join) {
-            settings.setValue("multiplayer/mode", join ? "join" : "host");
-            refresh();
-        });
-        QObject::connect(mpAddress, &QLineEdit::textChanged, this, [this](const QString &text) {
+        QObject::connect(serverAddress, &QLineEdit::textChanged, this, [this](const QString &text) {
             settings.setValue("multiplayer/address", text.trimmed());
             refresh();
         });
-        QObject::connect(mpServerAccount, &QRadioButton::toggled, this, [this](bool server) {
-            settings.setValue("multiplayer/accounts", server ? "server" : "own");
-            refresh();
-        });
-        QObject::connect(mpLogin, &QLineEdit::textChanged, this, [this](const QString &text) {
+        QObject::connect(serverLogin, &QLineEdit::textChanged, this, [this](const QString &text) {
             settings.setValue("multiplayer/login", text.trimmed());
             refresh();
         });
-        QObject::connect(mpPassword, &QLineEdit::textChanged, this, [this](const QString &text) {
-            settings.setValue("multiplayer/password", text);
-            protectSettings();
-            refresh();
-        });
-        return page;
+        QObject::connect(serverPassword, &QLineEdit::textChanged, this,
+                         [this](const QString &text) {
+                             settings.setValue("multiplayer/password", text);
+                             protectSettings();
+                             refresh();
+                         });
+        return content;
     }
-    bool mpOn() const { return mpEnable->isChecked(); }
-    bool mpJoining() const { return mpOn() && mpJoin->isChecked(); }
-    bool serverAccounts() const { return mpJoining() && mpServerAccount->isChecked(); }
-    bool hosting() const { return hostCheck->isChecked() && !mpJoining(); }
-    static QStringList lanAddresses() {
-        QStringList list;
-        for (const auto &address : QNetworkInterface::allAddresses())
-            if (address.protocol() == QAbstractSocket::IPv4Protocol && !address.isLoopback())
-                list << address.toString();
-        return list;
+    QString address() const { return serverAddress->text().trimmed(); }
+    QString host() const { return address().section(':', 0, 0); }
+    // How the UI names the server: its published name, never its address.
+    QString serverCalled(bool sentenceStart = false) const {
+        return !serverName.isEmpty() ? serverName : sentenceStart ? "The server" : "the server";
     }
 
+    // ---- Settings ----
     QWidget *settingsTab() {
-        auto *page = new QWidget;
-        auto *layout = new QVBoxLayout(page);
-        auto *box = new QGroupBox("Paths");
+        auto *content = new QWidget;
+        auto *layout = new QVBoxLayout(content);
+        layout->setContentsMargins(0, 0, 0, 0);
+        auto *box = new QGroupBox("GAME");
         auto *form = new QFormLayout(box);
+        form->setHorizontalSpacing(16);
         gameEdit = new QLineEdit(
             settings.value("paths/game", home("Documents/Fortnite/++Fortnite+Release-12"))
                 .toString());
@@ -460,37 +501,59 @@ class Launcher : public QMainWindow {
             settings.value("paths/proton", data + "/runtimes/experimental-20260924/proton")
                 .toString());
         form->addRow("Fortnite folder", pathRow(gameEdit, true, "paths/game"));
-        form->addRow("Proton script", pathRow(protonEdit, false, "paths/proton"));
+        form->addRow("Proton", pathRow(protonEdit, false, "paths/proton"));
         layout->addWidget(box);
         settingsBox = box;
 
-        auto *checks = new QGroupBox("Setup check");
-        checkList = new QLabel;
-        checkList->setTextFormat(Qt::RichText);
-        checkList->setWordWrap(true);
-        auto *checksLayout = new QVBoxLayout(checks);
-        checksLayout->addWidget(checkList);
+        auto *checks = new QGroupBox("SETUP CHECK");
+        auto *checkRows = new QVBoxLayout(checks);
+        checkRows->setSpacing(8);
+        for (qsizetype i = 0; i < this->checks().size(); ++i) {
+            auto *line = new QHBoxLayout;
+            line->setSpacing(10);
+            auto *dot = new theme::Dot;
+            auto *label = new QLabel;
+            line->addWidget(dot, 0, Qt::AlignVCenter);
+            line->addWidget(label, 1);
+            checkRows->addLayout(line);
+            checkLines.append({dot, label});
+        }
+        checkRows->addSpacing(6);
         auto *recheck = new QPushButton("Check again");
-        checksLayout->addWidget(recheck, 0, Qt::AlignLeft);
+        recheck->setMinimumHeight(36);
         QObject::connect(recheck, &QPushButton::clicked, this, [this] { refresh(); });
+        checkRows->addWidget(recheck, 0, Qt::AlignLeft);
         layout->addWidget(checks);
+
+        auto *look = new QGroupBox("BACKGROUND");
+        auto *lookForm = new QVBoxLayout(look);
+        backgroundEdit = new QLineEdit(settings.value("appearance/background").toString());
+        backgroundEdit->setPlaceholderText("Default Season 3 art");
+        lookForm->addWidget(pathRow(backgroundEdit, false, "appearance/background"));
+        backgroundNote = new QLabel("Any PNG or JPG. Leave empty for the default art.");
+        backgroundNote->setWordWrap(true);
+        setTone(backgroundNote, "faint");
+        lookForm->addWidget(backgroundNote);
+        layout->addWidget(look);
 
         // Discord shows "Playing <name of the Discord application with this ID>":
         // Project Tux's own application, "Project Tux Fortnite on Linux".
-        auto *discordBox = new QGroupBox("Discord");
+        auto *discordBox = new QGroupBox("DISCORD");
         auto *discordForm = new QFormLayout(discordBox);
+        discordForm->setHorizontalSpacing(16);
         discordCheck = new QCheckBox("Show what you're playing in Discord");
         discordCheck->setChecked(settings.value("discord/enabled", true).toBool());
         discordId = new QLineEdit(
             settings.value("discord/application_id", "1562653073317568513").toString());
         discordId->setPlaceholderText("Discord application ID");
+        discordId->setMaximumWidth(260);
         discordForm->addRow(discordCheck);
         discordForm->addRow("Application ID", discordId);
         auto *discordHelp = new QLabel(
-            "<small>Shows <i>Playing Project Tux Fortnite on Linux</i>. Discord takes the "
-            "name from the application with this ID; change it only to use your own "
-            "application from discord.com/developers/applications.</small>");
+            "Shows “Playing Project Tux Fortnite on Linux”. Change the ID only to use your "
+            "own application from discord.com/developers/applications.");
         discordHelp->setWordWrap(true);
+        setTone(discordHelp, "faint");
         discordForm->addRow(discordHelp);
         layout->addWidget(discordBox);
         QObject::connect(discordCheck, &QCheckBox::toggled, this, [this](bool on) {
@@ -502,7 +565,7 @@ class Launcher : public QMainWindow {
             refresh();
         });
         // Updates: update.sh downloads the latest main from GitHub and rebuilds.
-        auto *updateBox = new QGroupBox("Updates");
+        auto *updateBox = new QGroupBox("UPDATES");
         auto *updateLayout = new QVBoxLayout(updateBox);
         updateLabel = new QLabel("Not checked yet.");
         updateLabel->setWordWrap(true);
@@ -511,23 +574,32 @@ class Launcher : public QMainWindow {
         auto *updateRow = new QHBoxLayout;
         checkButton = new QPushButton("Check for updates");
         updateButton = new QPushButton("Update now");
+        checkButton->setMinimumHeight(36);
+        updateButton->setMinimumHeight(36);
         updateRow->addWidget(checkButton);
         updateRow->addWidget(updateButton);
         updateRow->addStretch();
+        updateLayout->addSpacing(6);
         updateLayout->addLayout(updateRow);
         updateLog = new QPlainTextEdit;
         updateLog->setReadOnly(true);
         updateLog->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
         updateLog->setMinimumHeight(160);
+        updateLog->setAccessibleName("Update output");
         updateLog->hide();
         updateLayout->addWidget(updateLog);
         layout->addWidget(updateBox);
         updateBox->setVisible(QFileInfo::exists(root + "/update.sh"));
         QObject::connect(checkButton, &QPushButton::clicked, this, [this] { runUpdate(true); });
         QObject::connect(updateButton, &QPushButton::clicked, this, [this] { runUpdate(false); });
-        layout->addWidget(new QLabel(QString("Project folder: %1").arg(root)));
+
+        auto *folder = new QLabel(QString("Project Tux folder: %1").arg(root));
+        folder->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        setTone(folder, "faint");
+        layout->addSpacing(14);
+        layout->addWidget(folder);
         layout->addStretch();
-        return page;
+        return content;
     }
 
     QWidget *pathRow(QLineEdit *edit, bool directory, const QString &key) {
@@ -535,6 +607,7 @@ class Launcher : public QMainWindow {
         auto *row = new QHBoxLayout(widget);
         row->setContentsMargins(0, 0, 0, 0);
         auto *browse = new QPushButton("Browse…");
+        browse->setAccessibleName("Browse for " + key.section('/', -1));
         row->addWidget(edit, 1);
         row->addWidget(browse);
         QObject::connect(edit, &QLineEdit::textChanged, this, [this, key](const QString &text) {
@@ -551,167 +624,244 @@ class Launcher : public QMainWindow {
         return widget;
     }
 
-    // ---- setup check ----
-    QString defaultErbium() const {
-        const auto found = QDir(root + "/build-erbium")
-                               .entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
-        for (const auto &dir : found)
-            if (QFileInfo::exists(dir.filePath() + "/erbium-solo.dll"))
-                return dir.filePath() + "/erbium-solo.dll";
-        return root + "/build-erbium/erbium-solo.dll";
+    // ---- Logs ----
+    QWidget *logsTab() {
+        auto *page = new QWidget;
+        auto *layout = new QVBoxLayout(page);
+        layout->setContentsMargins(48, 18, 48, 120);
+        auto *header = new QHBoxLayout;
+        auto *title = new QLabel("LOGS");
+        title->setFont(theme::display(theme::Page));
+        auto *copy = new QPushButton("Copy log");
+        auto *folder = new QPushButton("Open log folder");
+        header->addWidget(title);
+        header->addStretch();
+        header->addWidget(copy);
+        header->addWidget(folder);
+        layout->addLayout(header);
+        layout->addSpacing(8);
+        output = new QPlainTextEdit;
+        output->setReadOnly(true);
+        output->setMaximumBlockCount(5000);
+        output->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+        output->setPlaceholderText("Nothing yet. Press Play and the launch output appears here.");
+        output->setAccessibleName("Session log");
+        layout->addWidget(output, 1);
+        QObject::connect(copy, &QPushButton::clicked, this,
+                         [this] { QApplication::clipboard()->setText(output->toPlainText()); });
+        QObject::connect(folder, &QPushButton::clicked, this, [this] { openLogFolder(); });
+        return page;
     }
+
+    // ---- setup check ----
     struct Check {
         QString name, path, fix;
-        bool needed;
     };
     QList<Check> checks() const {
-        const bool host = hosting();
         const auto pasta = QStandardPaths::findExecutable("pasta");
         const auto version = gameVersion(gameEdit->text());
-        return {
+        QList<Check> list{
             {version.isEmpty() ? "Fortnite" : "Fortnite " + version,
              gameEdit->text() + "/FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe",
-             "Set the game folder in Settings", true},
-            {"Supported version", root + "/profiles/fortnite/" + version + ".toml",
-             "No profile for this build in profiles/fortnite", true},
-            {"Proton", protonEdit->text(), "Import Proton: see docs/BACKEND.md", true},
+             "Choose the game folder above."},
+            {"Supported build", root + "/profiles/fortnite/" + version + ".toml",
+             "Project Tux has no profile for this build yet."},
+            {"Proton", protonEdit->text(), "Import Proton: see docs/BACKEND.md."},
             {"Game prefix", data + "/proton-prefixes/" + version + "/pfx",
-             "Run the lobby launch once: see docs/BACKEND.md", true},
-            {"Backend runner", root + "/build/fortnite-backend", "Run ./build.sh", true},
+             "Start the game once from the command line: see docs/BACKEND.md."},
+            {"Account relay", root + "/build/fortnite-backend", "Run ./build.sh."},
             {"Injector", root + "/build/windows/fol-inject.exe",
-             "Run bash helpers/windows/build.sh", true},
-            {"Router DLL", root + "/build/windows/fol-match-router.dll",
-             "Run bash helpers/windows/build.sh", true},
-            {"Lawin backend", config + "/backend/lawin.json",
-             "Prepare Lawin: see integrations/lawin/README.md", true},
-            {"Local login", config + "/backend/local-login.json",
-             "Prepare Lawin: see integrations/lawin/README.md", true},
-            {"Erbium game server", erbiumEdit->text(), "Build Erbium: see docs/MATCH.md", host},
-            {"pasta (multiplayer)", pasta.isEmpty() ? "/nonexistent" : pasta,
-             "Install it: " + installHint("passt"), mpOn()},
+             "Run bash helpers/windows/build.sh."},
+            {"Network router", root + "/build/windows/fol-match-router.dll",
+             "Run bash helpers/windows/build.sh."},
         };
+        // Builds with a sprint_layout (3.1) inject the sprint-by-default helper.
+        if (QFile profile(root + "/profiles/fortnite/" + version + ".toml");
+            profile.open(QIODevice::ReadOnly) && profile.readAll().contains("\nsprint_layout"))
+            list.append({"Sprint helper", root + "/build/windows/fol-sprint.dll",
+                         "Run bash helpers/windows/build.sh."});
+        list += {
+            {"Relay settings", config + "/backend/lawin.json",
+             "See integrations/lawin/README.md."},
+            {"Network sandbox (pasta)", pasta.isEmpty() ? "/nonexistent" : pasta,
+             "Install it: " + installHint("passt") + "."},
+        };
+        return list;
     }
-    bool ready(QStringList *missing = nullptr) const {
-        bool ok = true;
-        if (mpJoining() && mpAddress->text().trimmed().isEmpty()) {
-            ok = false;
-            if (missing)
-                *missing << "a server address (Multiplayer tab)";
-        }
-        if (serverAccounts() &&
-            (mpLogin->text().trimmed().isEmpty() || mpPassword->text().isEmpty())) {
-            ok = false;
-            if (missing)
-                *missing << "the server login and password (Multiplayer tab)";
-        }
-        if (mpOn() && mpHost->isChecked() && !hostCheck->isChecked()) {
-            ok = false;
-            if (missing)
-                *missing << "hosting turned on (needed to host for others)";
-        }
+    bool ready(QStringList *missing = nullptr, Tab *where = nullptr) const {
+        QStringList gaps;
+        Tab first = SettingsTab;
+        if (address().isEmpty() || !addressProblem(address()).isEmpty())
+            gaps << "a server address";
+        if (serverLogin->text().trimmed().isEmpty() || serverPassword->text().isEmpty())
+            gaps << "your login and password";
+        if (!gaps.isEmpty())
+            first = ServerTab;
         for (const auto &check : checks())
-            if (check.needed && !QFileInfo::exists(check.path)) {
-                ok = false;
-                if (missing)
-                    *missing << check.name;
-            }
-        return ok;
+            if (!QFileInfo::exists(check.path))
+                gaps << check.name;
+        if (missing)
+            *missing = gaps;
+        if (where)
+            *where = first;
+        return gaps.isEmpty();
     }
 
     // ---- state ----
     void refresh() {
         const auto version = gameVersion(gameEdit->text());
-        title->setText("<h2>Project Tux</h2>Fortnite " + (version.isEmpty() ? "" : version + " ") +
-                       "· Battle Royale Solo" +
-                       (updates > 0 ? " · <a href='#updates'>Update available</a>" : ""));
-        QString list;
-        for (const auto &check : checks()) {
-            const bool ok = QFileInfo::exists(check.path);
-            list += QString("%1 <b>%2</b>%3<br>")
-                        .arg(ok             ? "<span style='color:#2fbf4f'>✔</span>"
-                             : check.needed ? "<span style='color:#e04040'>✘</span>"
-                                            : "<span style='color:#808080'>–</span>",
-                             check.name.toHtmlEscaped(),
-                             ok             ? QString()
-                             : check.needed ? " — " + check.fix.toHtmlEscaped()
-                                            : " — not needed");
+
+        const auto list = checks();
+        for (qsizetype i = 0; i < list.size(); ++i) {
+            const bool ok = QFileInfo::exists(list[i].path);
+            checkLines[i].dot->setColour(ok ? theme::good : theme::bad);
+            checkLines[i].value->setText(
+                ok ? list[i].name.toHtmlEscaped()
+                   : QString("%1 <span style='color:%2'>missing.</span> %3")
+                         .arg(list[i].name.toHtmlEscaped(), theme::bad.name(),
+                              list[i].fix.toHtmlEscaped()));
+            checkLines[i].dot->setAccessibleName(ok ? "Found" : "Missing");
         }
-        checkList->setText(list);
 
-        const bool host = hosting();
-        backendLabel->setText(dot(backend, "Backend"));
-        serverLabel->setText(
-            mpJoining() ? dot(client == State::Ready ? State::Ready : State::Off, "Remote server")
-                        : dot(host ? server : State::Off, host ? "Game server" : "Hosting off"));
-        clientLabel->setText(dot(client, "Game"));
-        matchLabel->setText(match.isEmpty() ? QString()
-                                            : "Match: <b>" + match.toHtmlEscaped() + "</b>");
-        hostStatus->setText(
-            dot(host ? server : State::Off, !host                       ? "Disabled"
-                                            : server == State::Ready    ? "Listening"
-                                            : server == State::Starting ? "Starting…"
-                                            : server == State::Failed   ? "Failed (see logs)"
-                                                                        : "Not running"));
+        // Server address feedback.
+        const auto problemText = addressProblem(address());
+        serverAddress->setProperty("invalid", !problemText.isEmpty());
+        serverAddress->style()->unpolish(serverAddress);
+        serverAddress->style()->polish(serverAddress);
+        if (!problemText.isEmpty()) {
+            addressNote->setText(problemText);
+            setTone(addressNote, "bad");
+        } else if (portOf(address()) == "8090") {
+            addressNote->setText("8090 is the admin website, not the game. Remove “:8090” "
+                                 "unless your host said otherwise.");
+            setTone(addressNote, "busy");
+        } else {
+            addressNote->clear();
+        }
+        addressNote->setVisible(!addressNote->text().isEmpty());
 
+        const bool imageOk = backdrop->setImage(backgroundEdit->text().trimmed());
+        backgroundNote->setText(imageOk ? "Any PNG or JPG. Leave empty for the default art."
+                                        : "That image couldn't be opened, so the default art "
+                                          "is showing.");
+        setTone(backgroundNote, imageOk ? "faint" : "bad");
+
+        feedDelay.start();
+
+        // Account chip: who you are and how the connection stands.
+        const auto login = serverLogin->text().trimmed();
+        const bool inGame = client == State::Ready;
+        const bool failed = !problem.text.isEmpty();
+        const auto state = failed                  ? "Problem: " + problem.text
+                           : inGame                ? "In game on " + serverCalled()
+                           : relay == State::Ready ? "Signed in to " + serverCalled()
+                           : running               ? "Signing in to " + serverCalled() + "…"
+                                                   : QString("Not connected");
+        account->set(login.isEmpty() ? "SIGN IN" : login.toUpper(),
+                     failed                            ? theme::bad
+                     : inGame || relay == State::Ready ? theme::good
+                     : running                         ? theme::busy
+                                                       : theme::idle,
+                     state);
+
+        const auto shown = version.isEmpty() ? QString() : version + " ";
         if (running && discordCheck->isChecked())
-            discord.show(discordId->text().trimmed(),
-                         "Fortnite " + (version.isEmpty() ? "" : version + " ") + "· Battle Royale",
-                         !match.isEmpty()              ? match
-                         : client == State::Ready      ? "In the lobby"
-                                                       : "Starting…",
+            discord.show(discordId->text().trimmed(), "Fortnite " + shown + "· Multiplayer",
+                         !match.isEmpty() ? match : inGame ? "In the lobby" : "Starting…",
                          startedAt);
         else
             discord.clear();
 
+        // Message, recovery and the main button.
         QStringList missing;
-        const bool canLaunch = ready(&missing);
-        launchButton->setEnabled(!running && !updating && canLaunch);
-        checkButton->setEnabled(!running && !updating);
-        updateButton->setEnabled(!running && !updating && updates > 0);
-        updateButton->setToolTip(running ? "Stop the game first" : QString());
-        launchButton->setText(running ? "Running…" : "Launch");
-        stopButton->setEnabled(running);
-        lawin->setSessionRunning(running);
-        hostCheck->setEnabled(!running);
-        hostBox->setEnabled(!running);
-        settingsBox->setEnabled(!running);
-        mpEnable->setEnabled(!running);
-        mpBox->setEnabled(!running && mpOn());
-        mpAddress->setEnabled(!running && mpJoining());
-        for (QWidget *widget :
-             {static_cast<QWidget *>(mpOwnAccount), static_cast<QWidget *>(mpServerAccount)})
-            widget->setEnabled(!running && mpJoining());
-        mpLogin->setEnabled(!running && serverAccounts());
-        mpPassword->setEnabled(!running && serverAccounts());
-        mpAddresses->setText("Share one of these with players: <b>" +
-                             lanAddresses().join(", ").toHtmlEscaped() + "</b> (UDP 7777)");
-        if (!running)
-            mpStatus->setText(
-                !mpOn() ? "Multiplayer is off: the sandbox has no network."
-                : mpJoining()
-                    ? (mpAddress->text().trimmed().isEmpty()
-                           ? "Enter the server address to join."
-                           : "Launch will connect you to " +
-                                 mpAddress->text().trimmed().toHtmlEscaped() +
-                                 (serverAccounts() ? " and sign in to its accounts." : "."))
-                    : "Launch will host your server for LAN/VPN players.");
-        if (!canLaunch)
-            hint->setText("<span style='color:#e04040'>Setup incomplete: " +
-                          missing.join(", ").toHtmlEscaped() + ". See the Settings tab.</span>");
+        Tab where = SettingsTab;
+        const bool canLaunch = ready(&missing, &where);
+        // Corner status: a title, one line of detail, a fix when there is one, and
+        // launch progress.
+        recoverTab = updating && !checking ? SettingsTab : failed ? problem.fix : where;
+        const auto fix = recoverTab == ServerTab     ? QString("OPEN SERVER")
+                         : recoverTab == SettingsTab ? QString("OPEN SETTINGS")
+                                                     : QString("OPEN LOGS");
+        const int step = !running                  ? 0
+                         : inGame                  ? 5
+                         : client == State::Starting ? 3
+                         : relay == State::Ready   ? 2
+                                                   : 1;
+        const bool installing = updating && !checking;
+        if (installing)
+            status->set("UPDATING", "Rebuilding Project Tux. This takes a few minutes.",
+                        theme::busy, -1, "OPEN SETTINGS");
+        else if (stopping)
+            status->set("STOPPING", "Closing Fortnite…", theme::busy);
+        else if (running && inGame)
+            status->set(match.isEmpty() ? "IN THE LOBBY" : match.toUpper(), lobbyMessage(),
+                        theme::good);
         else if (running)
-            hint->setText(client == State::Ready
-                              ? "In the lobby choose Battle Royale → Solo → Play. Close the game "
-                                "or press Stop to end the session."
-                              : "Starting… this takes about a minute.");
+            status->set(relay == State::Ready ? "STARTING FORTNITE" : "SIGNING IN",
+                        relay == State::Ready ? "Signed in as " + login + "."
+                                              : "Connecting to " + serverCalled() + "…",
+                        theme::busy, step / 5.0);
+        else if (failed)
+            status->set("LAUNCH FAILED", problem.text, theme::bad, -1, fix);
+        else if (!canLaunch)
+            status->set("SETUP NEEDED", "Add " + missing.join(", ") + ".", theme::busy, -1, fix);
         else
-            hint->setText(
-                mpJoining() ? "Ready. Multiplayer: Launch starts the backend and your game; "
-                              "Play joins " +
-                                  mpAddress->text().trimmed().toHtmlEscaped() + "."
-                : host      ? QString("Ready. Launch starts the backend, the game server and "
-                                      "your game.") +
-                                  (mpOn() ? " Other players can join you." : "")
-                            : "Ready. Hosting is off: Launch starts the backend and your game.");
+            status->set("READY", "Join " + serverCalled() + ".", theme::good);
+
+        if (stopping)
+            launchButton->setMode(theme::PlayButton::Mode::Busy, "Stopping…");
+        else if (running)
+            launchButton->setMode(theme::PlayButton::Mode::Stop, "Stop");
+        else
+            launchButton->setMode(theme::PlayButton::Mode::Launch, failed ? "Try again" : "Launch");
+        launchButton->setEnabled(stopping || installing ? false : running || canLaunch);
+        checkButton->setEnabled(!running && !updating);
+        updateButton->setEnabled(!running && !updating && updateCount > 0);
+        updateButton->setToolTip(running ? "Stop the game first" : QString());
+        updateChip->setVisible(updateCount > 0);
+        updateChip->set("UPDATE AVAILABLE", theme::accentSoft,
+                        updateCount == 1 ? "1 update available. Install it in Settings"
+                                         : QString("%1 updates available. Install them in "
+                                                   "Settings")
+                                               .arg(updateCount));
+
+        settingsBox->setEnabled(!running);
+        for (auto *box : serverBoxes)
+            box->setEnabled(!running);
+    }
+    QString lobbyMessage() const {
+        if (match == "Battle bus")
+            return "On the battle bus. Thank the bus driver.";
+        if (match == "Storm phases")
+            return "In a match. The storm is closing in.";
+        if (!match.isEmpty())
+            return "In a match on " + serverCalled() + ".";
+        return "In the lobby. Pick Battle Royale and press Play to join " + serverCalled() + ".";
+    }
+    void fail(const QString &text, Tab fix) {
+        if (problem.text.isEmpty())
+            problem = {text, fix};
+    }
+
+    void showPlayers(const ServerFeed::Snapshot &snapshot) {
+        using Reach = ServerFeed::Reach;
+        players->setVisible(snapshot.reach != Reach::None);
+        const auto where = serverCalled();
+        if (snapshot.reach == Reach::Checking)
+            players->set("CHECKING…", theme::busy, "Checking " + where);
+        else if (snapshot.reach == Reach::Offline)
+            players->set("SERVER OFFLINE", theme::bad, serverCalled(true) + " isn't answering");
+        else if (snapshot.players < 0)
+            players->set("SERVER ONLINE", theme::good, serverCalled(true) + " is online");
+        else
+            players->set(snapshot.capacity > 0
+                             ? QString("%1/%2 PLAYING").arg(snapshot.players).arg(snapshot.capacity)
+                             : QString("%1 PLAYING").arg(snapshot.players),
+                         theme::good,
+                         QString("%1 player%2 on %3")
+                             .arg(snapshot.players)
+                             .arg(snapshot.players == 1 ? "" : "s")
+                             .arg(where));
     }
 
     void log(const QString &line) { output->appendPlainText(line); }
@@ -739,23 +889,25 @@ class Launcher : public QMainWindow {
         updating = false;
         const auto lines = updateText.trimmed().split('\n');
         const auto last = lines.isEmpty() ? QString() : lines.last().trimmed();
+        const auto error = [](const QString &text) {
+            return QString("<span style='color:%1'>%2</span>").arg(theme::bad.name(), text);
+        };
         if (checking) {
             // update.sh --check: 0 up to date, 100 updates available, else an error.
-            updates = code == 100 ? qMax(1, lines.first().section(' ', 0, 0).toInt()) : 0;
+            updateCount = code == 100 ? qMax(1, lines.first().section(' ', 0, 0).toInt()) : 0;
             if (code == 0 || code == 100) {
                 QString text = "<b>" + lines.first().toHtmlEscaped() + "</b>";
                 for (const auto &line : lines.mid(1))
                     text += "<br>" + line.trimmed().toHtmlEscaped();
                 updateLabel->setText(text);
             } else {
-                updateLabel->setText("<span style='color:#e04040'>Couldn't check: " +
-                                     last.toHtmlEscaped() + "</span>");
+                updateLabel->setText(error("Couldn't check: " + last.toHtmlEscaped()));
             }
         } else if (code == 0 && updateText.startsWith("Up to date")) {
-            updates = 0;
+            updateCount = 0;
             updateLabel->setText("<b>" + last.toHtmlEscaped() + "</b>");
         } else if (code == 0) {
-            updates = 0;
+            updateCount = 0;
             updateLabel->setText("<b>Updated.</b> Restart Project Tux to use the new version.");
             if (QMessageBox::question(this, "Project Tux",
                                       "Project Tux was updated. Restart it now?") ==
@@ -765,44 +917,42 @@ class Launcher : public QMainWindow {
                 return;
             }
         } else {
-            updateLabel->setText("<span style='color:#e04040'>Update failed: " +
-                                 last.toHtmlEscaped() + " (full output below)</span>");
+            updateLabel->setText(
+                error("Update failed: " + last.toHtmlEscaped() + " (full output below)"));
         }
         refresh();
     }
 
+    void primaryAction() {
+        if (stopping)
+            return;
+        running ? stop() : launch();
+    }
+
     void launch() {
-        if (running || !ready())
+        if (running || (updating && !checking) || !ready())
             return;
         output->clear();
         session.clear();
         match.clear();
-        backend = State::Starting;
-        server = State::Off;
+        problem = {};
+        relay = State::Starting;
         client = State::Off;
         auto env = QProcessEnvironment::systemEnvironment();
         env.insert("FOL_GAME_DIR", gameEdit->text());
         env.insert("FOL_PROTON", protonEdit->text());
-        env.insert("FOL_ERBIUM_DLL", erbiumEdit->text());
-        for (const char *name :
-             {"FOL_MP_MODE", "FOL_MP_SERVER", "FOL_MP_ACCOUNTS", "FOL_MP_LOGIN", "FOL_MP_PASSWORD"})
-            env.remove(name);
-        if (mpOn()) {
-            env.insert("FOL_MP_MODE", mpJoining() ? "join" : "host");
-            env.insert("FOL_MP_SERVER", mpAddress->text().trimmed());
-        }
-        if (serverAccounts()) {
-            env.insert("FOL_MP_ACCOUNTS", "server");
-            env.insert("FOL_MP_LOGIN", mpLogin->text().trimmed());
-            env.insert("FOL_MP_PASSWORD", mpPassword->text());
-        }
+        env.insert("FOL_MP_MODE", "join");
+        env.insert("FOL_MP_SERVER", address());
+        env.insert("FOL_MP_ACCOUNTS", "server");
+        env.insert("FOL_MP_LOGIN", serverLogin->text().trimmed());
+        env.insert("FOL_MP_PASSWORD", serverPassword->text());
         process.setProcessEnvironment(env);
         process.setWorkingDirectory(root);
-        process.start("/bin/bash",
-                      {root + "/scripts/fortnite-match.sh", hosting() ? "--both" : "--client"});
+        process.start("/bin/bash", {root + "/scripts/fortnite-match.sh", "--client"});
         if (!process.waitForStarted(5000)) {
             log("Could not start scripts/fortnite-match.sh: " + process.errorString());
-            backend = State::Failed;
+            relay = State::Failed;
+            fail("The launch script couldn't start: " + process.errorString() + ".", LogsTab);
             refresh();
             return;
         }
@@ -821,56 +971,71 @@ class Launcher : public QMainWindow {
         if (!running)
             return;
         log("— stopping —");
+        stopping = true;
         signalGroup(SIGTERM);
         killTimer.start(15000);
+        refresh();
     }
 
+    // Turns the script's output into state and, for failures, a message that
+    // names the problem and where to fix it.
     void handleLine(const QString &line) {
         if (line.isEmpty())
             return;
         log(line);
         static const QRegularExpression sessionLine("^Session logs: (.+)$");
+        static const QRegularExpression clientExit("^Client exited \\(([0-9]+)\\)");
         if (const auto m = sessionLine.match(line); m.hasMatch())
             session = m.captured(1);
-        else if (line.contains("\"starting-lawin-v2\""))
-            backend = State::Starting;
-        else if (line.startsWith("Starting headless game server")) {
-            backend = State::Ready;
-            server = State::Starting;
-        } else if (line.startsWith("Game server listening")) {
-            server = State::Ready;
-            match = "Waiting for players";
-        } else if (line.contains("starting a new one for the next match")) {
-            server = State::Starting;
-            match = "Starting a fresh server for the next match";
-        } else if (line.startsWith("Game server keeps failing")) {
-            server = State::Failed;
-        } else if (line.startsWith("Game server exited early") ||
-                   line.startsWith("Game server never listened")) {
-            server = State::Failed;
-        } else if (line.startsWith("Multiplayer:")) {
-            mpStatus->setText(line.mid(13).toHtmlEscaped());
-            if (line.contains("players can join at"))
-                match = "Hosting at " + line.section(" at ", 1);
-        } else if (line.startsWith("Starting client")) {
-            backend = State::Ready;
+        else if (line.startsWith("Multiplayer: signing in") ||
+                 line.contains("\"starting-lawin-v2\""))
+            relay = State::Starting;
+        else if (line.startsWith("Using the accounts on"))
+            relay = State::Ready;
+        else if (line.startsWith("Starting client")) {
+            relay = State::Ready;
             client = State::Starting;
         } else if (line.startsWith("Client running"))
             client = State::Ready;
-        else if (line.startsWith("Client exited"))
+        else if (const auto m = clientExit.match(line); m.hasMatch()) {
             client = State::Off;
-        else if (line.startsWith("Backend:"))
-            backend = State::Failed;
+            if (m.captured(1) != "0" && !stopping)
+                fail(QString("Fortnite closed with error code %1.").arg(m.captured(1)), LogsTab);
+        } else if (line.startsWith("Backend: cannot reach the server's accounts")) {
+            relay = State::Failed;
+            fail("Couldn't reach the accounts on " + serverCalled() +
+                     ". Check that the server is running and the address is right.",
+                 ServerTab);
+        } else if (line.startsWith("Backend:")) {
+            relay = State::Failed;
+            fail("Signing in stopped: " + line.mid(9) + ".", LogsTab);
+        } else if (line.startsWith("Cannot resolve multiplayer server")) {
+            relay = State::Failed;
+            fail("Couldn't find that server. Check the address in the Server tab.", ServerTab);
+        } else if (line.startsWith("Using the server's accounts needs")) {
+            relay = State::Failed;
+            fail("Enter the login and password your host gave you.", ServerTab);
+        } else if (line.startsWith("Multiplayer needs pasta")) {
+            relay = State::Failed;
+            fail("Install the passt package so the game can reach the server.", SettingsTab);
+        } else if (line.startsWith("Multiplayer: pasta could not attach") ||
+                   line.startsWith("Multiplayer: no network inside the sandbox")) {
+            relay = State::Failed;
+            fail("The game sandbox couldn't get a network connection.", LogsTab);
+        } else if (line.startsWith("No supported Fortnite build")) {
+            relay = State::Failed;
+            fail("This Fortnite build isn't supported. Choose another game folder.", SettingsTab);
+        }
         refresh();
     }
 
-    // Read the live server log for coarse match progress.
+    // Read the client's log for coarse match progress.
     void pollMatch() {
         if (!running) {
             poll.stop();
             return;
         }
-        if (!hostCheck->isChecked() || server != State::Ready)
+        if (client != State::Ready)
             return;
         QFile file(data + "/proton-prefixes/" + gameVersion(gameEdit->text()) +
                    "/pfx/drive_c/users/steamuser/AppData/Local/FortniteGame/Saved/Logs/"
@@ -882,22 +1047,9 @@ class Launcher : public QMainWindow {
         const auto text = QString::fromUtf8(file.readAll());
         const struct {
             const char *marker, *label;
-        } phases[] = {{"MatchState changed previous=EnteringMap current=WaitingToStart",
-                       "Waiting for players"},
-                      // 3.1 logs "Match State Changed from X to Y" instead.
-                      {"Match State Changed from EnteringMap to WaitingToStart",
-                       "Waiting for players"},
-                      {"Join succeeded", "Player joined"},
-                      {"current=InProgress", "In progress (warmup)"},
-                      {"Match State Changed from WaitingToStart to InProgress",
-                       "In progress (warmup)"},
+        } phases[] = {{"Join succeeded", "Joined the match"},
                       {"Set AthenaGamePhase to [Aircraft]", "Battle bus"},
-                      {"Set AthenaGamePhase to [SafeZones]", "Storm phases"},
-                      {"current=WaitingPostMatch", "Match over"},
-                      {"to WaitingPostMatch", "Match over"},
-                      {"current=LeavingMap", "Server left the match"},
-                      {"InProgress to LeavingMap", "Server left the match"},
-                      {"WaitingPostMatch to LeavingMap", "Server left the match"}};
+                      {"Set AthenaGamePhase to [SafeZones]", "Storm phases"}};
         qsizetype best = -1;
         QString label;
         for (const auto &phase : phases) {
@@ -914,43 +1066,46 @@ class Launcher : public QMainWindow {
     }
 
     QSettings settings{"ProjectTux", "launcher"};
-    // The settings can hold a server password: keep the file owner-only.
+    // The settings hold the server password: keep the file owner-only.
     // QSettings rewrites it atomically and keeps the existing permissions.
     void protectSettings() {
         settings.sync();
         QFile::setPermissions(settings.fileName(),
                               QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     }
-    QString root, self, data, config, session, match, updateText;
+    QString root, self, data, config, session, match, serverName, updateText;
     QProcess updater;
     QLabel *updateLabel;
     QPushButton *checkButton, *updateButton;
     QPlainTextEdit *updateLog;
     bool updating = false, checking = false;
-    int updates = 0;
+    int updateCount = 0;
     DiscordPresence discord;
     qint64 startedAt = 0;
-    QCheckBox *discordCheck;
-    QLineEdit *discordId;
     QProcess process;
     QTimer killTimer, poll;
-    bool running = false;
-    State backend = State::Off, server = State::Off, client = State::Off;
-    QLabel *title, *backendLabel, *serverLabel, *clientLabel, *matchLabel, *hint, *hostStatus,
-        *checkList;
-    QPushButton *launchButton, *stopButton;
+    bool running = false, stopping = false;
+    State relay = State::Off, client = State::Off;
+    Problem problem;
+    Tab recoverTab = SettingsTab;
+    theme::Backdrop *backdrop;
+    theme::Brand *brand;
+    theme::StatusChip *updateChip, *players, *account;
+    AnnouncementsCard *news;
+    ServerFeed feed;
+    UpdatesFeed updates;
+    QTimer feedDelay;
+    QLabel *addressNote, *backgroundNote;
+    theme::StatusBlock *status;
+    QList<Row> checkLines;
+    theme::PlayButton *launchButton;
     QPlainTextEdit *output;
-    QCheckBox *hostCheck;
-    QLineEdit *erbiumEdit, *gameEdit, *protonEdit;
-    QGroupBox *hostBox, *settingsBox;
+    QCheckBox *discordCheck;
+    QLineEdit *discordId, *gameEdit, *protonEdit, *serverAddress, *serverLogin, *serverPassword,
+        *backgroundEdit;
+    QGroupBox *settingsBox;
+    QList<QGroupBox *> serverBoxes;
     QTabWidget *tabs;
-    LawinTab *lawin;
-    QCheckBox *mpEnable;
-    QRadioButton *mpJoin, *mpHost, *mpOwnAccount, *mpServerAccount;
-    QLineEdit *mpAddress, *mpLogin, *mpPassword;
-    QLabel *mpStatus, *mpAddresses;
-    QGroupBox *mpBox;
-    bool lawinLoaded = false;
 };
 } // namespace
 
@@ -958,6 +1113,10 @@ int main(int argc, char **argv) {
     QApplication app(argc, argv);
     QApplication::setApplicationName("Project Tux");
     QApplication::setDesktopFileName("project-tux");
+    QApplication::setWindowIcon(QIcon(":/project-tux.svg"));
+    theme::loadFonts();
+    QApplication::setFont(theme::font(theme::Body));
+    app.setStyleSheet(theme::styleSheet());
     Launcher window;
     window.show();
     // --launch: start immediately (used by the desktop entry's "Play now" action).
