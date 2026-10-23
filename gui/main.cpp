@@ -46,6 +46,7 @@
 #include <algorithm>
 #include <csignal>
 #include <unistd.h>
+#include <utility>
 
 namespace {
 QString home(const QString &path) { return QDir::homePath() + "/" + path; }
@@ -247,9 +248,13 @@ class Launcher : public QMainWindow {
         });
         QObject::connect(&updater, &QProcess::finished, this,
                          [this](int code, QProcess::ExitStatus) { updateFinished(code); });
-        // Look for updates shortly after start (a git fetch; nothing is installed).
+        // Look for updates shortly after start (a git fetch; nothing is installed)
+        // and offer to install them.
         if (QFileInfo::exists(root + "/update.sh"))
-            QTimer::singleShot(1500, this, [this] { runUpdate(true); });
+            QTimer::singleShot(1500, this, [this] {
+                startupCheck = true;
+                runUpdate(true);
+            });
         protectSettings();
         refresh();
         launchButton->setFocus();
@@ -903,6 +908,11 @@ class Launcher : public QMainWindow {
             } else {
                 updateLabel->setText(error("Couldn't check: " + last.toHtmlEscaped()));
             }
+            if (std::exchange(startupCheck, false) && code == 100 && !running) {
+                refresh();
+                offerUpdate(lines);
+                return;
+            }
         } else if (code == 0 && updateText.startsWith("Up to date")) {
             updateCount = 0;
             updateLabel->setText("<b>" + last.toHtmlEscaped() + "</b>");
@@ -921,6 +931,25 @@ class Launcher : public QMainWindow {
                 error("Update failed: " + last.toHtmlEscaped() + " (full output below)"));
         }
         refresh();
+    }
+
+    // After the startup check finds updates: install now or later (Settings).
+    void offerUpdate(const QStringList &lines) {
+        QMessageBox box(QMessageBox::Information, "Project Tux",
+                        "<b>" + lines.first().chopped(1).toHtmlEscaped() + "</b>",
+                        QMessageBox::NoButton, this);
+        box.setInformativeText("Install now? Project Tux rebuilds, which takes a few "
+                               "minutes, then asks to restart.");
+        box.setDetailedText(lines.mid(1).replaceInStrings(QRegularExpression("^\\s+"), "")
+                                .join('\n'));
+        auto *now = box.addButton("Update now", QMessageBox::AcceptRole);
+        box.addButton("Later", QMessageBox::RejectRole);
+        box.setDefaultButton(now);
+        box.exec();
+        if (box.clickedButton() != now || running)
+            return;
+        tabs->setCurrentIndex(SettingsTab);
+        QTimer::singleShot(0, this, [this] { runUpdate(false); });
     }
 
     void primaryAction() {
@@ -1078,7 +1107,7 @@ class Launcher : public QMainWindow {
     QLabel *updateLabel;
     QPushButton *checkButton, *updateButton;
     QPlainTextEdit *updateLog;
-    bool updating = false, checking = false;
+    bool updating = false, checking = false, startupCheck = false;
     int updateCount = 0;
     DiscordPresence discord;
     qint64 startedAt = 0;
