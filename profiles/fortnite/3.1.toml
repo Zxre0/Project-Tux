@@ -37,3 +37,13 @@ server_login_marker = "Login: Completing Sign-in... (Completed)"
 # bHoldingSprint and bSprintToggleable offsets. Verified in a 3.1 match on
 # Windows against the Project Tux Windows server.
 sprint_layout = "15044816,51231992,630,1840,4070,4071"
+# Edit on release (3.1 has no "Confirm edit on release", a launcher option) and
+# 12.50's turbo building timing (first repeat after 0.05 s, then every 0.005 s, where
+# 3.1 waits 0.15 s; always on): fol-building.dll in the client,
+# helpers/windows/building.c. Both start with the per-frame controller method's RVA,
+# the match controller's table RVA and slot. edit: RVA of
+# CompleteBuildingEditInteraction, the controller's edit-tool offset and the tool's
+# select-released and reset method offsets. turbo: the controller's turbo timer
+# handle offset and the RVA of the turbo-build step.
+edit_layout = "15163568,51231992,332,15027840,6896,2680,2688"
+turbo_layout = "15163568,51231992,332,9264,15011808"

@@ -536,6 +536,28 @@ class Launcher : public QMainWindow {
         lookForm->addWidget(backgroundNote);
         layout->addWidget(look);
 
+        // 12.50's own gameplay options for builds that don't have them (3.1); the
+        // player's game gets fol-sprint.dll / fol-edit.dll (scripts/fortnite-match.sh).
+        auto *gameplayBox = new QGroupBox("GAMEPLAY");
+        auto *gameplayForm = new QVBoxLayout(gameplayBox);
+        sprintCheck = new QCheckBox("Sprint by default");
+        sprintCheck->setChecked(settings.value("gameplay/sprint_by_default", true).toBool());
+        editCheck = new QCheckBox("Confirm edits on release");
+        editCheck->setChecked(settings.value("gameplay/edit_on_release", false).toBool());
+        gameplayForm->addWidget(sprintCheck);
+        gameplayForm->addWidget(editCheck);
+        auto *gameplayHelp = new QLabel(
+            "For Fortnite 3.1, which doesn't have these settings. 12.50 has them in its own "
+            "settings. They apply the next time the game starts.");
+        gameplayHelp->setWordWrap(true);
+        setTone(gameplayHelp, "faint");
+        gameplayForm->addWidget(gameplayHelp);
+        layout->addWidget(gameplayBox);
+        QObject::connect(sprintCheck, &QCheckBox::toggled, this,
+                         [this](bool on) { settings.setValue("gameplay/sprint_by_default", on); });
+        QObject::connect(editCheck, &QCheckBox::toggled, this,
+                         [this](bool on) { settings.setValue("gameplay/edit_on_release", on); });
+
         // Discord shows "Playing <name of the Discord application with this ID>":
         // Project Tux's own application, "Project Tux Fortnite on Linux".
         auto *discordBox = new QGroupBox("DISCORD");
@@ -675,11 +697,18 @@ class Launcher : public QMainWindow {
             {"Network router", root + "/build/windows/fol-match-router.dll",
              "Run bash helpers/windows/build.sh."},
         };
-        // Builds with a sprint_layout (3.1) inject the sprint-by-default helper.
+        // Builds with these layouts (3.1) inject the sprint-by-default helper and the
+        // building helper (turbo building, edit on release).
         if (QFile profile(root + "/profiles/fortnite/" + version + ".toml");
-            profile.open(QIODevice::ReadOnly) && profile.readAll().contains("\nsprint_layout"))
-            list.append({"Sprint helper", root + "/build/windows/fol-sprint.dll",
-                         "Run bash helpers/windows/build.sh."});
+            profile.open(QIODevice::ReadOnly)) {
+            const auto text = profile.readAll();
+            if (text.contains("\nsprint_layout"))
+                list.append({"Sprint helper", root + "/build/windows/fol-sprint.dll",
+                             "Run bash helpers/windows/build.sh."});
+            if (text.contains("\nturbo_layout") || text.contains("\nedit_layout"))
+                list.append({"Building helper", root + "/build/windows/fol-building.dll",
+                             "Run bash helpers/windows/build.sh."});
+        }
         list += {
             {"Relay settings", config + "/backend/lawin.json",
              "See integrations/lawin/README.md."},
@@ -946,6 +975,8 @@ class Launcher : public QMainWindow {
         env.insert("FOL_MP_ACCOUNTS", "server");
         env.insert("FOL_MP_LOGIN", serverLogin->text().trimmed());
         env.insert("FOL_MP_PASSWORD", serverPassword->text());
+        env.insert("FOL_SPRINT_BY_DEFAULT", sprintCheck->isChecked() ? "1" : "0");
+        env.insert("FOL_EDIT_ON_RELEASE", editCheck->isChecked() ? "1" : "0");
         process.setProcessEnvironment(env);
         process.setWorkingDirectory(root);
         process.start("/bin/bash", {root + "/scripts/fortnite-match.sh", "--client"});
@@ -1101,6 +1132,8 @@ class Launcher : public QMainWindow {
     theme::PlayButton *launchButton;
     QPlainTextEdit *output;
     QCheckBox *discordCheck;
+    QCheckBox *sprintCheck;
+    QCheckBox *editCheck;
     QLineEdit *discordId, *gameEdit, *protonEdit, *serverAddress, *serverLogin, *serverPassword,
         *backgroundEdit;
     QGroupBox *settingsBox;

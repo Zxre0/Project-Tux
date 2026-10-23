@@ -35,7 +35,11 @@ In the game:
 - You sprint by default, like 12.50's Sprint by Default setting (3.1 only has
   Toggle Sprint): the player's game loads `fol-sprint.dll`, see
   [Sprint by default](#sprint-by-default). Turn on Toggle Sprint in the game's
-  settings to keep the old behaviour.
+  settings to keep the old behaviour. The launcher's GAMEPLAY settings turn it
+  off ("Sprint by default").
+- "Confirm edits on release" in the launcher's GAMEPLAY settings (off by
+  default) gives 12.50's Confirm edit on release, and turbo building always has
+  12.50's timing: see [Edit on release and turbo building](#edit-on-release-and-turbo-building).
 
 Not working / not checked:
 
@@ -80,6 +84,31 @@ lobby controller); the vtable hook runs on the game thread.
 a match on the Project Tux Windows server: W alone sprinted (movement style
 Sprinting, 550 units/s against a 410 jog) in warmup and after the bus and
 landing, with no server corrections. Not yet run under Proton.
+
+## Edit on release and turbo building
+
+3.1 checks its own code: changing any instruction byte in `.text` (even 4
+bytes in code that only runs while building) crashes the game during
+start-up, while rewriting identical bytes doesn't. Virtual-table slots in
+`.rdata` can be swapped, so `fol-building.dll` (`helpers/windows/building.c`)
+uses those only.
+
+- A per-frame controller method, slot 332 of the match controller table
+  (`0x30dbcf8`, method `0xe760b0`, `(this, float)`, called on the game thread
+  about once per frame), runs the helper's work before the original.
+- Turbo building: 3.1 sets a looping 0.15 s timer (first fire after 0.15 s) for
+  the turbo-build step `0xe50fe0`; its handle is at controller `+0x2430`. 12.50
+  has `TurboBuildFirstInterval` 0.05 and `TurboBuildInterval` 0.005. While the
+  handle is set, the helper also runs the step after 0.05 s and then at most
+  every 0.005 s; the step itself checks the build tool and clears the timer.
+- Edit on release: the edit tool (controller `+0x1af0`, set only while
+  editing) gets its "select released" (`+0xa78`) and "reset" (`+0xa80`) methods
+  wrapped once to call `CompleteBuildingEditInteraction` (`0xe54e80`, what the
+  edit key calls) right after them, as Erbium's client does for older builds.
+
+Verified on Windows in a 3.1 match on the Project Tux Windows server (turbo
+building, edit on release and sprint by default together). Not yet run under
+Proton.
 
 ## Game server memory
 
